@@ -97,7 +97,8 @@ if __name__ == "__main__":
             pad_color=0,
         ),
 
-        pretrained_vae_path="sasha/complex_obj/vae.pkl",
+        pretrained_vae_path="itr_0.pkl",
+        #pretrained_vae_path="sasha/complex_obj/vae.pkl",
         presampled_goals_path="sasha/complex_obj/zero_goals.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,
