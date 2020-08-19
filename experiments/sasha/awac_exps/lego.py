@@ -26,7 +26,7 @@ if __name__ == "__main__":
         imsize=48,
         env_class=SawyerRigMultiobjV0,
         env_kwargs=dict(
-            object_subset='',
+            object_subset='lego',
         ),
         policy_class=GaussianPolicy,
         policy_kwargs=dict(
@@ -100,6 +100,7 @@ if __name__ == "__main__":
             pad_color=0,
         ),
 
+        #pretrained_vae_path="itr_0.pkl",
         pretrained_vae_path="sasha/complex_obj/vae.pkl",
         presampled_goals_path="sasha/complex_obj/zero_goals.pkl",
 
@@ -125,18 +126,6 @@ if __name__ == "__main__":
                     is_demo=True,
                     #data_split=0.01,
                 ),
-                # dict(
-                #     path='sasha/complex_obj/4dof_complex_objects_demos_3.pkl',
-                #     obs_dict=True,
-                #     is_demo=True,
-                #     #data_split=0.5,
-                # ),
-                # dict(
-                #     path='sasha/complex_obj/4dof_complex_objects_demos_4.pkl',
-                #     obs_dict=True,
-                #     is_demo=True,
-                #     #data_split=0.01,
-                # ),
             ],
         ),
 
@@ -223,4 +212,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=4)
+    run_variants(awac_rig_experiment, variants, run_id=1)
