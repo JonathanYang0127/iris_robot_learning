@@ -132,7 +132,7 @@ if __name__ == "__main__":
                 x_values=(0, 250),
                 y_values=(0, 100),
             ),
-            num_epochs=501,
+            num_epochs=1001,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -214,4 +214,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=23)
+    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=24)
