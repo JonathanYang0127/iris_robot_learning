@@ -24,13 +24,14 @@ three_dof_demos=[dict(path='sasha/complex_obj/3dof_complex_objects_demos_0.pkl',
                 dict(path='sasha/complex_obj/3dof_complex_objects_demos_1.pkl',obs_dict=True, is_demo=True),
                 dict(path='sasha/complex_obj/3dof_complex_objects_demos_2.pkl',obs_dict=True, is_demo=True)]
 
+quat_dict={'mug': [0, 0, 0, 1], 'long_sofa': [0, 0, 0, 1], 'camera': [-1, 0, 0, 0], 'grill_trash_can': [0, 0, 0, 1], 'beer_bottle': [0, 0, 1, 1]}
+
 
 if __name__ == "__main__":
     variant = dict(
         imsize=48,
         env_class=SawyerRigMultiobjV0,
         env_kwargs=dict(
-            object_subset='',
             DoF=3,
         ),
         policy_class=GaussianPolicy,
@@ -58,7 +59,7 @@ if __name__ == "__main__":
 
             bc_num_pretrain_steps=0,
             q_num_pretrain1_steps=0,
-            q_num_pretrain2_steps=25000, #25000 maybe try 35000
+            q_num_pretrain2_steps=25000, #25000
             policy_weight_decay=1e-4,
             q_weight_decay=0,
 
@@ -136,7 +137,7 @@ if __name__ == "__main__":
 
         launcher_config=dict(
             unpack_variant=True,
-            region='us-west-2',
+            region='us-east-2',
         ),
 
 
@@ -178,10 +179,11 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(1),
+        "seed": range(2),
         'path_loader_kwargs.demo_paths': [three_dof_demos],
-        'env_kwargs.object_subset': [['mug'], ['beer_bottle'], ['long_sofa'], ['modern_canoe'], ['grill_trash_can']],
-        'trainer_kwargs.beta': [0.2, 0.3, 0.5],
+        'env_kwargs.quat_dict': [quat_dict, {}],
+        'env_kwargs.object_subset': [['mug', 'long_sofa', 'camera', 'grill_trash_can', 'beer_bottle']]
+        'trainer_kwargs.beta': [0.2, 0.3, 0.5, 1],
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
         'trainer_kwargs.awr_use_mle_for_vf': [True, ],
@@ -200,4 +202,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=5)
+    run_variants(awac_rig_experiment, variants, run_id=22)
