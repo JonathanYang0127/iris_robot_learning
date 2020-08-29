@@ -24,8 +24,13 @@ three_dof_demos=[dict(path='sasha/complex_obj/3dof_complex_objects_demos_0.pkl',
                 dict(path='sasha/complex_obj/3dof_complex_objects_demos_1.pkl',obs_dict=True, is_demo=True),
                 dict(path='sasha/complex_obj/3dof_complex_objects_demos_2.pkl',obs_dict=True, is_demo=True)]
 
-quat_dict={'mug': [0, 0, 0, 1], 'long_sofa': [0, 0, 0, 1], 'camera': [-1, 0, 0, 0], 'grill_trash_can': [0, 0, 0, 1], 'beer_bottle': [0, 0, 1, 1]}
+quat_dict={'mug': [0, 0, 0, 1],
+        'long_sofa': [0, 0, 0, 1],
+        'camera': [-1, 0, 0, 0],
+        'grill_trash_can': [0, 0, 0, 1],
+        'beer_bottle': [0, 0, 1, 1]}
 
+object_list = ['mug', 'long_sofa', 'camera', 'grill_trash_can', 'beer_bottle']
 
 if __name__ == "__main__":
     variant = dict(
@@ -179,11 +184,12 @@ if __name__ == "__main__":
     )
 
     search_space = {
+        #Things to change for dof: demos, presampled_goals, DoF
         "seed": range(2),
         'path_loader_kwargs.demo_paths': [three_dof_demos],
         'env_kwargs.quat_dict': [quat_dict, {}],
-        'env_kwargs.object_subset': [['mug', 'long_sofa', 'camera', 'grill_trash_can', 'beer_bottle']]
-        'trainer_kwargs.beta': [0.2, 0.3, 0.5, 1],
+        'env_kwargs.object_subset': [object_list]
+        'trainer_kwargs.beta': [0.5, 1],
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
         'trainer_kwargs.awr_use_mle_for_vf': [True, ],
@@ -202,4 +208,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=22)
+    run_variants(awac_rig_experiment, variants, run_id=30)

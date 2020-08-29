@@ -246,16 +246,6 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
         print("ZEROING OUT GOALS")
 
-    def resize_img(self, obs):
-        from torchvision.transforms import Resize
-        from PIL import Image
-        resize = Resize((48, 48), interpolation=Image.NEAREST)
-
-        obs = obs.reshape(84, 84, 3) * 255.0
-        obs = Image.fromarray(obs, mode='RGB')
-        obs = np.array(resize(obs))
-        return obs.flatten() / 255.0
-
     def preprocess(self, observation):
         if not self.do_preprocess:
             for i in range(len(observation)):
@@ -319,7 +309,6 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             agent_info = path["agent_infos"][i]
             env_info = path["env_infos"][i]
             if self.recompute_reward:
-                #reward = self.env.compute_rewards(action, path["next_observations"][i])
                 reward = self.reward_fn(ob, action, next_ob, next_ob)
 
             reward = np.array([reward]).flatten()
