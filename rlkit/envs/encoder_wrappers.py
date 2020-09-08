@@ -18,7 +18,7 @@ class Encoder(object, metaclass=abc.ABCMeta):
         pass
 
 
-class EncoderWrappedEnv(ProxyEnv, ):
+class EncoderWrappedEnv(ProxyEnv):
     def __init__(self,
         wrapped_env,
         model: Encoder,
@@ -70,6 +70,7 @@ class EncoderWrappedEnv(ProxyEnv, ):
             self.reset_obs[value] = self.model.encode_one_np(obs[key])
         obs = self._update_obs(obs)
         return obs
+
 
 
 class VQVAEWrappedEnv(VAEWrappedEnv):

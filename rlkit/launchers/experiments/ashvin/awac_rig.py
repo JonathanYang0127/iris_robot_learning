@@ -68,6 +68,9 @@ from rlkit.envs.contextual.goal_conditioned import (
     PresampledPathDistribution,
 )
 from rlkit.envs.contextual.latent_distributions import (
+    AmortizedConditionalPriorDistribution,
+    ConditionalPriorDistribution,
+    AmortizedPriorDistribution,
     AddLatentDistribution,
     PriorDistribution,
 )
@@ -84,7 +87,7 @@ from collections import OrderedDict
 from multiworld.core.image_env import ImageEnv, unormalize_image
 import multiworld
 
-from rlkit.launchers.contextual.rig.model_train_launcher import train_vae
+from rlkit.torch.grill.common import train_vae
 
 
 class RewardFn:
@@ -110,8 +113,8 @@ class RewardFn:
         return obs
 
     def __call__(self, states, actions, next_states, contexts):
-        s = next_states[self.observation_key]
-        c = contexts[self.desired_goal_key]
+        s = self.process(next_states[self.observation_key])
+        c = self.process(contexts[self.desired_goal_key])
 
         if self.reward_type == 'dense':
             reward = -np.linalg.norm(s - c, axis=1)
@@ -488,6 +491,7 @@ def awac_rig_experiment(
         state_observation_key='state_observation',
         state_goal_key='state_desired_goal',
         image_goal_key='image_desired_goal',
+        reset_keys_map=None,
 
         path_loader_class=MDPPathLoader,
         demo_replay_buffer_kwargs=None,
@@ -516,6 +520,7 @@ def awac_rig_experiment(
         imsize=84,
         pretrained_vae_path="",
         presampled_goals_path="",
+        num_presample=0,
         init_camera=None,
 
         qf_class=ConcatMlp,
@@ -524,6 +529,8 @@ def awac_rig_experiment(
     #Kwarg Definitions
     if exploration_policy_kwargs is None:
         exploration_policy_kwargs = {}
+    if reset_keys_map is None:
+        reset_keys_map = {}
     if demo_replay_buffer_kwargs is None:
         demo_replay_buffer_kwargs = {}
     if path_loader_kwargs is None:
@@ -549,7 +556,7 @@ def awac_rig_experiment(
     #Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
     def contextual_env_distrib_and_reward(
-            env_id, env_class, env_kwargs, goal_sampling_mode, presampled_goals_path
+            env_id, env_class, env_kwargs, goal_sampling_mode, presampled_goals_path, num_presample
     ):
         state_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
         renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
@@ -558,12 +565,35 @@ def awac_rig_experiment(
         encoded_env = EncoderWrappedEnv(
             img_env,
             model,
-            dict(image_observation="latent_observation", ),
+            step_keys_map=dict(image_observation="latent_observation"),
+            reset_keys_map=reset_keys_map,
         )
         if goal_sampling_mode == "vae_prior":
             latent_goal_distribution = PriorDistribution(
                 model.representation_size,
                 desired_goal_key,
+            )
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
+
+        elif goal_sampling_mode == "amortized_vae_prior":
+            latent_goal_distribution = AmortizedPriorDistribution(
+                model,
+                desired_goal_key,
+                num_presample=num_presample,
+            )
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
+
+        elif goal_sampling_mode == 'conditional_vae_prior':
+            latent_goal_distribution = ConditionalPriorDistribution(
+                model,
+                desired_goal_key
+            )
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
+        elif goal_sampling_mode == "amortized_conditional_vae_prior":
+            latent_goal_distribution = AmortizedConditionalPriorDistribution(
+                model,
+                desired_goal_key,
+                num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
         elif goal_sampling_mode == "presampled":
@@ -616,20 +646,16 @@ def awac_rig_experiment(
     #VAE Setup
     if pretrained_vae_path:
         model = load_local_or_remote_file(pretrained_vae_path)
-
-        # TEMP #
-        #model.representation_size = model.discrete_size * model.embedding_dim
-        # TEMP #
     else:
         model = train_vae(train_vae_kwargs, env_kwargs, env_id, env_class, imsize, init_camera)
     path_loader_kwargs['model_path'] = pretrained_vae_path
 
     #Enviorment Definitions
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, exploration_goal_sampling_mode, presampled_goals_path
+        env_id, env_class, env_kwargs, exploration_goal_sampling_mode, presampled_goals_path, num_presample
     )
     eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, evaluation_goal_sampling_mode, presampled_goals_path
+        env_id, env_class, env_kwargs, evaluation_goal_sampling_mode, presampled_goals_path, num_presample
     )
     path_loader_kwargs['env'] = eval_env
 
@@ -655,7 +681,7 @@ def awac_rig_experiment(
         cont_keys = [state_goal_key, context_key]
     else:
         mapper = RemapKeyFn({context_key: observation_key})
-        obs_keys = [observation_key]
+        obs_keys = [observation_key] + list(reset_keys_map.values())
         cont_keys = [context_key]
 
     #Replay Buffer

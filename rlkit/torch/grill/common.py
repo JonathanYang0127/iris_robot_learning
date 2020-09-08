@@ -272,7 +272,7 @@ def generate_vae_dataset(variant):
             test_dataset = load_local_or_remote_file(dataset_path['test'])
             test_dataset = test_dataset.item()
             #dataset = format_flat_dataset(dataset)
-            test_dataset = format_flat_dataset(test_dataset)
+            #test_dataset = format_flat_dataset(test_dataset)
 
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]

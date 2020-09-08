@@ -7,22 +7,28 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from rlkit.torch.networks import Clamp
 
-demo_paths_1=[dict(path='sasha/complex_obj/4dof_complex_objects_demos_0.pkl',obs_dict=True, is_demo=True,),
-            dict(path='sasha/complex_obj/4dof_complex_objects_demos_1.pkl',obs_dict=True,is_demo=True,),
-            dict(path='sasha/complex_obj/4dof_complex_objects_demos_2.pkl',obs_dict=True,is_demo=True,)]
+demo_paths_1=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl', obs_dict=True, is_demo=True),
+                dict(path='sasha/complex_obj/gr_train_complex_obj_demos_1.pkl', obs_dict=True, is_demo=True),
+                dict(path='sasha/complex_obj/gr_train_complex_obj_demos_2.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_2=[dict(path='sasha/complex_obj/4dof_complex_objects_demos_0.pkl',obs_dict=True, is_demo=True,),
-            dict(path='sasha/complex_obj/4dof_complex_objects_demos_1.pkl',obs_dict=True,is_demo=True,)]
+demo_paths_2=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl', obs_dict=True, is_demo=True),
+             dict(path='sasha/complex_obj/gr_train_complex_obj_demos_1.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_3=[dict(path='sasha/complex_obj/4dof_complex_objects_demos_0.pkl',obs_dict=True, is_demo=True,)]
+demo_paths_3=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_4=[dict(path='sasha/complex_obj/4dof_complex_objects_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
+demo_paths_4=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
 
-demo_paths_5=[dict(path='sasha/complex_obj/4dof_complex_objects_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
+demo_paths_5=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
 
-three_dof_demos=[dict(path='sasha/complex_obj/3dof_complex_objects_demos_0.pkl',obs_dict=True, is_demo=True),
-                dict(path='sasha/complex_obj/3dof_complex_objects_demos_1.pkl',obs_dict=True, is_demo=True),
-                dict(path='sasha/complex_obj/3dof_complex_objects_demos_2.pkl',obs_dict=True, is_demo=True)]
+local_demo_paths=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.1,)]
+
+
+beer_bottle_goals = 'sasha/presampled_goals/3dof_beer_bottle_presampled_goals.pkl'
+camera_goals = 'sasha/presampled_goals/3dof_camera_presampled_goals.pkl'
+grill_trash_can_goals = 'sasha/presampled_goals/3dof_grill_trash_can_presampled_goals.pkl'
+long_sofa_goals = 'sasha/presampled_goals/3dof_long_sofa_presampled_goals.pkl'
+mug_goals = 'sasha/presampled_goals/3dof_mug_presampled_goals.pkl'
+
 
 quat_dict={'mug': [0, 0, 0, 1],
         'long_sofa': [0, 0, 0, 1],
@@ -30,14 +36,13 @@ quat_dict={'mug': [0, 0, 0, 1],
         'grill_trash_can': [0, 0, 0, 1],
         'beer_bottle': [0, 0, 1, 1]}
 
-object_list = ['mug', 'long_sofa', 'camera', 'grill_trash_can', 'beer_bottle']
-
 if __name__ == "__main__":
     variant = dict(
         imsize=48,
         env_class=SawyerRigMultiobjV0,
         env_kwargs=dict(
             DoF=3,
+            random_color_p=0,
         ),
         policy_class=GaussianPolicy,
         policy_kwargs=dict(
@@ -82,8 +87,8 @@ if __name__ == "__main__":
 
         max_path_length=50, #50
         algo_kwargs=dict(
-            batch_size=1024,
-            num_epochs=501, #500
+            batch_size=1024, #1024
+            num_epochs=1001, #1001
             num_eval_steps_per_epoch=1000, #1000
             num_expl_steps_per_train_loop=1000, #1000
             num_trains_per_train_loop=1000, #1000
@@ -92,15 +97,15 @@ if __name__ == "__main__":
         replay_buffer_kwargs=dict(
             fraction_future_context=0.2,
             fraction_distribution_context=0.5,
-            max_size=int(1E6),
+            max_size=int(2E5),
         ),
         demo_replay_buffer_kwargs=dict(
-            fraction_future_context=0.0,
-            fraction_distribution_context=0.0,
+            fraction_future_context=0.2, # 0.0
+            fraction_distribution_context=0.5, # 0.0
         ),
         reward_kwargs=dict(
-            reward_type='wrapped_env',
-            epsilon=2.0,
+            reward_type='sparse',
+            epsilon=1.0,
         ),
 
         observation_key='latent_observation',
@@ -111,10 +116,11 @@ if __name__ == "__main__":
             pad_color=0,
         ),
 
-        #pretrained_vae_path="itr_0.pkl",
-        pretrained_vae_path="sasha/complex_obj/vae.pkl",
-        presampled_goals_path="sasha/complex_obj/3dof_lego_goals.pkl",
-        #presampled_goals_path="sasha/complex_obj/zero_goals.pkl",
+        reset_keys_map=dict(
+            image_observation="initial_latent_state"
+        ),
+        pretrained_vae_path="sasha/complex_obj/pixelcnn_vqvae.pkl",
+        #pretrained_vae_path="sasha/complex_obj/best_vae.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
@@ -129,7 +135,6 @@ if __name__ == "__main__":
             height=48,
         ),
 
-
         add_env_demos=False,
         add_env_offpolicy_data=False,
 
@@ -138,13 +143,7 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled",
-        exploration_goal_sampling_mode="presampled",
-
-        launcher_config=dict(
-            unpack_variant=True,
-            region='us-east-2',
-        ),
-
+        exploration_goal_sampling_mode="conditional_vae_prior",
 
         train_vae_kwargs=dict(
             vae_path=None,
@@ -179,17 +178,29 @@ if __name__ == "__main__":
                 batch_size=128,
                 lr=1e-3,
             ),
-            save_period=5,
+            save_period=25,
+        ),
+        #num_presample=1000,
+        launcher_config=dict(
+            unpack_variant=True,
+            region='us-west-1', #HERE
         ),
     )
 
     search_space = {
+        #Things to change for object: object_subset, presampled_goals_path
         #Things to change for dof: demos, presampled_goals, DoF
         "seed": range(2),
-        'path_loader_kwargs.demo_paths': [three_dof_demos],
-        'env_kwargs.quat_dict': [quat_dict, {}],
-        'env_kwargs.object_subset': [object_list]
-        'trainer_kwargs.beta': [0.5, 1],
+        'path_loader_kwargs.demo_paths': [demo_paths_1],
+        'env_kwargs.quat_dict': [quat_dict],
+        'env_kwargs.randomize': [False],
+        'env_kwargs.use_bounding_box': [True],
+        'env_kwargs.object_subset': [['mug']], #HERE
+        'presampled_goals_path': [mug_goals], #HERE
+
+        'reward_kwargs.epsilon': [5, 6, 7, 8],
+        'trainer_kwargs.beta': [0.3,],
+
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
         'trainer_kwargs.awr_use_mle_for_vf': [True, ],
@@ -208,4 +219,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=30)
+    run_variants(awac_rig_experiment, variants, run_id=2) #HERE

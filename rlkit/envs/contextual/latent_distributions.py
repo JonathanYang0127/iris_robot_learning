@@ -1,6 +1,5 @@
 import numpy as np
 from gym.spaces import Box, Dict
-
 from rlkit.core.distribution import DictDistribution
 
 
@@ -25,7 +24,7 @@ class AddLatentDistribution(DictDistribution):
         )
         self._spaces[output_key] = latent_space
 
-    def sample(self, batch_size: int):
+    def sample(self, batch_size: int, context=None):
         s = self.dist.sample(batch_size)
         s[self.output_key] = self.model.encode_np(s[self.input_key])
         return s
@@ -53,11 +52,122 @@ class PriorDistribution(DictDistribution):
         )
         self._spaces[key] = latent_space
 
-    def sample(self, batch_size: int):
+    def sample(self, batch_size: int, context=None):
         s = self.dist.sample(batch_size) if self.dist else {}
         mu, sigma = 0, 1 # sample from prior
         n = np.random.randn(batch_size, self.representation_size)
         s[self.key] = sigma * n + mu
+        return s
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+class ConditionalPriorDistribution(DictDistribution):
+    def __init__(
+            self,
+            model,
+            key,
+            dist=None,
+    ):
+        self.representation_size = model.representation_size
+        self._spaces = dist.spaces if dist else {}
+        self.model = model
+        self.key = key
+        self.dist = dist
+        latent_space = Box(
+            -10 * np.ones(self.representation_size),
+            10 * np.ones(self.representation_size),
+            dtype=np.float32,
+        )
+        self._spaces[key] = latent_space
+
+    def sample(self, batch_size, context=None):
+        s = self.dist.sample(batch_size) if self.dist else {}
+        x_0 = context['initial_latent_state'].reshape(-1, self.representation_size)
+        s[self.key] = self.model.sample_prior(batch_size, cond=x_0)
+
+        return s
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+class AmortizedPriorDistribution(DictDistribution):
+    def __init__(
+            self,
+            model,
+            key,
+            dist=None,
+            num_presample=1000,
+    ):
+        self.representation_size = self.model.representation_size
+        self._spaces = dist.spaces if dist else {}
+        self.num_presample = num_presample
+        self.model = model
+        self.key = key
+        self.dist = dist
+        latent_space = Box(
+            -10 * np.ones(self.representation_size),
+            10 * np.ones(self.representation_size),
+            dtype=np.float32,
+        )
+        self._spaces[key] = latent_space
+        self.presampled_z = self.model.sample_prior(num_presample)
+        self.z_index = 0
+
+    def sample(self, batch_size: int, context=None):
+        s = self.dist.sample(batch_size) if self.dist else {}
+        if batch_size + self.z_index >= self.num_presample:
+            self.presampled_z = self.model.sample_prior(self.num_presample)
+            self.z_index = 0
+        
+        s[self.key] = self.presampled_z[self.z_index:self.z_index + batch_size]
+        self.z_index += batch_size
+        return s
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+class AmortizedConditionalPriorDistribution(DictDistribution):
+    def __init__(
+            self,
+            model,
+            key,
+            dist=None,
+            num_presample=1000,
+    ):
+        self.representation_size = model.representation_size
+        self.num_presample = num_presample
+        self._spaces = dist.spaces if dist else {}
+        self.model = model
+        self.key = key
+        self.dist = dist
+        latent_space = Box(
+            -10 * np.ones(self.representation_size),
+            10 * np.ones(self.representation_size),
+            dtype=np.float32,
+        )
+        self._spaces[key] = latent_space
+        self._spaces['initial_latent_state'] = latent_space
+        self.z_index = self.num_presample # We need to wait for x_0 to sample goals
+        self.presampled_z = None
+
+    def sample(self, batch_size, context=None):
+        s = self.dist.sample(batch_size) if self.dist else {}
+        x_0 = context['initial_latent_state'].reshape(-1, self.representation_size)
+        
+        if batch_size + self.z_index >= self.num_presample:
+            self.presampled_z = self.model.sample_prior(
+                self.num_presample,
+                cond=x_0[0].reshape(-1, self.representation_size)
+            )
+            self.z_index = 0
+        
+        s[self.key] = self.presampled_z[self.z_index:self.z_index + batch_size]
+        self.z_index += batch_size
+    
         return s
 
     @property

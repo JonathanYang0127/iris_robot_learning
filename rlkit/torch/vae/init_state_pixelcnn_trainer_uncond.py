@@ -23,7 +23,7 @@ pixelcnn_dir = sys.path.append(os.getcwd()+ '/pixelcnn')
 
 from rlkit.torch.vae.initial_state_pixelcnn import GatedPixelCNN
 import rlkit.torch.vae.pixelcnn_utils
-from rlkit.torch.vae.vq_vae import CVQVAE, VQ_VAE
+from rlkit.torch.vae.vq_vae import VQ_VAE
 
 """
 Hyperparameters
@@ -81,8 +81,8 @@ imlength = imsize * imsize * input_channels
 
 
 # Define data loading info
-train_path = '/home/ashvin/data/sasha/spacemouse/recon_data/train.npy'
-test_path = '/home/ashvin/data/sasha/spacemouse/recon_data/test.npy'
+train_path = 'sasha/complex_obj/gr_train_complex_obj_images.npy'
+test_path = 'sasha/complex_obj/gr_test_complex_obj_images.npy'
 new_path = "/home/ashvin/tmp/encoded_multiobj_bullet_data.npy"
 # Define data loading info
 
@@ -92,27 +92,12 @@ def prep_sample_data():
     test_data = data['test']#.reshape(-1, discrete_size)
     return train_data, test_data
 
-def resize_dataset(data, new_imsize=48):
-    resize = Resize((new_imsize, new_imsize), interpolation=Image.NEAREST)
-    data["observations"] = data["observations"].reshape(-1, 50, 84 * 84 * 3)
-    num_traj, traj_len = data['observations'].shape[0], data['observations'].shape[1]
-    all_data = []
-    for traj_i in range(num_traj):
-        traj = []
-        for trans_i in range(traj_len):
-            x = Image.fromarray(data['observations'][traj_i, trans_i].reshape(84, 84, 3), mode='RGB')
-            x = np.array(resize(x)).reshape(1, new_imsize * new_imsize * 3)
-            traj.append(x)
-        traj = np.concatenate(traj, axis=0).reshape(1, traj_len, -1)
-        all_data.append(traj)
-    data['observations'] = np.concatenate(all_data, axis=0)
-
 
 
 def encode_dataset(dataset_path):
     data = load_local_or_remote_file(dataset_path)
     data = data.item()
-    resize_dataset(data)
+    #resize_dataset(data)
 
     data["observations"] = data["observations"].reshape(-1, 50, imlength)
 

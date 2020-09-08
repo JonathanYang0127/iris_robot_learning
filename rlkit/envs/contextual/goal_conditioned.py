@@ -122,12 +122,14 @@ class PresampledPathDistribution(DictDistribution):
         self._presampled_goals = load_local_or_remote_file(datapath)
         self._num_presampled_goals = self._presampled_goals[list(self._presampled_goals)[0]].shape[0]
         self._set_spaces()
+        #print('remove presampeld path distrib line below')
 
     def sample(self, batch_size: int):
         idx = np.random.randint(0, self._num_presampled_goals, batch_size)
         sampled_goals = {
             k: v[idx] for k, v in self._presampled_goals.items()
         }
+        #sampled_goals['initial_latent_state'] = sampled_goals['latent_desired_goal']
         return sampled_goals
 
     def _set_spaces(self):

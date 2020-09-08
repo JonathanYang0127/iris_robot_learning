@@ -97,7 +97,6 @@ if __name__ == "__main__":
                 sample_from_true_prior=True,
             ),
             algorithm='ONLINE-VAE-SAC-BERNOULLI',
-            #vae_path="/home/ashvin/data/sasha/vq-vae/sim-vq-vae/run23/id0/itr_100.pkl"
                     ),
         train_vae_variant=dict(
             beta=1,
@@ -105,7 +104,7 @@ if __name__ == "__main__":
                 x_values=(0, 250),
                 y_values=(0, 100),
             ),
-            num_epochs=1001,
+            num_epochs=1501,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -113,9 +112,8 @@ if __name__ == "__main__":
                 N=1000,
                 n_random_steps=2,
                 test_p=.9,
-                dataset_path='/home/ashvin/data/sasha/demos/4dof_complex_objects_images.npy',
-                #dataset_path={'train': '/home/ashvin/data/sasha/spacemouse/recon_data/train.npy',
-                #            'test': '/home/ashvin/data/sasha/spacemouse/recon_data/test.npy'},
+                dataset_path={'train': 'sasha/complex_obj/gr_train_complex_obj_images.npy',
+                          'test': 'sasha/complex_obj/gr_test_complex_obj_images.npy'},
                 augment_data=False,
                 use_cached=False,
                 show=False,
@@ -134,10 +132,6 @@ if __name__ == "__main__":
             vae_kwargs=dict(
                 input_channels=3,
                 imsize=48,
-                decay=0, #0.99
-                #num_hiddens=256,
-                #num_residual_layers=4,
-                #num_residual_hiddens=128,
             ),
 
             algo_kwargs=dict(
@@ -145,7 +139,7 @@ if __name__ == "__main__":
                 start_skew_epoch=5000,
                 is_auto_encoder=False,
                 batch_size=128,
-                lr=1e-3, #1E-4
+                lr=1e-3,
                 skew_config=dict(
                     method='vae_prob',
                     power=0,
@@ -162,7 +156,6 @@ if __name__ == "__main__":
 
             save_period=10,
         ),
-        region='us-west-1',
 
         logger_variant=dict(
             tensorboard=True,
@@ -173,11 +166,19 @@ if __name__ == "__main__":
             cpus_per_task=10,
             gpus_per_node=1,
         ),
+        
+        launcher_config=dict(
+            region='us-west-2', # THIS 
+        ),
+
     )
 
     search_space = {
-        'seedid': range(1),
-        'train_vae_variant.embedding_dim': [3,],
+        'seed': range(2),
+        'train_vae_variant.embedding_dim': [5,], # THIS 
+        'train_vae_variant.vae_kwargs.decay': [0, 0.99],
+        'train_vae_variant.vae_kwargs.num_embeddings': [256, 512],
+        'train_vae_variant.vae_kwargs.num_residual_layers': [2, 3],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -187,4 +188,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=24)
+    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=3) # THIS 
