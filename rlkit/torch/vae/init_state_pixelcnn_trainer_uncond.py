@@ -97,16 +97,13 @@ def prep_sample_data():
 def encode_dataset(dataset_path):
     data = load_local_or_remote_file(dataset_path)
     data = data.item()
-    #resize_dataset(data)
-
-    data["observations"] = data["observations"].reshape(-1, 50, imlength)
 
     all_data = []
     
     vqvae.to('cpu')
     for i in tqdm(range(data["observations"].shape[0])):
         obs = ptu.from_numpy(data["observations"][i] / 255.0 )
-        latent = vqvae.encode(obs, cont=False).reshape(-1, 50, discrete_size)
+        latent = vqvae.encode(obs, cont=False)
         all_data.append(latent)
     vqvae.to('cuda')
     

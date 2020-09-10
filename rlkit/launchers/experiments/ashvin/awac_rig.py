@@ -472,7 +472,6 @@ def experiment(variant):
     algorithm.train()
 
 
-
 def awac_rig_experiment(
         max_path_length,
         qf_kwargs,
@@ -851,7 +850,7 @@ def awac_rig_experiment(
             trainer.bc_num_pretrain_steps,
         )
     if pretrain_rl:
-        trainer.pretrain_q_with_bc_data()
+        trainer.pretrain_q_with_bc_data(demo_train_buffer)
 
     if save_pretrained_algorithm:
         p_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.p')

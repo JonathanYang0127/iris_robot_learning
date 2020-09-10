@@ -20,7 +20,7 @@ demo_paths_4=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl',obs
 
 demo_paths_5=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
 
-local_demo_paths=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.1,)]
+local_demo_paths=[dict(path='/rail-khazatsky/sasha/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.1,)]
 
 
 beer_bottle_goals = 'sasha/presampled_goals/3dof_beer_bottle_presampled_goals.pkl'
@@ -28,6 +28,9 @@ camera_goals = 'sasha/presampled_goals/3dof_camera_presampled_goals.pkl'
 grill_trash_can_goals = 'sasha/presampled_goals/3dof_grill_trash_can_presampled_goals.pkl'
 long_sofa_goals = 'sasha/presampled_goals/3dof_long_sofa_presampled_goals.pkl'
 mug_goals = 'sasha/presampled_goals/3dof_mug_presampled_goals.pkl'
+
+#local_mug_goals = '/rail-khazatsky/sasha/presampled_goals/3dof_mug_presampled_goals.pkl'
+
 
 
 quat_dict={'mug': [0, 0, 0, 1],
@@ -95,13 +98,13 @@ if __name__ == "__main__":
             min_num_steps_before_training=4000, #4000
         ),
         replay_buffer_kwargs=dict(
-            fraction_future_context=0.2,
-            fraction_distribution_context=0.5,
+            fraction_future_context=0.2, #0.2
+            fraction_distribution_context=0.5, #0.5
             max_size=int(2E5),
         ),
         demo_replay_buffer_kwargs=dict(
             fraction_future_context=0.2, # 0.0
-            fraction_distribution_context=0.5, # 0.0
+            fraction_distribution_context=0.0, # 0.0,
         ),
         reward_kwargs=dict(
             reward_type='sparse',
@@ -120,7 +123,6 @@ if __name__ == "__main__":
             image_observation="initial_latent_state"
         ),
         pretrained_vae_path="sasha/complex_obj/pixelcnn_vqvae.pkl",
-        #pretrained_vae_path="sasha/complex_obj/best_vae.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
@@ -143,6 +145,7 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled",
+        #exploration_goal_sampling_mode="amortized_conditional_vae_prior",
         exploration_goal_sampling_mode="conditional_vae_prior",
 
         train_vae_kwargs=dict(
@@ -180,17 +183,17 @@ if __name__ == "__main__":
             ),
             save_period=25,
         ),
-        #num_presample=1000,
+        num_presample=100,
         launcher_config=dict(
             unpack_variant=True,
-            region='us-west-1', #HERE
+            region='us-east-2', #HERE
         ),
     )
 
     search_space = {
         #Things to change for object: object_subset, presampled_goals_path
         #Things to change for dof: demos, presampled_goals, DoF
-        "seed": range(2),
+        "seed": range(2), #HERE
         'path_loader_kwargs.demo_paths': [demo_paths_1],
         'env_kwargs.quat_dict': [quat_dict],
         'env_kwargs.randomize': [False],
@@ -198,8 +201,8 @@ if __name__ == "__main__":
         'env_kwargs.object_subset': [['mug']], #HERE
         'presampled_goals_path': [mug_goals], #HERE
 
-        'reward_kwargs.epsilon': [5, 6, 7, 8],
-        'trainer_kwargs.beta': [0.3,],
+        'reward_kwargs.epsilon': [5,6,7], #HERE
+        'trainer_kwargs.beta': [0.3,0.4],
 
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
@@ -208,7 +211,7 @@ if __name__ == "__main__":
         'trainer_kwargs.clip_score': [2, ],
         'trainer_kwargs.awr_min_q': [True, ],
         'trainer_kwargs.reward_transform_kwargs': [None, ],
-        'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0), ],
+        'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -219,4 +222,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=2) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=5) #HERE
