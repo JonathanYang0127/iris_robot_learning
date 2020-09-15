@@ -14,14 +14,14 @@ if __name__ == "__main__":
 
     variant = dict(
         num_epochs=12,
-        dataset = 'celebfaces', 
+        dataset = 'celebfaces',
         dataroot = CELEBA_DATASET,
-        num_workers = 2, 
-        batch_size = 100, 
+        num_workers = 2,
+        batch_size = 100,
         image_size = 32,
         gan_trainer_class=BiGANTrainer,
         gan_class=BiGAN,
-        ngpu = 1, 
+        ngpu = 1,
         beta = 0.5,
         lr = 1e-4,
         latent_size = 256,
@@ -29,8 +29,8 @@ if __name__ == "__main__":
         dropout = 0,
         generator_threshold = 100,
         #nc = 3,
-        #ngf = 
-        #ndf = 
+        #ngf =
+        #ndf =
 
         save_period=25,
         logger_variant=dict(
