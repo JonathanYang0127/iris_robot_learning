@@ -14,7 +14,7 @@ from rlkit.torch.gan.bigan import BiGAN
 from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 from rlkit.data_management.online_vae_replay_buffer import \
         OnlineVaeRelabelingBuffer
-from experiments.danieljing.large_scale_rig.gan_launcher import train_gan
+from experiments.danieljing.visual_affordance.gan_launcher import train_gan
 
 
 x_var = 0.2
@@ -61,11 +61,11 @@ if __name__ == "__main__":
             save_video=True,
             custom_goal_sampler='replay_buffer',
             online_vae_trainer_kwargs=dict(
-                ngpu = 1, 
-                beta = 0.5,
-                lr = 0.0002,
-                latent_size = 256,
-                generator_threshold = 3.5,
+                #ngpu = 1,
+                #beta = 0.5,
+                #lr = 0.0002,
+                #latent_size = 256,
+                #generator_threshold = 3.5,
             ),
             save_video_period=100,
             qf_kwargs=dict(
@@ -162,9 +162,9 @@ if __name__ == "__main__":
             vae_class=BiGAN,
             train_fn = train_gan,
             gan_kwargs=dict(
-                ngpu = 1, 
-                dropout = 0.2,
-                output_size = 1
+                #ngpu = 1,
+                #dropout = 0.2,
+                #output_size = 1
             ),
             algo_kwargs=dict(
                 ngpu = 1,

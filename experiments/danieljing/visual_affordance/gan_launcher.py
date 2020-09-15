@@ -24,13 +24,11 @@ def train_gan(variant, return_data = False):
 
     if not variant.get('simpusher', False):
         if variant["dataset"] == "bair":
-            #train_dataset, test_dataset, info
-            dataloader = bair_dataset.generate_dataset(variant['generate_dataset_kwargs'])[0].dataset_loader
+            dataloader = bair_dataset.generate_dataset(variant)[0].dataset_loader
             get_data = lambda d: d['x_t']
 
         if variant["dataset"] == "cifar10":
             local_path = sync_down_folder(variant["dataroot"])
-            #local_path = variant["dataroot"]
             dataset = dset.CIFAR10(
                 root=local_path, train=True, download=False, transform=transforms.Compose([
                               transforms.ToTensor()
@@ -41,7 +39,6 @@ def train_gan(variant, return_data = False):
 
         if variant["dataset"] == "celebfaces":
             local_path = sync_down_folder(variant["dataroot"])
-            #local_path = variant["dataroot"]
             dataset = dset.ImageFolder(root=local_path,
                                    transform=transforms.Compose([
                                        transforms.Resize(variant["image_size"]),
@@ -99,11 +96,11 @@ def train_gan(variant, return_data = False):
         else:
             gan_class = variant['vae_class']
             if use_linear_dynamics:
-                model = gan_class(latent_size = representation_size, **variant['gan_kwargs'])
+                model = gan_class(representation_size = representation_size, **variant['gan_kwargs'])
             else:
-                model = gan_class(latent_size = representation_size, **variant['gan_kwargs'])
+                model = gan_class(representation_size = representation_size, **variant['gan_kwargs'])
         model.to(ptu.device)
-        
+
         gan_trainer_class = variant['vae_trainer_class']
         trainer = gan_trainer_class(model, latent_size = representation_size, beta=beta,
                            **variant['algo_kwargs'])

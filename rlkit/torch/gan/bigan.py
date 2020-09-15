@@ -38,7 +38,7 @@ class BiGAN(PyTorchModule):
         self.netE = Encoder(representation_size, input_channels=input_channels, imsize=imsize, noise=True)
         self.netG = Generator(representation_size, input_channels=input_channels, imsize=imsize)
         self.netD = Discriminator(representation_size, input_channels=input_channels, imsize=imsize, dropout=dropout)
-        
+
         self.netE.apply(weights_init)
         self.netG.apply(weights_init)
         self.netD.apply(weights_init)
@@ -226,7 +226,7 @@ class ConditionalBiGAN(PyTorchModule):
         self.netE = ConditionalBiGANEncoder(representation_size, input_channels=input_channels, imsize=imsize, noise=True)
         self.netG = ConditionalBiGANGenerator(representation_size, input_channels=input_channels, imsize=imsize)
         self.netD = ConditionalBiGANDiscriminator(representation_size, input_channels=input_channels, imsize=imsize, dropout=dropout)
-        
+
         self.netE.apply(weights_init)
         self.netG.apply(weights_init)
         self.netD.apply(weights_init)

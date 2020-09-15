@@ -13,15 +13,15 @@ from experiments.danieljing.large_scale_rig.gan_launcher import train_gan
 if __name__ == "__main__":
 
     variant = dict(
-        num_epochs=5, 
+        num_epochs=5,
         dataset = 'celebfaces',
         dataroot = CELEBA_DATASET,
-        num_workers = 2, 
-        batch_size = 128, 
+        num_workers = 2,
+        batch_size = 128,
         image_size = 64,
         gan_trainer_class=DCGANTrainer,
         gan_class=DCGAN,
-        ngpu = 1, 
+        ngpu = 1,
         beta = 0.5,
         lr = 0.0002,
         nc = 3,

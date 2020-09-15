@@ -54,7 +54,7 @@ class BiGANTrainer(ConvVAETrainer, LossFunction):
             key_to_reconstruct='x_t',
             generator_threshold=3.5,
             num_epochs=500,
-            
+
             b_low=0.5,
             b_high=0.999,
         ):
@@ -124,13 +124,13 @@ class BiGANTrainer(ConvVAETrainer, LossFunction):
         prefix = "test/" if test else "train/"
         real_data = batch[self.key_to_reconstruct].reshape(-1, self.input_channels, self.imsize, self.imsize)
         batch_size = real_data.size(0)
-        
+
         fake_latent = self.fixed_noise(batch_size)
         noise1 = self.noise(real_data.size(), self.num_epochs, epoch)
         noise2 = self.noise(real_data.size(), self.num_epochs, epoch)
 
         real_label = ptu.ones(batch_size)
-        fake_label = ptu.zeros(batch_size) 
+        fake_label = ptu.zeros(batch_size)
 
         fake_data = self.model.netG(fake_latent)
         real_latent, _, _, _= self.model.netE(real_data)
@@ -150,7 +150,7 @@ class BiGANTrainer(ConvVAETrainer, LossFunction):
         self.eval_statistics[prefix + "errG"].append(errG.item())
         self.eval_statistics[prefix + "Recon Error"].append(recon_error.item())
         self.eval_data[prefix + "last_batch"] = (real_data.reshape(batch_size, -1), recon.reshape(batch_size, -1))
-        
+
         return errD, errG
 
     def dump_samples(self, epoch):
@@ -176,13 +176,13 @@ class ConditionalBiGANTrainer(BiGANTrainer, LossFunction):
         real_data = batch['x_t'].reshape(-1, self.input_channels, self.imsize, self.imsize)
         cond = batch['env'].reshape(-1, self.input_channels, self.imsize, self.imsize)
         batch_size = real_data.size(0)
-        
+
         noise1a = self.noise(real_data.size(), self.num_epochs, epoch)
         noise2a = self.noise(real_data.size(), self.num_epochs, epoch)
         noise1b = self.noise(real_data.size(), self.num_epochs, epoch)
         noise2b = self.noise(real_data.size(), self.num_epochs, epoch)
 
-        real_label, fake_label = ptu.ones(batch_size), ptu.zeros(batch_size) 
+        real_label, fake_label = ptu.ones(batch_size), ptu.zeros(batch_size)
 
         real_latent, _, _, _= self.model.netE(real_data, cond)
         fake_latent = self.fixed_noise(batch_size, real_latent)
@@ -202,7 +202,7 @@ class ConditionalBiGANTrainer(BiGANTrainer, LossFunction):
         self.eval_statistics[prefix + "errG"].append(errG.item())
         self.eval_statistics[prefix + "Recon Error"].append(recon_error.item())
         self.eval_data[prefix + "last_batch"] = (batch, recon.reshape(batch_size, -1))
-        
+
         return errD, errG
 
     def dump_reconstructions(self, epoch):

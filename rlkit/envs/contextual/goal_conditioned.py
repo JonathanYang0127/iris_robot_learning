@@ -232,12 +232,11 @@ class ThresholdDistanceReward(ContextualRewardFn):
         distance = self._distance_fn(states, actions, next_states, contexts)
         return -(distance > self._distance_threshold).astype(np.float32)
 
-
-class GoalConditionedDiagnosticsToContextualDiagnostics(ContextualDiagnosticsFn):
+class GoalConditionedDiagnosticsToContextualDiagnostics():
     # use a class rather than function for serialization
     def __init__(
             self,
-            goal_conditioned_diagnostics: GoalConditionedDiagnosticsFn,
+            goal_conditioned_diagnostics,
             desired_goal_key: str,
             observation_key: str,
     ):
@@ -245,8 +244,9 @@ class GoalConditionedDiagnosticsToContextualDiagnostics(ContextualDiagnosticsFn)
         self._desired_goal_key = desired_goal_key
         self._observation_key = observation_key
 
-    def __call__(self, paths: List[Path],
-                 contexts: List[Context]) -> Diagnostics:
+#    def __call__(self, paths: List[Path],
+#                 contexts: List[Context]) -> Diagnostics:
+    def __call__(self, paths, contexts):
         goals = [c[self._desired_goal_key] for c in contexts]
         non_contextual_paths = [self._remove_context(p) for p in paths]
         return self._goal_conditioned_diagnostics(non_contextual_paths, goals)
