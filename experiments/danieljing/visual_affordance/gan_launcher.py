@@ -24,11 +24,13 @@ def train_gan(variant, return_data = False):
 
     if not variant.get('simpusher', False):
         if variant["dataset"] == "bair":
-            dataloader = bair_dataset.generate_dataset(variant)[0].dataset_loader
+            #train_dataset, test_dataset, info
+            dataloader = bair_dataset.generate_dataset(variant['generate_dataset_kwargs'])[0].dataset_loader
             get_data = lambda d: d['x_t']
 
         if variant["dataset"] == "cifar10":
             local_path = sync_down_folder(variant["dataroot"])
+            #local_path = variant["dataroot"]
             dataset = dset.CIFAR10(
                 root=local_path, train=True, download=False, transform=transforms.Compose([
                               transforms.ToTensor()
@@ -39,6 +41,7 @@ def train_gan(variant, return_data = False):
 
         if variant["dataset"] == "celebfaces":
             local_path = sync_down_folder(variant["dataroot"])
+            #local_path = variant["dataroot"]
             dataset = dset.ImageFolder(root=local_path,
                                    transform=transforms.Compose([
                                        transforms.Resize(variant["image_size"]),
@@ -72,7 +75,8 @@ def train_gan(variant, return_data = False):
         train_dataset, test_dataset, info = generate_vae_dataset_fctn(
             variant['generate_vae_dataset_kwargs'])
 
-        dataloader = train_dataset.dataset_loader
+        trainloader = train_dataset.dataset_loader
+        testloader = test_dataset.dataset_loader
         get_data = lambda d: d['x_t'].reshape(128, 3, imsize, imsize)
 
         if use_linear_dynamics:
@@ -96,9 +100,9 @@ def train_gan(variant, return_data = False):
         else:
             gan_class = variant['vae_class']
             if use_linear_dynamics:
-                model = gan_class(representation_size = representation_size, **variant['gan_kwargs'])
+                model = gan_class(latent_size = representation_size, **variant['gan_kwargs'])
             else:
-                model = gan_class(representation_size = representation_size, **variant['gan_kwargs'])
+                model = gan_class(latent_size = representation_size, **variant['gan_kwargs'])
         model.to(ptu.device)
 
         gan_trainer_class = variant['vae_trainer_class']
@@ -110,7 +114,7 @@ def train_gan(variant, return_data = False):
 
 
     for epoch in range(variant['num_epochs']):
-        trainer.train_epoch(dataloader, epoch, variant['num_epochs'], get_data)
+        trainer.train_epoch(trainloader, epoch, variant['num_epochs'], get_data)
         #trainer.test_epoch(epoch, test_dataset)
         #dump samples is called in trainer
 

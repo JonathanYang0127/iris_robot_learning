@@ -23,14 +23,14 @@ if __name__ == "__main__":
             transpose = [2, 0, 1],
             shift = 0,
             dataset_location=BAIR_DATASET,
-            train_batch_loader_kwargs=dict(
-                batch_size=100,
-                num_workers=2,
-            ),
-            test_batch_loader_kwargs=dict(
-                batch_size=100,
-                num_workers=0,
-            ),
+            # train_batch_loader_kwargs=dict(
+            #     batch_size=100,
+            #     num_workers=2,
+            # ),
+            # test_batch_loader_kwargs=dict(
+            #     batch_size=100,
+            #     num_workers=0,
+            # ),
         ),
         gan_trainer_class=BiGANTrainer,
         gan_class=BiGAN,

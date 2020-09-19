@@ -117,7 +117,10 @@ if __name__ == "__main__":
         #     image_observation="initial_latent_state"
         # ),
 
-        pretrained_vae_path="projects/visual_affordance/input/complex_obj/best_vae.pkl",
+        input_representation="projects/visual_affordance/input/complex_obj/best_vae.pkl",
+        goal_representation="projects/visual_affordance/input/complex_obj/best_vae.pkl",
+        
+        # pretrained_vae_path="projects/visual_affordance/input/complex_obj/best_vae.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(

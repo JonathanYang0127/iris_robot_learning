@@ -517,7 +517,8 @@ def awac_rig_experiment(
         save_video_kwargs=None,
         renderer_kwargs=None,
         imsize=84,
-        pretrained_vae_path="",
+        input_representation="",
+        goal_representation="",
         presampled_goals_path="",
         num_presample=0,
         init_camera=None,
@@ -563,7 +564,7 @@ def awac_rig_experiment(
 
         encoded_env = EncoderWrappedEnv(
             img_env,
-            model,
+            input_model,
             step_keys_map=dict(image_observation="latent_observation"),
             reset_keys_map=reset_keys_map,
         )
@@ -643,13 +644,20 @@ def awac_rig_experiment(
         return env, latent_goal_distribution, reward_fn
 
     #VAE Setup
-    if pretrained_vae_path:
-        model = load_local_or_remote_file(pretrained_vae_path)
+    if input_representation:
+        input_model = load_local_or_remote_file(input_representation)
+    else:
+        input_model = train_vae(train_vae_kwargs, env_kwargs, env_id, env_class, imsize, init_camera)
+    path_loader_kwargs['input_model_path'] = goal_representation
+
+
+    if goal_representation:
+        model = load_local_or_remote_file(goal_representation)
     else:
         model = train_vae(train_vae_kwargs, env_kwargs, env_id, env_class, imsize, init_camera)
-    path_loader_kwargs['model_path'] = pretrained_vae_path
+    path_loader_kwargs['model_path'] = goal_representation
 
-    #Enviorment Definitions
+    #Environment Definitions
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
         env_id, env_class, env_kwargs, exploration_goal_sampling_mode, presampled_goals_path, num_presample
     )
