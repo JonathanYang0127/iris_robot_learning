@@ -65,7 +65,7 @@ def train_gan(variant, return_data = False):
     if variant.get('simpusher', False):
         imsize = variant.get('imsize')
         beta = variant["beta"]
-        representation_size = variant.get("representation_size", variant.get("latent_size", None))
+        representation_size = variant.get("representation_size")
         use_linear_dynamics = variant.get('use_linear_dynamics', False)
         generate_vae_dataset_fctn = variant.get('generate_vae_data_fctn',
                                                 generate_vae_dataset)

@@ -125,8 +125,6 @@ class BiGANTrainer(ConvVAETrainer, LossFunction):
         real_data = batch[self.key_to_reconstruct].reshape(-1, self.input_channels, self.imsize, self.imsize)
         batch_size = real_data.size(0)
 
-        import ipdb; ipdb.set_trace()
-
         fake_latent = self.fixed_noise(batch_size)
         noise1 = self.noise(real_data.size(), self.num_epochs, epoch)
         noise2 = self.noise(real_data.size(), self.num_epochs, epoch)
@@ -156,7 +154,8 @@ class BiGANTrainer(ConvVAETrainer, LossFunction):
         return errD, errG
 
     def dump_samples(self, epoch):
-        save_dir = osp.join(self.log_dir, 'samples_%d.png' % epoch)
+
+        save_dir = osp.join(self.log_dir, 's%d.png' % epoch)
         n_samples = 64
         samples = self.model.netG(self.fixed_noise(n_samples))
 

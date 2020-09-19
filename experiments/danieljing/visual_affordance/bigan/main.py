@@ -133,12 +133,15 @@ if __name__ == "__main__":
         ),
         train_vae_variant=dict(
             beta=1,
-            num_epochs=501,
+            num_epochs=250,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
             generate_vae_dataset_kwargs=dict(
-                dataset_path='projects/visual-affordance/gans/gr_train.npy',
+                dataset_path=dict(
+                    train='projects/visual-affordance/gans/objects/train.npy',
+                    test='projects/visual-affordance/gans/objects/test.npy'
+                ),
                 N=10000,
                 n_random_steps=50,
                 test_p=.9,
@@ -197,4 +200,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=0)
+    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=1)

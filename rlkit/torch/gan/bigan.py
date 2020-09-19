@@ -52,7 +52,7 @@ class Generator(nn.Module):
 
         self.output_bias = nn.Parameter(torch.zeros(self.input_channels, self.imsize, self.imsize), requires_grad=True)
         self.main = nn.Sequential(
-            nn.ConvTranspose2d(self.representation_size, 256, 4, stride=1, bias=False),
+            nn.ConvTranspose2d(self.representation_size, 256, 8, stride=1, bias=False),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(inplace=True),
 
@@ -80,7 +80,7 @@ class Generator(nn.Module):
         )
 
     def forward(self, input):
-        input = input.reshape(-1, self.input_channels, self.imsize, self.imsize)
+
         output = self.main(input)
         output = torch.sigmoid(output + self.output_bias)
         return output
@@ -95,7 +95,7 @@ class Encoder(nn.Module):
         self.imsize = imsize
 
         self.main1 = nn.Sequential(
-            nn.Conv2d(input_channels, 32, 5, stride=1, bias=False),
+            nn.Conv2d(input_channels, 32, 5, stride=2, bias=False),
             nn.BatchNorm2d(32),
             nn.LeakyReLU(inplace=True),
 
@@ -113,7 +113,7 @@ class Encoder(nn.Module):
         )
 
         self.main2 = nn.Sequential(
-            nn.Conv2d(256, 512, 4, stride=1, bias=False),
+            nn.Conv2d(256, 512, 2, stride=1, bias=False),
             nn.BatchNorm2d(512),
             nn.LeakyReLU(inplace=True)
         )
@@ -129,7 +129,7 @@ class Encoder(nn.Module):
         )
 
     def forward(self, input):
-        input = input.reshape(-1, self.input_channels, self.imsize, self.imsize)
+
         batch_size = input.size()[0]
         x1 = self.main1(input)
         x2 = self.main2(x1)
@@ -149,7 +149,7 @@ class Discriminator(nn.Module):
         self.dropout = dropout
 
         self.infer_x = nn.Sequential(
-            nn.Conv2d(input_channels, 32, 5, stride=1, bias=True),
+            nn.Conv2d(input_channels, 32, 3, stride=1, bias=True),
             nn.LeakyReLU(inplace=True),
             nn.Dropout2d(p=self.dropout),
 
@@ -158,7 +158,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(inplace=True),
             nn.Dropout2d(p=self.dropout),
 
-            nn.Conv2d(64, 128, 4, stride=1, bias=False),
+            nn.Conv2d(64, 128, 4, stride=2, bias=False),
             nn.BatchNorm2d(128),
             nn.LeakyReLU(inplace=True),
             nn.Dropout2d(p=self.dropout),
@@ -168,7 +168,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(inplace=True),
             nn.Dropout2d(p=self.dropout),
 
-            nn.Conv2d(256, 512, 4, stride=1, bias=False),
+            nn.Conv2d(256, 512, 4, stride=2, bias=False),
             nn.BatchNorm2d(512),
             nn.LeakyReLU(inplace=True),
             nn.Dropout2d(p=self.dropout)
@@ -199,6 +199,7 @@ class Discriminator(nn.Module):
     def forward(self, x, z):
         output_x = self.infer_x(x)
         output_z = self.infer_z(z)
+
         output_features = self.infer_joint(torch.cat([output_x, output_z], dim=1))
         output = self.final(output_features)
         output = torch.sigmoid(output)
