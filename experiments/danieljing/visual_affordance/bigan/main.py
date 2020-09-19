@@ -138,7 +138,7 @@ if __name__ == "__main__":
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
             generate_vae_dataset_kwargs=dict(
-                dataset_path='projects/visual-affordance/gans/simpuck.npy',
+                dataset_path='projects/visual-affordance/gans/gr_train.npy',
                 N=10000,
                 n_random_steps=50,
                 test_p=.9,

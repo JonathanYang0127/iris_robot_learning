@@ -125,6 +125,8 @@ class BiGANTrainer(ConvVAETrainer, LossFunction):
         real_data = batch[self.key_to_reconstruct].reshape(-1, self.input_channels, self.imsize, self.imsize)
         batch_size = real_data.size(0)
 
+        import ipdb; ipdb.set_trace()
+
         fake_latent = self.fixed_noise(batch_size)
         noise1 = self.noise(real_data.size(), self.num_epochs, epoch)
         noise2 = self.noise(real_data.size(), self.num_epochs, epoch)
