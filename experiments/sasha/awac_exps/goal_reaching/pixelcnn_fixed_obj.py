@@ -98,13 +98,13 @@ if __name__ == "__main__":
             min_num_steps_before_training=4000, #4000
         ),
         replay_buffer_kwargs=dict(
-            fraction_future_context=0.2, #0.2
-            fraction_distribution_context=0.5, #0.5
+            fraction_future_context=0.5, #0.2
+            fraction_distribution_context=0.2, #0.5
             max_size=int(2E5),
         ),
         demo_replay_buffer_kwargs=dict(
-            fraction_future_context=0.2, # 0.0
-            fraction_distribution_context=0.0, # 0.0,
+            fraction_future_context=0.5, # 0.0
+            fraction_distribution_context=0.2, # 0.0,
         ),
         reward_kwargs=dict(
             reward_type='sparse',
@@ -144,9 +144,12 @@ if __name__ == "__main__":
         pretrain_policy=True,
         pretrain_rl=True,
 
-        evaluation_goal_sampling_mode="presampled",
+        evaluation_goal_sampling_mode="presampled_images",
+        #exploration_goal_sampling_mode="presampled_images",
+        exploration_goal_sampling_mode="presampled_latents",
+
         #exploration_goal_sampling_mode="amortized_conditional_vae_prior",
-        exploration_goal_sampling_mode="conditional_vae_prior",
+        #exploration_goal_sampling_mode="conditional_vae_prior",
 
         train_vae_kwargs=dict(
             vae_path=None,
@@ -183,10 +186,17 @@ if __name__ == "__main__":
             ),
             save_period=25,
         ),
+
+        presampled_goal_kwargs=dict(
+            eval_goals='sasha/presampled_goals/3dof_mug_presampled_goals.pkl',
+            #expl_goals='sasha/presampled_goals/3dof_mug_presampled_goals.pkl',
+            expl_goals='sasha/presampled_goals/pixelcnn_mug_goals.pkl',
+        ),
+
         num_presample=100,
         launcher_config=dict(
             unpack_variant=True,
-            region='us-east-2', #HERE
+            region='us-west-2', #HERE
         ),
     )
 
@@ -194,15 +204,16 @@ if __name__ == "__main__":
         #Things to change for object: object_subset, presampled_goals_path
         #Things to change for dof: demos, presampled_goals, DoF
         "seed": range(2), #HERE
-        'path_loader_kwargs.demo_paths': [demo_paths_1],
+        #'debug': [True], #HERE
+        'path_loader_kwargs.demo_paths': [demo_paths_1, demo_paths_2, demo_paths_3, demo_paths_4, demo_paths_5], #HERE
         'env_kwargs.quat_dict': [quat_dict],
         'env_kwargs.randomize': [False],
         'env_kwargs.use_bounding_box': [True],
         'env_kwargs.object_subset': [['mug']], #HERE
-        'presampled_goals_path': [mug_goals], #HERE
+        #'presampled_goal_kwargs': [], #HERE
 
-        'reward_kwargs.epsilon': [5,6,7], #HERE
-        'trainer_kwargs.beta': [0.3,0.4],
+        'reward_kwargs.epsilon': [5.5], #HERE
+        'trainer_kwargs.beta': [0.3,],
 
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
@@ -222,4 +233,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=5) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=25) #HERE
