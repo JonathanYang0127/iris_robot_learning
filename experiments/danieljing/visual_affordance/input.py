@@ -7,24 +7,24 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from rlkit.torch.networks import Clamp
 
-demo_paths_1=[dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_0.pkl', obs_dict=True, is_demo=True),
-                dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_1.pkl', obs_dict=True, is_demo=True),
-                dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_2.pkl', obs_dict=True, is_demo=True)]
+demo_paths_1=[dict(path='projects/visual_affordance/input/objects/gr_train0.pkl', obs_dict=True, is_demo=True),
+                dict(path='projects/visual_affordance/input/objects/gr_train1.pkl', obs_dict=True, is_demo=True),
+                dict(path='projects/visual_affordance/input/objects/gr_train2.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_2=[dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_0.pkl', obs_dict=True, is_demo=True),
-             dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_1.pkl', obs_dict=True, is_demo=True)]
+demo_paths_2=[dict(path='projects/visual_affordance/input/objects/gr_train0.pkl', obs_dict=True, is_demo=True),
+             dict(path='projects/visual_affordance/input/objects/gr_train1.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_3=[dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_0.pkl', obs_dict=True, is_demo=True)]
+demo_paths_3=[dict(path='projects/visual_affordance/input/objects/gr_train0.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_4=[dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
+demo_paths_4=[dict(path='projects/visual_affordance/input/objects/gr_train0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
 
-demo_paths_5=[dict(path='projects/visual_affordance/input/complex_obj/gr_train_complex_obj_demos_0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
+demo_paths_5=[dict(path='projects/visual_affordance/input/objects/gr_train0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
 
-beer_bottle_goals = 'projects/visual_affordance/input/presampled_goals/3dof_beer_bottle_presampled_goals.pkl'
-camera_goals = 'projects/visual_affordance/input/presampled_goals/3dof_camera_presampled_goals.pkl'
-grill_trash_can_goals = 'projects/visual_affordance/input/presampled_goals/3dof_grill_trash_can_presampled_goals.pkl'
-long_sofa_goals = 'projects/visual_affordance/input/presampled_goals/3dof_long_sofa_presampled_goals.pkl'
-mug_goals = 'projects/visual_affordance/input/presampled_goals/3dof_mug_presampled_goals.pkl'
+beer_bottle_goals = 'projects/visual_affordance/input/goals/bottle.pkl'
+camera_goals = 'projects/visual_affordance/input/goals/camera.pkl'
+grill_trash_can_goals = 'projects/visual_affordance/input/goals/can.pkl'
+long_sofa_goals = 'projects/visual_affordance/input/goals/sofa.pkl'
+mug_goals = 'projects/visual_affordance/input/goals/mug.pkl'
 
 
 quat_dict={'mug': [0, 0, 0, 1],
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
         input_representation="projects/visual_affordance/input/complex_obj/best_vae.pkl",
         goal_representation="projects/visual_affordance/input/complex_obj/best_vae.pkl",
-        
+
         # pretrained_vae_path="projects/visual_affordance/input/complex_obj/best_vae.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,

@@ -138,10 +138,8 @@ if __name__ == "__main__":
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
             generate_vae_dataset_kwargs=dict(
-                dataset_path=dict(
-                    train='projects/visual-affordance/gans/objects/train.npy',
-                    test='projects/visual-affordance/gans/objects/test.npy'
-                ),
+                dataset_path={'train': 'sasha/complex_obj/gr_train_complex_obj_images.npy',
+                'test': 'sasha/complex_obj/gr_test_complex_obj_images.npy'},
                 N=10000,
                 n_random_steps=50,
                 test_p=.9,

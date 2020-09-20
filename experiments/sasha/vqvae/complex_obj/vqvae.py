@@ -166,16 +166,16 @@ if __name__ == "__main__":
             cpus_per_task=10,
             gpus_per_node=1,
         ),
-        
+
         launcher_config=dict(
-            region='us-west-2', # THIS 
+            region='us-west-2', # THIS
         ),
 
     )
 
     search_space = {
         'seed': range(2),
-        'train_vae_variant.embedding_dim': [5,], # THIS 
+        'train_vae_variant.embedding_dim': [5,], # THIS
         'train_vae_variant.vae_kwargs.decay': [0, 0.99],
         'train_vae_variant.vae_kwargs.num_embeddings': [256, 512],
         'train_vae_variant.vae_kwargs.num_residual_layers': [2, 3],
@@ -188,4 +188,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=3) # THIS 
+    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=3) # THIS
