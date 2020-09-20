@@ -1,3 +1,4 @@
+from rlkit.envs.pygame import pnp_util
 from rlkit.torch.sets import set_creation
 from multiworld.envs.pygame import PickAndPlaceEnv
 from rlkit.envs.images import EnvRenderer
@@ -10,7 +11,7 @@ def main():
         boundary_dist=4,
         ball_radius=1.5,
         object_radius=1.,
-        cursor_visual_radius=1.5,
+        ball_visual_radius=1.5,
         object_visual_radius=1.,
         min_grab_distance=1.,
         walls=None,
@@ -32,13 +33,13 @@ def main():
         object_reward_only=False,
 
         init_position_strategy='random',
-        num_objects=2,
+        num_objects=1,
     )
 
     renderer = EnvRenderer(
         output_image_format='CHW',
     )
-    sets = set_creation.sample_pnp_sets(
+    sets = pnp_util.sample_pnp_sets(
         env,
         renderer,
         num_samples_per_set=128,
@@ -71,7 +72,10 @@ def main():
             ),
         ],
     )
-    set_creation.save(sets, 'hand2xy_hand2x_1obj2xy_1obj2x.pickle')
+    set_creation.save(
+        sets,
+        'manual-upload/sets/hand2xy_hand2x_1obj2xy_1obj2x_num_objs_1.pickle',
+    )
 
 
 if __name__ == '__main__':

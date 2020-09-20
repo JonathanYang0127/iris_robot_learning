@@ -12,7 +12,7 @@ if __name__ == "__main__":
             boundary_dist=4,
             ball_radius=0.75,
             object_radius=0.50,
-            cursor_visual_radius=1.,
+            ball_visual_radius=1.,
             object_visual_radius=1.,
             min_grab_distance=0.5,
             walls=None,
@@ -34,7 +34,7 @@ if __name__ == "__main__":
             object_reward_only=False,
 
             init_position_strategy='random',
-            num_objects=2,
+            num_objects=1,
         ),
         qf_kwargs=dict(
             hidden_sizes=[400, 300],
@@ -144,8 +144,7 @@ if __name__ == "__main__":
             num_samples_per_set=64,
             # saved_filename='sets1.pickle',
             # saved_filename='8sets30samples.pickle',
-            save_to_filename='6sets64samples.pickle',
-            saved_filename='6sets64samples.pickle',
+            saved_filename='manual-upload/sets/hand2xy_hand2x_1obj2xy_1obj2x_num_objs_1.pickle',
         ),
         num_ungrouped_images=1024,
     )
@@ -158,10 +157,11 @@ if __name__ == "__main__":
 
     # n_seeds = 3
     # mode = 'ec2'
-    # exp_prefix = 'name'
+    exp_prefix = 'create-tmp-vae'
 
     search_space = {
         'vae_algo_kwargs.num_iters': [0],
+        'algo_kwargs.num_epochs': [0],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
