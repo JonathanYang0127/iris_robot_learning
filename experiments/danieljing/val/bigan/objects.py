@@ -31,7 +31,27 @@ if __name__ == "__main__":
         init_camera=sawyer_init_camera_zoomed_in,
         env_class=SawyerMultiobjectEnv,
         env_kwargs=dict(
-
+            fixed_start=True,
+            fixed_colors=False,
+            num_objects=1,
+            object_meshes=None,
+            preload_obj_dict=
+            [{'color1': [1, 1, 1],
+            'color2': [1, 1, 1]}],
+            num_scene_objects=[1],
+            maxlen=0.1,
+            action_repeat=1,
+            puck_goal_low=(x_low + 0.01, y_low + 0.01),
+            puck_goal_high=(x_high - 0.01, y_high - 0.01),
+            hand_goal_low=(x_low + 0.01, y_low + 0.01),
+            hand_goal_high=(x_high - 0.01, y_high - 0.01),
+            mocap_low=(x_low, y_low, 0.0),
+            mocap_high=(x_high, y_high, 0.5),
+            object_low=(x_low + 0.01, y_low + 0.01, 0.02),
+            object_high=(x_high - 0.01, y_high - 0.01, 0.02),
+            use_textures=False,
+            init_camera=sawyer_init_camera_zoomed_in,
+            cylinder_radius=0.05,
         ),
 
         grill_variant=dict(
@@ -54,6 +74,7 @@ if __name__ == "__main__":
             ),
             max_path_length=100,
             algo_kwargs=dict(
+                batch_size=128,
                 num_epochs=501,
                 num_eval_steps_per_epoch=1000,
                 num_expl_steps_per_train_loop=1000,
@@ -109,7 +130,7 @@ if __name__ == "__main__":
         ),
         train_vae_variant=dict(
             beta=1,
-            num_epochs=1,
+            num_epochs=200,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -134,13 +155,13 @@ if __name__ == "__main__":
             vae_class=BiGAN,
             vae_kwargs=dict(
                 # representation_size=7,
-                dropout=0.2,
+                # dropout=0.2,
                 imsize=48,
             ),
             only_kwargs=True,
             algo_kwargs=dict(
                 batch_size=128,
-                lr=0.0002,
+                lr=0.0002
                 # generator_threshold=3.5
             ),
             save_period=10,
@@ -163,8 +184,8 @@ if __name__ == "__main__":
     search_space = {
         'seedid': range(1),
         'train_vae_variant.vae_kwargs.representation_size': [4, 8, 16, 32, 64, 128, 256],
-        'train_vae_variant.vae_kwargs.dropout': [0.15, 0.18, 0.2, 0.22, 0.25],
-        'train_vae_variant.algo_kwargs.generator_threshold': [2, 3, 4, 5]
+        'train_vae_variant.vae_kwargs.dropout': [0.18, 0.2, 0.22],
+        'train_vae_variant.algo_kwargs.generator_threshold': [2.5, 3.5, 4.5]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

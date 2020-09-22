@@ -282,16 +282,16 @@ class VQ_VAE(nn.Module):
         self.input_channels = input_channels
         self.imlength = imsize * imsize * input_channels
         self.num_embeddings = num_embeddings
-        
+
         self._encoder = Encoder(input_channels, num_hiddens,
             num_residual_layers,
             num_residual_hiddens)
-        
+
         self._pre_vq_conv = nn.Conv2d(in_channels=num_hiddens,
             out_channels=self.embedding_dim,
             kernel_size=1,
             stride=1)
-        
+
         if decay > 0.0:
             self._vq_vae = VectorQuantizerEMA(num_embeddings,
                 self.embedding_dim,
@@ -299,7 +299,7 @@ class VQ_VAE(nn.Module):
         else:
             self._vq_vae = VectorQuantizer(num_embeddings, self.embedding_dim,
                 commitment_cost)
-        
+
         self._decoder = Decoder(self.embedding_dim,
             num_hiddens,
             num_residual_layers,
@@ -376,7 +376,7 @@ class VQ_VAE(nn.Module):
     def sample_conditional_indices(self, batch_size, cond):
         if cond.shape[0] == 1:
             cond = cond.repeat(batch_size, axis=0)
-        cond = ptu.from_numpy(cond)       
+        cond = ptu.from_numpy(cond)
 
         sampled_indices = self.pixel_cnn.generate(
             shape=(self.root_len, self.root_len),

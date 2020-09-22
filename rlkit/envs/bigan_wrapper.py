@@ -79,12 +79,6 @@ class BiGANWrappedEnv(VAEWrappedEnv):
         spaces['latent_achieved_goal'] = latent_space
         self.observation_space = Dict(spaces)
 
-
-    def get_latent_distance(self, latent1, latent2):
-        latent1 = ptu.from_numpy(latent1)
-        latent2 = ptu.from_numpy(latent2)
-        return self.vae.get_distance(latent1, latent2)
-
     def _update_info(self, info, obs):
         self.vae.eval()
         latent_obs = self._encode_one(obs[self.vae_input_observation_key])[None]
@@ -95,49 +89,6 @@ class BiGANWrappedEnv(VAEWrappedEnv):
         info["vae_mdist"] = 0
         info["vae_dist_l1"] = 0 #np.linalg.norm(dist, ord=1)
         info["vae_dist_l2"] = 0 #np.linalg.norm(dist, ord=2)
-
-    def compute_rewards(self, actions, obs):
-        self.vae.eval()
-        # TODO: implement log_prob/mdist
-        if self.reward_type == 'latent_distance':
-            achieved_goals = obs['latent_achieved_goal']
-            desired_goals = obs['latent_desired_goal']
-            dist = self.get_latent_distance(achieved_goals, desired_goals)
-            return -dist
-        elif self.reward_type == 'latent_sparse':
-            achieved_goals = obs['latent_achieved_goal']
-            desired_goals = obs['latent_desired_goal']
-            dist = self.get_latent_distance(achieved_goals, desired_goals)
-            success = dist < self.epsilon
-            reward = success - 1
-            return reward
-        #WARNING: BELOW ARE HARD CODED FOR SIM PUSHER ENV (IN DIMENSION SIZES)
-        elif self.reward_type == 'state_distance':
-            achieved_goals = obs['state_achieved_goal'].reshape(-1, 4)
-            desired_goals = obs['state_desired_goal'].reshape(-1, 4)
-            return - np.linalg.norm(desired_goals - achieved_goals, axis=1)
-        elif self.reward_type == 'state_sparse':
-            ob_p = obs['state_achieved_goal'].reshape(-1, 2, 2)
-            goal = obs['state_desired_goal'].reshape(-1, 2, 2)
-            distance = np.linalg.norm(ob_p - goal, axis=2)
-            max_dist = np.linalg.norm(distance, axis=1, ord=np.inf)
-            success = max_dist < self.epsilon
-            reward = success - 1
-            return reward
-        elif self.reward_type == 'state_hand_distance':
-            ob_p = obs['state_achieved_goal'].reshape(-1, 2, 2)
-            goal = obs['state_desired_goal'].reshape(-1, 2, 2)
-            distance = np.linalg.norm(ob_p - goal, axis=2)[:, :1]
-            return - distance
-        elif self.reward_type == 'state_puck_distance':
-            ob_p = obs['state_achieved_goal'].reshape(-1, 2, 2)
-            goal = obs['state_desired_goal'].reshape(-1, 2, 2)
-            distance = np.linalg.norm(ob_p - goal, axis=2)[:, 1:]
-            return - distance
-        elif self.reward_type == 'wrapped_env':
-            return self.wrapped_env.compute_rewards(actions, obs)
-        else:
-            raise NotImplementedError
 
     # def _decode(self, latents):
     #     #MAKE INTEGER
@@ -157,7 +108,7 @@ class BiGANWrappedEnv(VAEWrappedEnv):
         return decoded
 
     def _encode(self, imgs):
-        imgs = imgs.reshape(-1, 3, 32, 32)
+        imgs = imgs.reshape(-1, 3, 48, 48)
         self.vae.eval()
         latents = self.vae.netE(ptu.from_numpy(imgs))
         latents = np.array(ptu.get_numpy(latents[0])).reshape((-1, self.vae.representation_size))
