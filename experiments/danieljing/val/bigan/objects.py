@@ -16,7 +16,6 @@ from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 from rlkit.data_management.online_vae_replay_buffer import \
         OnlineVaeRelabelingBuffer
 
-
 x_var = 0.2
 x_low = -x_var
 x_high = x_var
@@ -31,29 +30,8 @@ if __name__ == "__main__":
         imsize=48,
         init_camera=sawyer_init_camera_zoomed_in,
         env_class=SawyerMultiobjectEnv,
-
         env_kwargs=dict(
-            fixed_start=True,
-            fixed_colors=False,
-            num_objects=1,
-            object_meshes=None,
-            preload_obj_dict=
-            [{'color1': [1, 1, 1],
-            'color2': [1, 1, 1]}],
-            num_scene_objects=[1],
-            maxlen=0.1,
-            action_repeat=1,
-            puck_goal_low=(x_low + 0.01, y_low + 0.01),
-            puck_goal_high=(x_high - 0.01, y_high - 0.01),
-            hand_goal_low=(x_low + 0.01, y_low + 0.01),
-            hand_goal_high=(x_high - 0.01, y_high - 0.01),
-            mocap_low=(x_low, y_low, 0.0),
-            mocap_high=(x_high, y_high, 0.5),
-            object_low=(x_low + 0.01, y_low + 0.01, 0.02),
-            object_high=(x_high - 0.01, y_high - 0.01, 0.02),
-            use_textures=False,
-            init_camera=sawyer_init_camera_zoomed_in,
-            cylinder_radius=0.05,
+
         ),
 
         grill_variant=dict(
@@ -61,11 +39,8 @@ if __name__ == "__main__":
             save_video=True,
             custom_goal_sampler='replay_buffer',
             online_vae_trainer_kwargs=dict(
-                ngpu = 1,
                 beta = 0.5,
-                lr = 0.0002,
-                latent_size = 256,
-                generator_threshold = 3.5,
+                lr = 0.0002
             ),
             save_video_period=100,
             qf_kwargs=dict(
@@ -79,10 +54,11 @@ if __name__ == "__main__":
             ),
             max_path_length=100,
             algo_kwargs=dict(
-                num_epochs=1001,
+                num_epochs=501,
                 num_eval_steps_per_epoch=1000,
                 num_expl_steps_per_train_loop=1000,
                 min_num_steps_before_training=4000,
+                num_trains_per_train_loop=4000,
                 vae_training_schedule=vae_schedules.never_train,
                 oracle_data=False,
                 vae_save_period=25,
@@ -133,7 +109,7 @@ if __name__ == "__main__":
         ),
         train_vae_variant=dict(
             beta=1,
-            num_epochs=250,
+            num_epochs=1,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -157,15 +133,15 @@ if __name__ == "__main__":
             vae_trainer_class=BiGANTrainer,
             vae_class=BiGAN,
             vae_kwargs=dict(
-                representation_size=7,
+                # representation_size=7,
                 dropout=0.2,
                 imsize=48,
             ),
             only_kwargs=True,
             algo_kwargs=dict(
-                lr=0.0002,
                 batch_size=128,
-                generator_threshold=3.5
+                lr=0.0002,
+                # generator_threshold=3.5
             ),
             save_period=10,
         ),
@@ -186,9 +162,8 @@ if __name__ == "__main__":
 
     search_space = {
         'seedid': range(1),
-        'train_vae_variant.vae_kwargs.representation_size': [7],
-        'train_vae_variant.algo_kwargs.batch_size': [128],
-        'grill_variant.algo_kwargs.num_trains_per_train_loop':[4000],
+        'train_vae_variant.vae_kwargs.representation_size': [4, 8, 16, 32, 64, 128, 256],
+        'train_vae_variant.algo_kwargs.generator_threshold': [2, 3, 4, 5]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

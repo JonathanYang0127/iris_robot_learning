@@ -41,21 +41,21 @@ class BiGANWrappedEnv(VAEWrappedEnv):
         if reward_params is None:
             reward_params = dict()
         super().__init__(
-            wrapped_env,
-            vae,
-            vae_input_key_prefix,
-            sample_from_true_prior,
-            decode_goals,
-            decode_goals_on_reset,
-            render_goals,
-            render_rollouts,
-            reward_params,
-            goal_sampling_mode,
-            imsize,
-            obs_size,
-            norm_order,
-            epsilon,
-            presampled_goals,
+            wrapped_env = wrapped_env,
+            vae = vae,
+            vae_input_key_prefix = vae_input_key_prefix,
+            sample_from_true_prior = sample_from_true_prior,
+            decode_goals = decode_goals,
+            decode_goals_on_reset = decode_goals_on_reset,
+            render_goals = render_goals,
+            render_rollouts = render_rollouts,
+            reward_params = reward_params,
+            goal_sampling_mode = goal_sampling_mode,
+            imsize = imsize,
+            obs_size = obs_size,
+            norm_order = norm_order,
+            epsilon = epsilon,
+            presampled_goals = presampled_goals,
             )
 
         if type(pixel_cnn) is str:
