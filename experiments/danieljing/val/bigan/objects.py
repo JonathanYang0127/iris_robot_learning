@@ -184,7 +184,7 @@ if __name__ == "__main__":
     search_space = {
         'seedid': range(1),
         'train_vae_variant.vae_kwargs.representation_size': [4, 8, 16, 32, 64, 128, 256],
-        'train_vae_variant.vae_kwargs.dropout': [0.18, 0.2, 0.22],
+        'train_vae_variant.vae_kwargs.dropout': [0.18, 0.22],
         'train_vae_variant.algo_kwargs.generator_threshold': [2.5, 3.5, 4.5]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
