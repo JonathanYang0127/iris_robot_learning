@@ -239,17 +239,10 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             **kwargs)
         self.model = load_local_or_remote_file(model_path)
         self.reward_fn = reward_fn
-<<<<<<< HEAD
         self.normalize = normalize
         self.env = env
-=======
-
-        self.normalize = normalize
-        self.env = env
-        self.do_preprocess = do_preprocess
 
         print("ZEROING OUT GOALS")
->>>>>>> origin/master
 
     def preprocess(self, observation):
         observation = copy.deepcopy(observation)
@@ -301,10 +294,6 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             ob = traj_obs[i]
             next_ob = next_traj_obs[i]
             action = path["actions"][i]
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/master
             reward = path["rewards"][i]
             terminal = path["terminals"][i]
             if not self.load_terminals:

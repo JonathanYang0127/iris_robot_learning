@@ -7,15 +7,15 @@ from rlkit.torch.gan.bigan import BiGAN
 from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 from multiworld.envs.pygame.multiobject_pygame_env import Multiobj2DEnv
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
-from rlkit.launchers.config import CELEBA_DATASET
-from experiments.danieljing.large_scale_rig.gan_launcher import train_gan
+from rlkit.launchers.config import CIFAR10_DATASET
+from experiments.danieljing.val.gan_launcher import train_gan
 
 if __name__ == "__main__":
 
     variant = dict(
-        num_epochs=12,
-        dataset = 'celebfaces',
-        dataroot = CELEBA_DATASET,
+        num_epochs=20,
+        dataset = 'cifar10',
+        dataroot = CIFAR10_DATASET,
         num_workers = 2,
         batch_size = 100,
         image_size = 32,
@@ -25,9 +25,9 @@ if __name__ == "__main__":
         beta = 0.5,
         lr = 1e-4,
         latent_size = 256,
+        dropout = 0.2,
         output_size = 1,
-        dropout = 0,
-        generator_threshold = 100,
+        generator_threshold = 3.5,
         #nc = 3,
         #ngf =
         #ndf =
@@ -44,9 +44,7 @@ if __name__ == "__main__":
         ),
     )
     search_space = {
-        'seedid': range(1),
-        #'dropout': [0, 0.05, 0.1, 0.15, 0.2],
-        #'generator_threshold': [1, 2, 3, 4]
+        'seedid': range(1)
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

@@ -4,46 +4,41 @@ from experiments.murtaza.multiworld.skew_fit.reacher.generate_uniform_dataset im
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in, sawyer_pusher_camera_upright_v2
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
-from rlkit.torch.gan.bigan import BiGAN
-from rlkit.torch.gan.bigan_trainer import BiGANTrainer
+from rlkit.torch.gan.dcgan import DCGAN
+from rlkit.torch.gan.dcgan_trainer import DCGANTrainer
 from multiworld.envs.pygame.multiobject_pygame_env import Multiobj2DEnv
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
-from rlkit.launchers.config import BAIR_DATASET
-from experiments.danieljing.visual_affordance.gan_launcher import train_gan
+from rlkit.data_management.external.bair_dataset.config import BAIR_DATASET_LOCATION
+from experiments.danieljing.val.gan_launcher import train_gan
 
 if __name__ == "__main__":
 
     variant = dict(
-        region="us-west-2",
-        num_epochs=100,
+        num_epochs=5,
         dataset = "bair",
-        dataset_kwargs=dict(
-            image_size = 32,
+        generate_dataset_kwargs=dict(
+            image_size = 64,
             flatten = False,
             transpose = [2, 0, 1],
-            shift = 0,
-            dataset_location=BAIR_DATASET,
-            # train_batch_loader_kwargs=dict(
-            #     batch_size=100,
-            #     num_workers=2,
-            # ),
-            # test_batch_loader_kwargs=dict(
-            #     batch_size=100,
-            #     num_workers=0,
-            # ),
+            shift = 0.5,
+            train_batch_loader_kwargs=dict(
+                batch_size=128,
+                num_workers=2,
+            ),
+            test_batch_loader_kwargs=dict(
+                batch_size=128,
+                num_workers=0,
+            ),
         ),
-        gan_trainer_class=BiGANTrainer,
-        gan_class=BiGAN,
+        gan_trainer_class=DCGANTrainer,
+        gan_class=DCGAN,
         ngpu = 1,
         beta = 0.5,
         lr = 0.0002,
-        latent_size = 256,
-        output_size = 1,
-        dropout = 0.2,
-        generator_threshold = 3.5,
-        #nc = 3,
-        #ngf =
-        #ndf =
+        nc = 3,
+        latent_size = 100,
+        ngf = 64,
+        ndf = 64,
 
         save_period=25,
         logger_variant=dict(
@@ -58,8 +53,7 @@ if __name__ == "__main__":
     )
     search_space = {
         'seedid': range(1),
-        #'dropout': [0.08, 0.1, 0.12],
-        #'generator_threshold': [2, 3, 4]
+        'representation_size': [64]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

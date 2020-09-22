@@ -1,4 +1,3 @@
-
 import rlkit.misc.hyperparameter as hyp
 from experiments.murtaza.multiworld.skew_fit.reacher.generate_uniform_dataset import generate_uniform_dataset_reacher
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in, sawyer_pusher_camera_upright_v2
@@ -11,10 +10,11 @@ from rlkit.torch.grill.cvae_experiments import (
 from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
 from multiworld.envs.pygame.multiobject_pygame_env import Multiobj2DEnv
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
-from rlkit.torch.gan.bigan import ConditionalBiGAN
-from rlkit.torch.gan.bigan_trainer import ConditionalBiGANTrainer
+from rlkit.torch.gan.bigan import BiGAN
+from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 from rlkit.data_management.online_vae_replay_buffer import \
         OnlineVaeRelabelingBuffer
+from experiments.danieljing.val.gan_launcher import train_gan
 
 
 x_var = 0.2
@@ -37,9 +37,9 @@ if __name__ == "__main__":
             fixed_colors=False,
             num_objects=1,
             object_meshes=None,
-            # preload_obj_dict=
-            # [{'color1': [1, 1, 1],
-            # 'color2': [1, 1, 1]}],
+            preload_obj_dict=
+            [{'color1': [1, 1, 1],
+            'color2': [1, 1, 1]}],
             num_scene_objects=[1],
             maxlen=0.1,
             action_repeat=1,
@@ -51,20 +51,21 @@ if __name__ == "__main__":
             mocap_high=(x_high, y_high, 0.5),
             object_low=(x_low + 0.01, y_low + 0.01, 0.02),
             object_high=(x_high - 0.01, y_high - 0.01, 0.02),
-            use_textures=True,
+            use_textures=False,
             init_camera=sawyer_init_camera_zoomed_in,
             cylinder_radius=0.05,
         ),
 
         grill_variant=dict(
+            vae_trainer_class=BiGANTrainer,
             save_video=True,
             custom_goal_sampler='replay_buffer',
             online_vae_trainer_kwargs=dict(
-                ngpu = 1, 
-                beta = 0.5,
-                lr = 0.0002,
-                latent_size = 256,
-                generator_threshold = 3.5,
+                #ngpu = 1,
+                #beta = 0.5,
+                #lr = 0.0002,
+                #latent_size = 256,
+                #generator_threshold = 3.5,
             ),
             save_video_period=100,
             qf_kwargs=dict(
@@ -131,18 +132,21 @@ if __name__ == "__main__":
             ),
         ),
         train_vae_variant=dict(
-            beta=1,
-            num_epochs=501,
+            simpusher=True,
+            beta=0.5,
+            beta_schedule_kwargs=dict(
+                x_values=(0, 500),
+                y_values=(1, 50),
+            ),
+            num_epochs=40,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
             generate_vae_dataset_kwargs=dict(
-                #dataset_path='/home/ashvin/Desktop/sim_puck_data.npy',
-                dataset_path={'train': '/home/ashvin/data/sasha/spacemouse/recon_data/train.npy',
-                            'test': '/home/ashvin/data/sasha/spacemouse/recon_data/test.npy'},
                 N=10000,
-                n_random_steps=2,
+                n_random_steps=50,
                 test_p=.9,
+                dataset_path=None,
                 use_cached=False,
                 show=False,
                 oracle_dataset=False,
@@ -154,20 +158,21 @@ if __name__ == "__main__":
                 save_trajectories=False,
                 enviorment_dataset=False,
             ),
-            vae_trainer_class=ConditionalBiGANTrainer,
-            vae_class=ConditionalBiGAN,
-            vae_kwargs=dict(
-                representation_size=4,
-                dropout=0.2,
-                imsize=32,
+            vae_trainer_class=BiGANTrainer,
+            vae_class=BiGAN,
+            train_fn = train_gan,
+            gan_kwargs=dict(
+                #ngpu = 1,
+                #dropout = 0.2,
+                #output_size = 1
             ),
-            only_kwargs=True,
             algo_kwargs=dict(
-                lr=0.0002,
-                batch_size=128,
-                generator_threshold=3.5
+                ngpu = 1,
+                lr = 0.0002,
+                generator_threshold = 3.5
             ),
-            save_period=10,
+
+            save_period=100,
         ),
         launcher_config=dict(
             region='us-west-2'
@@ -186,9 +191,13 @@ if __name__ == "__main__":
 
     search_space = {
         'seedid': range(1),
-        'train_vae_variant.vae_kwargs.representation_size': [20],
+        'train_vae_variant.latent_size': [4, 8, 16, 32, 64, 128, 256],
         'train_vae_variant.algo_kwargs.batch_size': [128],
         'grill_variant.algo_kwargs.num_trains_per_train_loop':[4000],
+        'grill_variant.reward_params.epsilon': [0, 0.001, 0.0025, 0.005, 0.075],
+        'grill_variant.algo_kwargs.batch_size': [128,],
+        'grill_variant.exploration_noise': [0.8],
+
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -198,4 +207,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=1)
+    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=0)
