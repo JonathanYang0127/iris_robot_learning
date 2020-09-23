@@ -16,7 +16,7 @@ from rlkit.envs.contextual.contextual_env import (
     Context,
     Diagnostics,
 )
-from rlkit.envs.images import Renderer
+from rlkit.envs.images import EnvRenderer
 
 Observation = Dict
 Goal = Any
@@ -56,7 +56,7 @@ class AddImageDistribution(DictDistribution):
             self,
             env: MultitaskEnv,
             base_distribution: DictDistribution,
-            renderer: Renderer,
+            renderer: EnvRenderer,
             image_goal_key='image_desired_goal',
             _suppress_warning=False,
     ):
@@ -194,15 +194,26 @@ class L2Distance(ContextualRewardFn):
             self,
             achieved_goal_from_observation: Callable[[Observation], Goal],
             desired_goal_key='desired_goal',
+            dimension_weights=None,
     ):
         self._desired_goal_key = desired_goal_key
         self._achieved_goal_from_observation = achieved_goal_from_observation
+        self._dimension_weights = dimension_weights
 
     def __call__(self, states, actions, next_states, contexts):
         del states
         achieved = self._achieved_goal_from_observation(next_states)
         desired = contexts[self._desired_goal_key]
-        return np.linalg.norm(achieved - desired, axis=-1)
+        if self._dimension_weights is None:
+            distance = np.linalg.norm(achieved - desired, axis=-1)
+        else:
+            difference = achieved - desired
+            weighted_difference = (
+                    self._dimension_weights[None, :]
+                    * difference
+            )
+            distance = np.linalg.norm(weighted_difference, axis=-1)
+        return distance
 
 
 class NegativeL2Distance(ContextualRewardFn):
@@ -210,15 +221,17 @@ class NegativeL2Distance(ContextualRewardFn):
             self,
             achieved_goal_from_observation: Callable[[Observation], Goal],
             desired_goal_key='desired_goal',
+            dimension_weights=None,
     ):
-        self._desired_goal_key = desired_goal_key
-        self._achieved_goal_from_observation = achieved_goal_from_observation
+        self.distance_fn = L2Distance(
+            achieved_goal_from_observation,
+            desired_goal_key=desired_goal_key,
+            dimension_weights=dimension_weights,
+        )
 
     def __call__(self, states, actions, next_states, contexts):
-        del states
-        achieved = self._achieved_goal_from_observation(next_states)
-        desired = contexts[self._desired_goal_key]
-        return - np.linalg.norm(achieved - desired, axis=-1)
+        distance = self.distance_fn(states, actions, next_states, contexts)
+        return - distance
 
 
 class ThresholdDistanceReward(ContextualRewardFn):
@@ -230,12 +243,11 @@ class ThresholdDistanceReward(ContextualRewardFn):
         distance = self._distance_fn(states, actions, next_states, contexts)
         return -(distance > self._distance_threshold).astype(np.float32)
 
-
-class GoalConditionedDiagnosticsToContextualDiagnostics(ContextualDiagnosticsFn):
+class GoalConditionedDiagnosticsToContextualDiagnostics():
     # use a class rather than function for serialization
     def __init__(
             self,
-            goal_conditioned_diagnostics: GoalConditionedDiagnosticsFn,
+            goal_conditioned_diagnostics,
             desired_goal_key: str,
             observation_key: str,
     ):
@@ -243,8 +255,9 @@ class GoalConditionedDiagnosticsToContextualDiagnostics(ContextualDiagnosticsFn)
         self._desired_goal_key = desired_goal_key
         self._observation_key = observation_key
 
-    def __call__(self, paths: List[Path],
-                 contexts: List[Context]) -> Diagnostics:
+#    def __call__(self, paths: List[Path],
+#                 contexts: List[Context]) -> Diagnostics:
+    def __call__(self, paths, contexts):
         goals = [c[self._desired_goal_key] for c in contexts]
         non_contextual_paths = [self._remove_context(p) for p in paths]
         return self._goal_conditioned_diagnostics(non_contextual_paths, goals)

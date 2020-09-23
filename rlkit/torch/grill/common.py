@@ -157,7 +157,7 @@ def train_vae(variant, return_data=False):
         should_save_imgs = (epoch % save_period == 0)
         trainer.train_epoch(epoch, train_dataset)
         trainer.test_epoch(epoch, test_dataset)
-        
+
         if should_save_imgs:
             trainer.dump_reconstructions(epoch)
             trainer.dump_samples(epoch)
@@ -371,7 +371,7 @@ def generate_vae_dataset(variant):
                     env.step(u)
                 elif oracle_dataset_using_set_to_goal:
                     print(i)
-                    
+
                     goal = env.sample_goal()
                     env.set_to_goal(goal)
                     obs = env._get_obs()

@@ -32,7 +32,7 @@ class BiGANTrainer():
         self.D_losses = {}
         self.iters = 0
         self.criterion = nn.BCELoss()
-        
+
         self.ngpu = ngpu
         self.lr = lr
         self.beta = beta
@@ -43,8 +43,8 @@ class BiGANTrainer():
         self.optimizerG = optim.Adam([{'params' : self.model.netE.parameters()},
                          {'params' : self.model.netG.parameters()}], lr=lr, betas=(beta,0.999))
         self.optimizerD = optim.Adam(self. model.netD.parameters(), lr=lr, betas=(beta, 0.999))
-    
-   
+
+
     @property
     def log_dir(self):
         return logger.get_snapshot_dir()
@@ -71,7 +71,7 @@ class BiGANTrainer():
             b_size = real_d.size(0)
 
             real_label = torch.ones(b_size, device = self.device)
-            fake_label = torch.zeros(b_size, device = self.device) 
+            fake_label = torch.zeros(b_size, device = self.device)
 
             noise1 = self.noise(data.size(), num_epochs, epoch)
             noise2 = self.noise(data.size(), num_epochs, epoch)
@@ -150,7 +150,7 @@ class BiGANTrainer():
         return self.G_losses
 
     def get_D_losses(self):
-        return self.D_losses    
+        return self.D_losses
 
     def get_model(self):
         return self.model
