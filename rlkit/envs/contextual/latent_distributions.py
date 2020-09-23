@@ -1,6 +1,8 @@
 import numpy as np
 from gym.spaces import Box, Dict
 from rlkit.core.distribution import DictDistribution
+from rlkit.misc.asset_loader import load_local_or_remote_file
+
 
 
 class AddLatentDistribution(DictDistribution):
@@ -57,6 +59,37 @@ class PriorDistribution(DictDistribution):
         mu, sigma = 0, 1 # sample from prior
         n = np.random.randn(batch_size, self.representation_size)
         s[self.key] = sigma * n + mu
+        return s
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+class PresampledPriorDistribution(DictDistribution):
+    def __init__(
+            self,
+            datapath,
+            key,
+            dist=None,
+    ):
+        self._spaces = dist.spaces if dist else {}
+        self._presampled_goals = load_local_or_remote_file(datapath)
+        self._num_presampled_goals = self._presampled_goals.shape[0]
+        self.representation_size = self._presampled_goals.shape[1]
+        self.dist = dist
+        self.key = key
+        latent_space = Box(
+            -10 * np.ones(self.representation_size),
+            10 * np.ones(self.representation_size),
+            dtype=np.float32,
+        )
+        self._spaces[key] = latent_space
+
+
+    def sample(self, batch_size: int, context=None):
+        s = self.dist.sample(batch_size) if self.dist else {}
+        idx = np.random.randint(0, self._num_presampled_goals, batch_size)
+        s[self.key] = self._presampled_goals[idx, :]
         return s
 
     @property

@@ -69,6 +69,7 @@ from rlkit.envs.contextual.goal_conditioned import (
 )
 from rlkit.envs.contextual.latent_distributions import (
     AmortizedConditionalPriorDistribution,
+    PresampledPriorDistribution,
     ConditionalPriorDistribution,
     AmortizedPriorDistribution,
     AddLatentDistribution,
@@ -519,6 +520,7 @@ def awac_rig_experiment(
         imsize=84,
         input_representation="",
         goal_representation="",
+        presampled_goal_kwargs=None,
         presampled_goals_path="",
         num_presample=0,
         init_camera=None,
@@ -533,6 +535,9 @@ def awac_rig_experiment(
         reset_keys_map = {}
     if demo_replay_buffer_kwargs is None:
         demo_replay_buffer_kwargs = {}
+    if presampled_goal_kwargs is None:
+        presampled_goal_kwargs = \
+            {'eval_goals': '','expl_goals': ''}
     if path_loader_kwargs is None:
         path_loader_kwargs = {}
     if not save_video_kwargs:
@@ -596,17 +601,22 @@ def awac_rig_experiment(
                 num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
-        elif goal_sampling_mode == "presampled":
+        elif goal_sampling_mode == "presampled_images":
             diagnostics = state_env.get_contextual_diagnostics
             image_goal_distribution = PresampledPathDistribution(
                 presampled_goals_path,
             )
-
             latent_goal_distribution = AddLatentDistribution(
                 image_goal_distribution,
                 image_goal_key,
                 desired_goal_key,
                 model,
+            )
+        elif goal_sampling_mode == "presampled_latents":
+            diagnostics = state_env.get_contextual_diagnostics
+            latent_goal_distribution = PresampledPriorDistribution(
+                presampled_goals_path,
+                desired_goal_key,
             )
         elif goal_sampling_mode == "reset_of_env":
             state_goal_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
@@ -659,10 +669,10 @@ def awac_rig_experiment(
 
     #Environment Definitions
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, exploration_goal_sampling_mode, presampled_goals_path, num_presample
+        env_id, env_class, env_kwargs, exploration_goal_sampling_mode, presampled_goal_kwargs['expl_goals'], num_presample
     )
     eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, evaluation_goal_sampling_mode, presampled_goals_path, num_presample
+        env_id, env_class, env_kwargs, evaluation_goal_sampling_mode, presampled_goal_kwargs['eval_goals'], num_presample
     )
     path_loader_kwargs['env'] = eval_env
 

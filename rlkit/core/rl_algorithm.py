@@ -125,7 +125,10 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
                    prefix='expl/')
         expl_paths = self.expl_data_collector.get_epoch_paths()
         for fn in self._expl_get_diag_fns:
-            append_log(algo_log, fn(expl_paths), prefix='expl/')
+            try:
+                append_log(algo_log, fn(expl_paths), prefix='expl/')
+            except KeyError:
+                pass
         # Eval
         if self.epoch % self._eval_epoch_freq == 0:
             self._prev_eval_log = OrderedDict()
