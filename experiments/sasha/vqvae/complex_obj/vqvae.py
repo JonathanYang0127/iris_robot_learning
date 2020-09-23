@@ -16,6 +16,13 @@ from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.data_management.online_conditional_vae_replay_buffer import \
         OnlineConditionalVaeRelabelingBuffer
 
+x_var = 0.2
+x_low = -x_var
+x_high = x_var
+y_low = 0.5
+y_high = 0.7
+t = 0.05
+
 
 if __name__ == "__main__":
     variant = dict(
@@ -24,8 +31,29 @@ if __name__ == "__main__":
         imsize=48,
         init_camera=sawyer_init_camera_zoomed_in,
         env_class=SawyerMultiobjectEnv,
-        env_kwargs=dict(),
-
+        env_kwargs=dict(
+            fixed_start=True,
+            fixed_colors=False,
+            num_objects=1,
+            object_meshes=None,
+            preload_obj_dict=
+            [{'color1': [1, 1, 1],
+            'color2': [1, 1, 1]}],
+            num_scene_objects=[1],
+            maxlen=0.1,
+            action_repeat=1,
+            puck_goal_low=(x_low + 0.01, y_low + 0.01),
+            puck_goal_high=(x_high - 0.01, y_high - 0.01),
+            hand_goal_low=(x_low + 0.01, y_low + 0.01),
+            hand_goal_high=(x_high - 0.01, y_high - 0.01),
+            mocap_low=(x_low, y_low, 0.0),
+            mocap_high=(x_high, y_high, 0.5),
+            object_low=(x_low + 0.01, y_low + 0.01, 0.02),
+            object_high=(x_high - 0.01, y_high - 0.01, 0.02),
+            use_textures=False,
+            init_camera=sawyer_init_camera_zoomed_in,
+            cylinder_radius=0.05,
+        ),
         grill_variant=dict(
             save_video=True,
             custom_goal_sampler='replay_buffer',
@@ -46,7 +74,7 @@ if __name__ == "__main__":
             max_path_length=100,
             algo_kwargs=dict(
                 batch_size=128,
-                num_epochs=501,
+                num_epochs=1,
                 num_eval_steps_per_epoch=1000,
                 num_expl_steps_per_train_loop=1000,
                 num_trains_per_train_loop=1000,
@@ -104,7 +132,7 @@ if __name__ == "__main__":
                 x_values=(0, 250),
                 y_values=(0, 100),
             ),
-            num_epochs=1501,
+            num_epochs=1,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -112,8 +140,7 @@ if __name__ == "__main__":
                 N=1000,
                 n_random_steps=2,
                 test_p=.9,
-                dataset_path={'train': 'sasha/complex_obj/gr_train_complex_obj_images.npy',
-                          'test': 'sasha/complex_obj/gr_test_complex_obj_images.npy'},
+                dataset_path={'train': 'projects/val/gans/objects/train.npy', 'test': 'projects/val/gans/objects/test.npy'},
                 augment_data=False,
                 use_cached=False,
                 show=False,
