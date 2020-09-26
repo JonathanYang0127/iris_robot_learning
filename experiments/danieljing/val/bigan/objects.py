@@ -75,7 +75,7 @@ if __name__ == "__main__":
             max_path_length=100,
             algo_kwargs=dict(
                 batch_size=128,
-                num_epochs=501,
+                num_epochs=0,
                 num_eval_steps_per_epoch=1000,
                 num_expl_steps_per_train_loop=1000,
                 min_num_steps_before_training=4000,
@@ -130,7 +130,7 @@ if __name__ == "__main__":
         ),
         train_vae_variant=dict(
             beta=1,
-            num_epochs=200,
+            num_epochs=250,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -154,20 +154,17 @@ if __name__ == "__main__":
             vae_trainer_class=BiGANTrainer,
             vae_class=BiGAN,
             vae_kwargs=dict(
-                # representation_size=7,
-                # dropout=0.2,
                 imsize=48,
             ),
             only_kwargs=True,
             algo_kwargs=dict(
                 batch_size=128,
                 lr=0.0002
-                # generator_threshold=3.5
             ),
             save_period=10,
         ),
         launcher_config=dict(
-            region='us-west-2'
+            region='us-east-2'
         ),
 
         logger_variant=dict(
@@ -184,8 +181,8 @@ if __name__ == "__main__":
     search_space = {
         'seedid': range(1),
         'train_vae_variant.vae_kwargs.representation_size': [4, 8, 16, 32, 64, 128, 256],
-        'train_vae_variant.vae_kwargs.dropout': [0.18, 0.22],
-        'train_vae_variant.algo_kwargs.generator_threshold': [2.5, 3.5, 4.5]
+        'train_vae_variant.vae_kwargs.dropout': [0.15, 0.18, 0.2, 0.22, 0.25],
+        'train_vae_variant.algo_kwargs.generator_threshold': [2.5, 3, 3.5, 4, 4.5]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

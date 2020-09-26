@@ -49,16 +49,16 @@ def train_vae_and_update_variant(variant):
             'progress.csv', relative_to_snapshot_dir=True
         )
         logger.add_tabular_output(
-            'vae_progress.csv', relative_to_snapshot_dir=True
+            'model_progress.csv', relative_to_snapshot_dir=True
         )
         vae, vae_train_data, vae_test_data = train_fn(train_vae_variant,
                                                        return_data=True)
         if grill_variant.get('save_vae_data', False):
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
-        logger.save_extra_data(vae, 'vae.pkl', mode='pickle')
+        logger.save_extra_data(vae, 'model', mode='pickle')
         logger.remove_tabular_output(
-            'vae_progress.csv',
+            'model_progress.csv',
             relative_to_snapshot_dir=True,
         )
         logger.add_tabular_output(
@@ -174,7 +174,7 @@ def train_vae(variant, return_data=False):
 
         if epoch % 50 == 0:
             logger.save_itr_params(epoch, model)
-    logger.save_extra_data(model, 'vae.pkl', mode='pickle')
+    logger.save_extra_data(model, 'model', mode='pickle')
 
     if return_data:
         return model, train_dataset, test_dataset
