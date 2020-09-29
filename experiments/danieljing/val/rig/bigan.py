@@ -7,25 +7,24 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from rlkit.torch.networks import Clamp
 
-demo_paths_1=[dict(path='projects/val/input/objects/gr/train/0.pkl', obs_dict=True, is_demo=True),
-                dict(path='projects/val/input/objects/gr/train/1.pkl', obs_dict=True, is_demo=True),
-                dict(path='projects/val/input/objects/gr/train/2.pkl', obs_dict=True, is_demo=True)]
+demo_paths_1=[dict(path='projects/val/rig/objects/gr_train0.pkl', obs_dict=True, is_demo=True),
+                dict(path='projects/val/rig/objects/gr_train1.pkl', obs_dict=True, is_demo=True),
+                dict(path='projects/val/rig/objects/gr_train2.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_2=[dict(path='projects/val/input/objects/gr/train/0.pkl', obs_dict=True, is_demo=True),
-             dict(path='projects/val/input/objects/gr/train/1.pkl', obs_dict=True, is_demo=True)]
+demo_paths_2=[dict(path='projects/val/rig/objects/gr_train0.pkl', obs_dict=True, is_demo=True),
+             dict(path='projects/val/rig/objects/gr_train1.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_3=[dict(path='projects/val/input/objects/gr/train/0.pkl', obs_dict=True, is_demo=True)]
+demo_paths_3=[dict(path='projects/val/rig/objects/gr_train0.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_4=[dict(path='projects/val/input/objects/gr/train/0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
+demo_paths_4=[dict(path='projects/val/rig/objects/gr_train0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
 
-demo_paths_5=[dict(path='projects/val/input/objects/gr/train/0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
+demo_paths_5=[dict(path='projects/val/rig/objects/gr_train0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
 
-beer_bottle_goals = 'projects/val/input/goals/bottle.pkl'
-camera_goals = 'projects/val/input/goals/camera.pkl'
-grill_trash_can_goals = 'projects/val/input/goals/can.pkl'
-long_sofa_goals = 'projects/val/input/goals/sofa.pkl'
-mug_goals = 'projects/val/input/goals/mug.pkl'
-
+beer_bottle_goals = 'projects/val/rig/goals/bottle.pkl'
+camera_goals = 'projects/val/rig/goals/camera.pkl'
+grill_trash_can_goals = 'projects/val/rig/goals/can.pkl'
+long_sofa_goals = 'projects/val/rig/goals/sofa.pkl'
+mug_goals = 'projects/val/rig/goals/mug.pkl'
 
 quat_dict={'mug': [0, 0, 0, 1],
         'long_sofa': [0, 0, 0, 1],
@@ -92,13 +91,13 @@ if __name__ == "__main__":
             min_num_steps_before_training=4000, #4000
         ),
         replay_buffer_kwargs=dict(
-            fraction_future_context=0.2,
-            fraction_distribution_context=0.5,
+            fraction_future_context=0.5, #0.2
+            fraction_distribution_context=0.2, #0.5
             max_size=int(2E5),
         ),
         demo_replay_buffer_kwargs=dict(
-            fraction_future_context=0.2, # 0.0
-            fraction_distribution_context=0.5, # 0.0
+            fraction_future_context=0.5, # 0.0
+            fraction_distribution_context=0.2, # 0.0,
         ),
         reward_kwargs=dict(
             reward_type='sparse',
@@ -113,14 +112,12 @@ if __name__ == "__main__":
             pad_color=0,
         ),
 
-        # reset_keys_map=dict(
-        #     image_observation="initial_latent_state"
-        # ),
+        reset_keys_map=dict(
+            image_observation="initial_latent_state"
+        ),
 
-        input_representation="projects/val/input/10-17.pkl",
-        goal_representation="projects/val/input/10-17.pkl",
-
-        # pretrained_vae_path="projects/val/input/complex_obj/best_vae.pkl",
+        input_representation="projects/val/pixelcnn/best.pkl",
+        goal_representation="projects/val/pixelcnn/best.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
@@ -135,7 +132,6 @@ if __name__ == "__main__":
             height=48,
         ),
 
-
         add_env_demos=False,
         add_env_offpolicy_data=False,
 
@@ -143,8 +139,12 @@ if __name__ == "__main__":
         pretrain_policy=True,
         pretrain_rl=True,
 
-        evaluation_goal_sampling_mode="presampled",
-        exploration_goal_sampling_mode="presampled",
+        evaluation_goal_sampling_mode="presampled_images",
+        #exploration_goal_sampling_mode="presampled_images",
+        exploration_goal_sampling_mode="presampled_latents",
+
+        #exploration_goal_sampling_mode="amortized_conditional_vae_prior",
+        #exploration_goal_sampling_mode="conditional_vae_prior",
 
         train_vae_kwargs=dict(
             vae_path=None,
@@ -181,6 +181,14 @@ if __name__ == "__main__":
             ),
             save_period=25,
         ),
+
+        presampled_goal_kwargs=dict(
+            eval_goals='projects/val/pixelcnn/mug/3dof.pkl',
+            #expl_goals='sasha/presampled_goals/3dof_mug_presampled_goals.pkl',
+            expl_goals='projects/val/pixelcnn/mug/pixelcnn.pkl',
+        ),
+
+        num_presample=100,
         launcher_config=dict(
             unpack_variant=True,
             region='us-west-2', #HERE
@@ -190,16 +198,17 @@ if __name__ == "__main__":
     search_space = {
         #Things to change for object: object_subset, presampled_goals_path
         #Things to change for dof: demos, presampled_goals, DoF
-        "seed": range(2),
-        'path_loader_kwargs.demo_paths': [demo_paths_1, demo_paths_2, demo_paths_3, demo_paths_4, demo_paths_5],
+        "seed": range(2), #HERE
+        #'debug': [True], #HERE
+        'path_loader_kwargs.demo_paths': [demo_paths_1, demo_paths_2, demo_paths_3, demo_paths_4, demo_paths_5], #HERE
         'env_kwargs.quat_dict': [quat_dict],
         'env_kwargs.randomize': [False],
         'env_kwargs.use_bounding_box': [True],
-        'env_kwargs.object_subset': [['camera']], #HERE
-        'presampled_goals_path': [camera_goals], #HERE
+        'env_kwargs.object_subset': [['mug']], #HERE
+        #'presampled_goal_kwargs': [], #HERE
 
-        'reward_kwargs.epsilon': [6],
-        'trainer_kwargs.beta': [0.3],
+        'reward_kwargs.epsilon': [5.5], #HERE
+        'trainer_kwargs.beta': [0.3,],
 
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
@@ -208,7 +217,7 @@ if __name__ == "__main__":
         'trainer_kwargs.clip_score': [2, ],
         'trainer_kwargs.awr_min_q': [True, ],
         'trainer_kwargs.reward_transform_kwargs': [None, ],
-        'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0), ],
+        'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -219,4 +228,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=0) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=25) #HERE
