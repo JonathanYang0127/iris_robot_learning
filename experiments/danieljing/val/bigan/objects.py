@@ -130,7 +130,7 @@ if __name__ == "__main__":
         ),
         train_vae_variant=dict(
             beta=1,
-            num_epochs=250,
+            num_epochs=600,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -164,7 +164,7 @@ if __name__ == "__main__":
             save_period=10,
         ),
         launcher_config=dict(
-            region='us-east-2'
+            region='us-west-2'
         ),
 
         logger_variant=dict(
@@ -180,9 +180,9 @@ if __name__ == "__main__":
 
     search_space = {
         'seedid': range(1),
-        'train_vae_variant.vae_kwargs.representation_size': [4, 8, 16, 32, 64, 128, 256],
-        'train_vae_variant.vae_kwargs.dropout': [0.15, 0.18, 0.2, 0.22, 0.25],
-        'train_vae_variant.algo_kwargs.generator_threshold': [2.5, 3, 3.5, 4, 4.5]
+        'train_vae_variant.vae_kwargs.representation_size': [8, 16, 32, 64, 128, 256],
+        'train_vae_variant.vae_kwargs.dropout': [0.2],
+        'train_vae_variant.algo_kwargs.generator_threshold': [3.5]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

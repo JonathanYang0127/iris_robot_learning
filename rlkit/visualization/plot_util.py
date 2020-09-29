@@ -4,10 +4,7 @@ import copy
 
 import json
 from pprint import pprint
-try:
-    import rllab.viskit.core as core
-except:
-    import viskit.core as core
+import viskit.core as core
 from rllab.misc import ext
 
 read_tb = lambda: None
@@ -69,7 +66,7 @@ def load_exps(dirnames, filter_fn=true_fn, suppress_output=False, progress_filen
         elif custom_log_reader:
             return load_exps_data_numpy(dirnames, custom_log_reader, progress_filename=progress_filename, )
         else:
-            return core.load_exps_data(dirnames, progress_filename=progress_filename)
+            return core.load_exps_data(dirnames, data_filename=progress_filename)
 
     if suppress_output:
         with suppress_stdout():
