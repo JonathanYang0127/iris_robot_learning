@@ -164,7 +164,7 @@ if __name__ == "__main__":
             save_period=10,
         ),
         launcher_config=dict(
-            region='us-west-2'
+            region='us-east-1'
         ),
 
         logger_variant=dict(

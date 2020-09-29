@@ -7,18 +7,18 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from rlkit.torch.networks import Clamp
 
-demo_paths_1=[dict(path='projects/val/input/objects/gr_train0.pkl', obs_dict=True, is_demo=True),
-                dict(path='projects/val/input/objects/gr_train1.pkl', obs_dict=True, is_demo=True),
-                dict(path='projects/val/input/objects/gr_train2.pkl', obs_dict=True, is_demo=True)]
+demo_paths_1=[dict(path='projects/val/input/objects/gr/train/0.pkl', obs_dict=True, is_demo=True),
+                dict(path='projects/val/input/objects/gr/train/1.pkl', obs_dict=True, is_demo=True),
+                dict(path='projects/val/input/objects/gr/train/2.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_2=[dict(path='projects/val/input/objects/gr_train0.pkl', obs_dict=True, is_demo=True),
-             dict(path='projects/val/input/objects/gr_train1.pkl', obs_dict=True, is_demo=True)]
+demo_paths_2=[dict(path='projects/val/input/objects/gr/train/0.pkl', obs_dict=True, is_demo=True),
+             dict(path='projects/val/input/objects/gr/train/1.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_3=[dict(path='projects/val/input/objects/gr_train0.pkl', obs_dict=True, is_demo=True)]
+demo_paths_3=[dict(path='projects/val/input/objects/gr/train/0.pkl', obs_dict=True, is_demo=True)]
 
-demo_paths_4=[dict(path='projects/val/input/objects/gr_train0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
+demo_paths_4=[dict(path='projects/val/input/objects/gr/train/0.pkl',obs_dict=True, is_demo=True, data_split=0.5,)]
 
-demo_paths_5=[dict(path='projects/val/input/objects/gr_train0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
+demo_paths_5=[dict(path='projects/val/input/objects/gr/train/0.pkl',obs_dict=True, is_demo=True, data_split=0.25,)]
 
 beer_bottle_goals = 'projects/val/input/goals/bottle.pkl'
 camera_goals = 'projects/val/input/goals/camera.pkl'
@@ -117,8 +117,8 @@ if __name__ == "__main__":
         #     image_observation="initial_latent_state"
         # ),
 
-        input_representation="projects/val/input/objects/best_vae.pkl",
-        goal_representation="projects/val/input/objects/best_vae.pkl",
+        input_representation="projects/val/input/10-17.pkl",
+        goal_representation="projects/val/input/10-17.pkl",
 
         # pretrained_vae_path="projects/val/input/complex_obj/best_vae.pkl",
 
@@ -190,8 +190,8 @@ if __name__ == "__main__":
     search_space = {
         #Things to change for object: object_subset, presampled_goals_path
         #Things to change for dof: demos, presampled_goals, DoF
-        "seed": range(1),
-        'path_loader_kwargs.demo_paths': [demo_paths_5],
+        "seed": range(2),
+        'path_loader_kwargs.demo_paths': [demo_paths_1, demo_paths_2, demo_paths_3, demo_paths_4, demo_paths_5],
         'env_kwargs.quat_dict': [quat_dict],
         'env_kwargs.randomize': [False],
         'env_kwargs.use_bounding_box': [True],
