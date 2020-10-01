@@ -123,6 +123,18 @@ class PresampledPathDistribution(DictDistribution):
         self._num_presampled_goals = self._presampled_goals[list(self._presampled_goals)[0]].shape[0]
         self._set_spaces()
 
+        ### Temp ###
+        print("Using temp fix to add initial image")
+        self.add_initial_img()
+        ### Temp ###
+
+    ### Temp ###
+    def add_initial_img(self):
+        initial_img = self._presampled_goals['image_desired_goal'].reshape(-1, 50, 6912)[:, 0]
+        initial_img = initial_img.repeat(50, axis=0)
+        self._presampled_goals['initial_image_observation'] = initial_img
+    ### Temp ###
+
     def sample(self, batch_size: int):
         idx = np.random.randint(0, self._num_presampled_goals, batch_size)
         sampled_goals = {

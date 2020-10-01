@@ -300,7 +300,7 @@ class AWACTrainer(TorchTrainer):
         if self.post_bc_pretrain_hyperparams:
             self.set_algorithm_weights(**self.post_bc_pretrain_hyperparams)
 
-    def pretrain_q_with_bc_data(self, demo_buffer):
+    def pretrain_q_with_bc_data(self):
         logger.remove_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True
         )
@@ -313,7 +313,7 @@ class AWACTrainer(TorchTrainer):
         for i in range(self.q_num_pretrain1_steps):
             self.eval_statistics = dict()
 
-            train_data = demo_buffer.random_batch(self.bc_batch_size)
+            train_data = self.replay_buffer.random_batch(self.bc_batch_size)
             train_data = np_to_pytorch_batch(train_data)
             obs = train_data['observations']
             next_obs = train_data['next_observations']
@@ -333,7 +333,7 @@ class AWACTrainer(TorchTrainer):
             self.eval_statistics = dict()
             if i % self.pretraining_logging_period == 0:
                 self._need_to_update_eval_statistics=True
-            train_data = demo_buffer.random_batch(self.bc_batch_size)
+            train_data = self.replay_buffer.random_batch(self.bc_batch_size)
             train_data = np_to_pytorch_batch(train_data)
             obs = train_data['observations']
             next_obs = train_data['next_observations']

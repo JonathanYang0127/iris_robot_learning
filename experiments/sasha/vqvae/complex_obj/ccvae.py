@@ -11,8 +11,8 @@ from rlkit.torch.grill.cvae_experiments import (
 from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
 from multiworld.envs.pygame.multiobject_pygame_env import Multiobj2DEnv
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
-from rlkit.torch.vae.vq_vae import VQ_VAE
-from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
+from rlkit.torch.vae.vq_vae import CCVAE
+from rlkit.torch.vae.vq_vae_trainer import CCVAETrainer
 from rlkit.data_management.online_conditional_vae_replay_buffer import \
         OnlineConditionalVaeRelabelingBuffer
 
@@ -104,7 +104,7 @@ if __name__ == "__main__":
                 x_values=(0, 250),
                 y_values=(0, 100),
             ),
-            num_epochs=1501,
+            num_epochs=201,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -127,8 +127,8 @@ if __name__ == "__main__":
                 enviorment_dataset=False,
                 tag="ccrig_tuning_orig_network",
             ),
-            vae_trainer_class=VQ_VAETrainer,
-            vae_class=VQ_VAE,
+            vae_trainer_class=CCVAETrainer,
+            vae_class=CCVAE,
             vae_kwargs=dict(
                 input_channels=3,
                 imsize=48,
@@ -168,17 +168,16 @@ if __name__ == "__main__":
         ),
         
         launcher_config=dict(
-            region='us-west-2', # THIS 
+            region='us-west-1', # THIS 
         ),
-
     )
 
     search_space = {
-        'seed': range(2),
-        'train_vae_variant.embedding_dim': [5,], # THIS 
-        'train_vae_variant.vae_kwargs.decay': [0],
-        'train_vae_variant.vae_kwargs.num_embeddings': [512],
-        'train_vae_variant.vae_kwargs.num_residual_layers': [3],
+        'seed': range(1),
+        'train_vae_variant.beta_schedule_kwargs': [
+            dict(x_values=(0, 1000), y_values=(0, 50))],
+        'train_vae_variant.embedding_dim': [1],
+        'train_vae_variant.algo_kwargs.weight_decay': [0,],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -188,4 +187,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=3) # THIS 
+    run_variants(grill_her_td3_offpolicy_online_vae_full_experiment, variants, run_id=2) # THIS 

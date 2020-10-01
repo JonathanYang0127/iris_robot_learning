@@ -73,6 +73,7 @@ from rlkit.envs.contextual.latent_distributions import (
     ConditionalPriorDistribution,
     AmortizedPriorDistribution,
     AddLatentDistribution,
+    AddConditionalLatentDistribution,
     PriorDistribution,
 )
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
@@ -80,7 +81,7 @@ from rlkit.launchers.rl_exp_launcher_util import create_exploration_policy
 from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector
 )
-from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
+from rlkit.envs.encoder_wrappers import EncoderWrappedEnv, ConditionalEncoderWrappedEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
 from rlkit.misc.eval_util import create_stats_ordered_dict
 from collections import OrderedDict
@@ -486,6 +487,7 @@ def awac_rig_experiment(
         env_class=None,
         env_kwargs=None,
         reward_kwargs=None,
+        encoder_wrapper=EncoderWrappedEnv,
         observation_key='latent_observation',
         desired_goal_key='latent_desired_goal',
         state_observation_key='state_observation',
@@ -521,9 +523,9 @@ def awac_rig_experiment(
         pretrained_vae_path="",
         presampled_goal_kwargs=None,
         presampled_goals_path="",
+        ccvae_or_cbigan_exp=False,
         num_presample=0,
         init_camera=None,
-
         qf_class=ConcatMlp,
     ):
 
@@ -560,13 +562,13 @@ def awac_rig_experiment(
     #Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
     def contextual_env_distrib_and_reward(
-            env_id, env_class, env_kwargs, goal_sampling_mode, presampled_goals_path, num_presample
+            env_id, env_class, env_kwargs, encoder_wrapper, goal_sampling_mode, presampled_goals_path, num_presample
     ):
         state_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
         renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
         img_env = InsertImageEnv(state_env, renderer=renderer)
 
-        encoded_env = EncoderWrappedEnv(
+        encoded_env = encoder_wrapper(
             img_env,
             model,
             step_keys_map=dict(image_observation="latent_observation"),
@@ -605,7 +607,16 @@ def awac_rig_experiment(
             image_goal_distribution = PresampledPathDistribution(
                 presampled_goals_path,
             )
-            latent_goal_distribution = AddLatentDistribution(
+
+            #TEMP#
+            if ccvae_or_cbigan_exp:
+                add_distrib = AddConditionalLatentDistribution
+            else:
+                add_distrib = AddLatentDistribution
+            #TEMP#
+
+            #AddLatentDistribution
+            latent_goal_distribution = add_distrib(
                 image_goal_distribution,
                 image_goal_key,
                 desired_goal_key,
@@ -661,10 +672,12 @@ def awac_rig_experiment(
 
     #Enviorment Definitions
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, exploration_goal_sampling_mode, presampled_goal_kwargs['expl_goals'], num_presample
+        env_id, env_class, env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
+        presampled_goal_kwargs['expl_goals'], num_presample
     )
     eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, evaluation_goal_sampling_mode, presampled_goal_kwargs['eval_goals'], num_presample
+        env_id, env_class, env_kwargs, encoder_wrapper, evaluation_goal_sampling_mode,
+        presampled_goal_kwargs['eval_goals'], num_presample
     )
     path_loader_kwargs['env'] = eval_env
 
@@ -860,7 +873,7 @@ def awac_rig_experiment(
             trainer.bc_num_pretrain_steps,
         )
     if pretrain_rl:
-        trainer.pretrain_q_with_bc_data(demo_train_buffer)
+        trainer.pretrain_q_with_bc_data()
 
     if save_pretrained_algorithm:
         p_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.p')

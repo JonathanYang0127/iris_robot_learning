@@ -29,9 +29,6 @@ grill_trash_can_goals = 'sasha/presampled_goals/3dof_grill_trash_can_presampled_
 long_sofa_goals = 'sasha/presampled_goals/3dof_long_sofa_presampled_goals.pkl'
 mug_goals = 'sasha/presampled_goals/3dof_mug_presampled_goals.pkl'
 
-#local_mug_goals = '/rail-khazatsky/sasha/presampled_goals/3dof_mug_presampled_goals.pkl'
-
-
 
 quat_dict={'mug': [0, 0, 0, 1],
         'long_sofa': [0, 0, 0, 1],
@@ -98,16 +95,16 @@ if __name__ == "__main__":
             min_num_steps_before_training=4000, #4000
         ),
         replay_buffer_kwargs=dict(
-            fraction_future_context=0.5, #HERE
-            fraction_distribution_context=0.2, #HERE
+            fraction_future_context=0.5,
+            fraction_distribution_context=0.2,
             max_size=int(2E5),
         ),
         demo_replay_buffer_kwargs=dict(
-            fraction_future_context=0.5, #HERE
-            fraction_distribution_context=0.2, #HERE
+            fraction_future_context=0.5,
+            fraction_distribution_context=0.2,
         ),
         reward_kwargs=dict(
-            reward_type='sparse',
+            reward_type='dense',
             epsilon=1.0,
         ),
 
@@ -122,7 +119,7 @@ if __name__ == "__main__":
         reset_keys_map=dict(
             image_observation="initial_latent_state"
         ),
-        pretrained_vae_path="sasha/complex_obj/pixelcnn_vqvae.pkl",
+        pretrained_vae_path="sasha/complex_obj/baselines/vae.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
@@ -145,7 +142,7 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-        exploration_goal_sampling_mode="presampled_latents",
+        exploration_goal_sampling_mode="vae_prior",
 
         train_vae_kwargs=dict(
             vae_path=None,
@@ -185,7 +182,7 @@ if __name__ == "__main__":
 
         presampled_goal_kwargs=dict(
             eval_goals=mug_goals, # HERE
-            expl_goals='sasha/presampled_goals/pixelcnn_mug_goals.pkl', # HERE
+            expl_goals=None,
         ),
 
         num_presample=100,
@@ -197,17 +194,15 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(2),
-        'path_loader_kwargs.demo_paths': [demo_paths_1, demo_paths_3],
+        'path_loader_kwargs.demo_paths': [demo_paths_1, demo_paths_2, demo_paths_3, demo_paths_4, demo_paths_5],
         'replay_buffer_kwargs.fraction_future_context': [0.6],
         'replay_buffer_kwargs.fraction_distribution_context': [0.1],
-        'env_kwargs.quat_dict': [quat_dict, {}],
-        'env_kwargs.randomize': [False, True],
+        'env_kwargs.quat_dict': [quat_dict],
+        'env_kwargs.randomize': [False,],
         'env_kwargs.use_bounding_box': [True],
         'env_kwargs.object_subset': [['mug']], #HERE
 
-        'reward_kwargs.epsilon': [5.5],
         'trainer_kwargs.beta': [0.3,],
-
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
         'trainer_kwargs.awr_use_mle_for_vf': [True, ],
@@ -226,4 +221,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=45) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=1) #HERE

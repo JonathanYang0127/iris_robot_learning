@@ -35,6 +35,38 @@ class AddLatentDistribution(DictDistribution):
     def spaces(self):
         return self._spaces
 
+class AddConditionalLatentDistribution(DictDistribution):
+    def __init__(
+            self,
+            dist,
+            input_key,
+            output_key,
+            model,
+            context_key="initial_image_observation",
+    ):
+        self.dist = dist
+        self._spaces = dist.spaces
+        self.input_key = input_key
+        self.output_key = output_key
+        self.context_key = context_key
+        self.model = model
+        self.representation_size = self.model.representation_size
+        latent_space = Box(
+            -10 * np.ones(self.representation_size),
+            10 * np.ones(self.representation_size),
+            dtype=np.float32,
+        )
+        self._spaces[output_key] = latent_space
+
+    def sample(self, batch_size: int, context=None):
+        s = self.dist.sample(batch_size)
+        s[self.output_key] = self.model.encode_np(s[self.input_key], s[self.context_key])
+        return s
+
+    @property
+    def spaces(self):
+        return self._spaces
+
 
 class PriorDistribution(DictDistribution):
     def __init__(
@@ -117,8 +149,8 @@ class ConditionalPriorDistribution(DictDistribution):
 
     def sample(self, batch_size, context=None):
         s = self.dist.sample(batch_size) if self.dist else {}
-        x_0 = context['initial_latent_state'].reshape(-1, self.representation_size)
-        s[self.key] = self.model.sample_prior(batch_size, cond=x_0)
+        z_0 = context['initial_latent_state'].reshape(-1, self.representation_size)
+        s[self.key] = self.model.sample_prior(batch_size, cond=z_0, image_cond=False)
 
         return s
 

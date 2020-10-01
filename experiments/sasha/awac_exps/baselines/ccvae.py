@@ -5,6 +5,7 @@ from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
+from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.torch.networks import Clamp
 
 demo_paths_1=[dict(path='sasha/complex_obj/gr_train_complex_obj_demos_0.pkl', obs_dict=True, is_demo=True),
@@ -28,9 +29,6 @@ camera_goals = 'sasha/presampled_goals/3dof_camera_presampled_goals.pkl'
 grill_trash_can_goals = 'sasha/presampled_goals/3dof_grill_trash_can_presampled_goals.pkl'
 long_sofa_goals = 'sasha/presampled_goals/3dof_long_sofa_presampled_goals.pkl'
 mug_goals = 'sasha/presampled_goals/3dof_mug_presampled_goals.pkl'
-
-#local_mug_goals = '/rail-khazatsky/sasha/presampled_goals/3dof_mug_presampled_goals.pkl'
-
 
 
 quat_dict={'mug': [0, 0, 0, 1],
@@ -98,16 +96,16 @@ if __name__ == "__main__":
             min_num_steps_before_training=4000, #4000
         ),
         replay_buffer_kwargs=dict(
-            fraction_future_context=0.5, #HERE
-            fraction_distribution_context=0.2, #HERE
+            fraction_future_context=0.5,
+            fraction_distribution_context=0.2,
             max_size=int(2E5),
         ),
         demo_replay_buffer_kwargs=dict(
-            fraction_future_context=0.5, #HERE
-            fraction_distribution_context=0.2, #HERE
+            fraction_future_context=0.5,
+            fraction_distribution_context=0.2,
         ),
         reward_kwargs=dict(
-            reward_type='sparse',
+            reward_type='dense',
             epsilon=1.0,
         ),
 
@@ -120,13 +118,14 @@ if __name__ == "__main__":
         ),
 
         reset_keys_map=dict(
-            image_observation="initial_latent_state"
+            image_observation="initial_latent_state",
         ),
-        pretrained_vae_path="sasha/complex_obj/pixelcnn_vqvae.pkl",
+        pretrained_vae_path="sasha/complex_obj/baselines/ccvae.pkl",
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
             recompute_reward=True,
+            condition_encoding=True,
         ),
 
         renderer_kwargs=dict(
@@ -145,7 +144,7 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-        exploration_goal_sampling_mode="presampled_latents",
+        exploration_goal_sampling_mode="conditional_vae_prior",
 
         train_vae_kwargs=dict(
             vae_path=None,
@@ -182,30 +181,30 @@ if __name__ == "__main__":
             ),
             save_period=25,
         ),
-
+        encoder_wrapper=ConditionalEncoderWrappedEnv,
         presampled_goal_kwargs=dict(
             eval_goals=mug_goals, # HERE
-            expl_goals='sasha/presampled_goals/pixelcnn_mug_goals.pkl', # HERE
+            expl_goals=None,
         ),
-
+        ccvae_or_cbigan_exp=True,
         num_presample=100,
         launcher_config=dict(
             unpack_variant=True,
-            region='us-east-2', #HERE
+            region='us-west-2', #HERE
         ),
     )
 
     search_space = {
         "seed": range(2),
-        'path_loader_kwargs.demo_paths': [demo_paths_1, demo_paths_3],
+        'path_loader_kwargs.demo_paths':  [demo_paths_1, demo_paths_2, demo_paths_3, demo_paths_4, demo_paths_5],
         'replay_buffer_kwargs.fraction_future_context': [0.6],
         'replay_buffer_kwargs.fraction_distribution_context': [0.1],
-        'env_kwargs.quat_dict': [quat_dict, {}],
-        'env_kwargs.randomize': [False, True],
+        'env_kwargs.quat_dict': [quat_dict,],
+        'env_kwargs.randomize': [False,],
         'env_kwargs.use_bounding_box': [True],
         'env_kwargs.object_subset': [['mug']], #HERE
 
-        'reward_kwargs.epsilon': [5.5],
+        #'reward_kwargs.epsilon': [5.5],
         'trainer_kwargs.beta': [0.3,],
 
         'policy_kwargs.min_log_std': [-6],
@@ -226,4 +225,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=45) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=1) #HERE

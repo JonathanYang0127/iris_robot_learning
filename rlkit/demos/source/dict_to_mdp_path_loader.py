@@ -204,6 +204,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             demo_train_split=0.9,
             demo_data_split=1,
             add_demos_to_replay_buffer=True,
+            condition_encoding=False,
             bc_num_pretrain_steps=0,
             bc_batch_size=64,
             bc_weight=1.0,
@@ -238,6 +239,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             load_terminals,
             **kwargs)
         self.model = load_local_or_remote_file(model_path)
+        self.condition_encoding = condition_encoding
         self.reward_fn = reward_fn
         self.normalize = normalize
         self.env = env
@@ -250,7 +252,13 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
         if self.normalize:
             images = images / 255.0
 
-        latents = ptu.get_numpy(self.model.encode(ptu.from_numpy(images)))
+        if self.condition_encoding:
+            cond = images[0].repeat(len(observation), axis=0)
+            latents = self.model.encode_np(images, cond)
+        else:
+            latents = self.model.encode_np(images)
+            #latents = ptu.get_numpy(self.model.encode(ptu.from_numpy(images)))
+        
         #goals = ptu.get_numpy(self.model.encode(ptu.from_numpy(goals)))
 
         for i in range(len(observation)):
@@ -278,8 +286,8 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             traj_obs = self.preprocess(path["observations"])
             next_traj_obs = self.preprocess(path["next_observations"])
         else:
-            traj_obs = self.env.encode(path["observations"])
-            next_traj_obs = self.env.encode(path["next_observations"])
+            # Not implemented
+            return 1/0
 
         for i in range(H):
             ob = traj_obs[i]
