@@ -10,7 +10,7 @@ import time
 from torchvision.transforms import ColorJitter, RandomResizedCrop, Resize
 from PIL import Image
 from rlkit.misc.asset_loader import load_local_or_remote_file
-import os 
+import os
 from tqdm import tqdm
 import pickle
 import sys
@@ -28,7 +28,7 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 """
 Hyperparameters
 """
-import argparse 
+import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--filepath", type=str)
@@ -40,11 +40,6 @@ parser.add_argument("-save", action="store_true")
 parser.add_argument("-gen_samples", action="store_true", default=True)
 
 parser.add_argument("--num_workers", type=int, default=4)
-#parser.add_argument("--img_dim", type=int, default=21)
-#parser.add_argument("--input_dim", type=int, default=1,
-#    help='1 for grayscale 3 for rgb')
-#parser.add_argument("--n_embeddings", type=int, default=1024,
-#    help='number of embeddings from VQ VAE')
 parser.add_argument("--n_layers", type=int, default=15)
 parser.add_argument("--learning_rate", type=float, default=3e-4)
 
@@ -84,6 +79,7 @@ imlength = imsize * imsize * input_channels
 train_path = 'sasha/complex_obj/gr_train_complex_obj_images.npy'
 test_path = 'sasha/complex_obj/gr_test_complex_obj_images.npy'
 new_path = "/home/ashvin/tmp/encoded_multiobj_bullet_data.npy"
+
 # Define data loading info
 
 def prep_sample_data():
@@ -99,14 +95,14 @@ def encode_dataset(dataset_path):
     data = data.item()
 
     all_data = []
-    
+
     vqvae.to('cpu')
     for i in tqdm(range(data["observations"].shape[0])):
         obs = ptu.from_numpy(data["observations"][i] / 255.0 )
         latent = vqvae.encode(obs, cont=False)
         all_data.append(latent)
     vqvae.to('cuda')
-    
+
     encodings = ptu.get_numpy(torch.cat(all_data, dim=0))
     return encodings
 
@@ -136,7 +132,7 @@ def train():
     for batch_idx, x in enumerate(train_loader):
         start_time = time.time()
         x_comb = x.cuda()
-        
+
         cond = vqvae.discrete_to_cont(x_comb[:, vqvae.discrete_size:]).reshape(x.shape[0], -1)
         x = x_comb[:, :vqvae.discrete_size].reshape(-1, root_len, root_len)
 
@@ -181,7 +177,7 @@ def test():
                 logits.view(-1, num_embeddings),
                 x.contiguous().view(-1)
             )
-            
+
             val_loss.append(loss.item())
 
     print('Validation Completed!\tLoss: {} Time: {}'.format(

@@ -37,7 +37,7 @@ class DictToMDPPathLoader:
             replay_buffer,
             demo_train_buffer,
             demo_test_buffer,
-            demo_paths=[], # list of dicts
+            demo_paths=None, # list of dicts
             demo_train_split=0.9,
             demo_data_split=1,
             add_demos_to_replay_buffer=True,
@@ -64,7 +64,7 @@ class DictToMDPPathLoader:
         self.demo_train_buffer = demo_train_buffer
         self.demo_test_buffer = demo_test_buffer
 
-        self.demo_paths = demo_paths
+        self.demo_paths = [] if demo_paths is None else demo_paths
 
         self.bc_num_pretrain_steps = bc_num_pretrain_steps
         self.q_num_pretrain_steps = q_num_pretrain_steps
@@ -196,6 +196,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             replay_buffer,
             demo_train_buffer,
             demo_test_buffer,
+            model=None,
             model_path=None,
             reward_fn=None,
             env=None,
@@ -213,6 +214,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             weight_decay=0,
             eval_policy=None,
             recompute_reward=False,
+            object_list=None,
             env_info_key=None,
             obs_key=None,
             load_terminals=True,
@@ -238,11 +240,18 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             obs_key,
             load_terminals,
             **kwargs)
-        self.model = load_local_or_remote_file(model_path)
+       
+        if model is None:
+            self.model = load_local_or_remote_file(model_path)
+        else:
+            self.model = model
         self.condition_encoding = condition_encoding
         self.reward_fn = reward_fn
         self.normalize = normalize
+        self.object_list = object_list
         self.env = env
+
+        print("ZEROING OUT GOALS")
 
     def preprocess(self, observation):
         observation = copy.deepcopy(observation)
@@ -271,6 +280,13 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
         return observation
 
+    def preprocess_array_obs(self, observation):
+        new_observations = []
+        for i in range(len(observation)):
+            new_observations.append(dict(observation=observation[i]))
+            # observation[i]["no_goal"] = np.zeros((0, ))
+        return new_observations
+
     def encode(self, obs):
         if self.normalize:
             return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
@@ -278,6 +294,11 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
 
     def load_path(self, path, replay_buffer, obs_dict=None):
+        # Ignore objects not in set
+        filter_objects = self.object_list is not None
+        if filter_objects and (path["object_name"] not in self.object_list):
+            return
+
         rewards = []
         path_builder = PathBuilder()
         H = min(len(path["observations"]), len(path["actions"]))
@@ -286,8 +307,8 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             traj_obs = self.preprocess(path["observations"])
             next_traj_obs = self.preprocess(path["next_observations"])
         else:
-            # Not implemented
-            return 1/0
+            traj_obs = self.preprocess_array_obs(path["observations"])
+            next_traj_obs = self.preprocess_array_obs(path["observations"])
 
         for i in range(H):
             ob = traj_obs[i]

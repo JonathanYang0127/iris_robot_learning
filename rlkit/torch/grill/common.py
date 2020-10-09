@@ -49,16 +49,16 @@ def train_vae_and_update_variant(variant):
             'progress.csv', relative_to_snapshot_dir=True
         )
         logger.add_tabular_output(
-            'vae_progress.csv', relative_to_snapshot_dir=True
+            'model_progress.csv', relative_to_snapshot_dir=True
         )
         vae, vae_train_data, vae_test_data = train_fn(train_vae_variant,
                                                        return_data=True)
         if grill_variant.get('save_vae_data', False):
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
-        logger.save_extra_data(vae, 'vae.pkl', mode='pickle')
+        logger.save_extra_data(vae, 'model', mode='pickle')
         logger.remove_tabular_output(
-            'vae_progress.csv',
+            'model_progress.csv',
             relative_to_snapshot_dir=True,
         )
         logger.add_tabular_output(
@@ -73,6 +73,15 @@ def train_vae_and_update_variant(variant):
             )
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
+
+def train_vqvae(variant):
+    from rlkit.launchers.experiments.ashvin.pixelcnn_launcher import train_pixelcnn
+    vqvae = train_vae(variant)
+    dataset_path = variant['generate_vae_dataset_kwargs']['dataset_path']
+    object_list = variant['generate_vae_dataset_kwargs']['object_list']
+    vqvae = train_pixelcnn(vqvae=vqvae, dataset_path=dataset_path, object_list=object_list)
+    return vqvae
+
 
 def train_vae(variant, return_data=False):
     from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
@@ -157,7 +166,7 @@ def train_vae(variant, return_data=False):
         should_save_imgs = (epoch % save_period == 0)
         trainer.train_epoch(epoch, train_dataset)
         trainer.test_epoch(epoch, test_dataset)
-        
+
         if should_save_imgs:
             trainer.dump_reconstructions(epoch)
             trainer.dump_samples(epoch)
@@ -174,7 +183,7 @@ def train_vae(variant, return_data=False):
 
         if epoch % 50 == 0:
             logger.save_itr_params(epoch, model)
-    logger.save_extra_data(model, 'vae.pkl', mode='pickle')
+    logger.save_extra_data(model, 'model', mode='pickle')
 
     if return_data:
         return model, train_dataset, test_dataset
@@ -208,6 +217,16 @@ def format_flat_dataset(dataset):
     dataset['observations'] = dataset['observations'].reshape(num_samples, 1, imlength)
     dataset['env'] = np.repeat(dataset['env'], traj_len, axis=0)
     return dataset
+
+def process_object_list(object_list, dataset):
+    keep_ind = 0
+    objects_np = np.array(dataset['object'])
+    for o in object_list:
+        keep_ind += (objects_np == o)
+
+    keep_ind = np.where(keep_ind == 1)
+    dataset['env'] = dataset['env'][keep_ind]
+    dataset['observations'] = dataset['observations'][keep_ind]
 
 def generate_vae_dataset(variant):
     print(variant)
@@ -244,6 +263,10 @@ def generate_vae_dataset(variant):
     save_trajectories = save_trajectories or use_linear_dynamics or conditional_vae_dataset
     tag = variant.get('tag', '')
 
+    ### CCVQVAE SPECIFIC ###
+    object_list = variant.get('object_list', None)
+    ### CCVQVAE SPECIFIC ###
+
     assert N % n_random_steps == 0, "Fix N/horizon or dataset generation will fail"
 
     from multiworld.core.image_env import ImageEnv, unormalize_image
@@ -269,11 +292,13 @@ def generate_vae_dataset(variant):
         if isinstance(dataset_path, dict):
             dataset = load_local_or_remote_file(dataset_path['train'])
             dataset = dataset.item()
+
+            if object_list is not None:
+                process_object_list(object_list, dataset)
+            
             test_dataset = load_local_or_remote_file(dataset_path['test'])
             test_dataset = test_dataset.item()
-            #dataset = format_flat_dataset(dataset)
-            #test_dataset = format_flat_dataset(test_dataset)
-
+            
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
             use_test_dataset = True
@@ -371,7 +396,7 @@ def generate_vae_dataset(variant):
                     env.step(u)
                 elif oracle_dataset_using_set_to_goal:
                     print(i)
-                    
+
                     goal = env.sample_goal()
                     env.set_to_goal(goal)
                     obs = env._get_obs()

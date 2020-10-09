@@ -2,6 +2,7 @@ import numpy as np
 from gym.spaces import Box, Dict
 from rlkit.core.distribution import DictDistribution
 from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.torch import pytorch_util as ptu
 
 
 
@@ -117,6 +118,53 @@ class PresampledPriorDistribution(DictDistribution):
         )
         self._spaces[key] = latent_space
 
+
+    def sample(self, batch_size: int, context=None):
+        s = self.dist.sample(batch_size) if self.dist else {}
+        idx = np.random.randint(0, self._num_presampled_goals, batch_size)
+        s[self.key] = self._presampled_goals[idx, :]
+        return s
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+class PresamplePriorDistribution(DictDistribution):
+    def __init__(
+            self,
+            model,
+            key,
+            env,
+            num_presample=5000,
+            samples_per_batch=50,
+            dist=None,
+    ):
+        self.representation_size = model.representation_size
+        self._spaces = dist.spaces if dist else {}
+        self.model = model
+        self.key = key
+        self.env = env
+        self.num_batches = num_presample // samples_per_batch
+        self.samples_per_batch = samples_per_batch
+        self.dist = dist
+        self._presampled_goals = self.presample_goals()
+        self._num_presampled_goals = self._presampled_goals.shape[0]
+        latent_space = Box(
+            -10 * np.ones(self.representation_size),
+            10 * np.ones(self.representation_size),
+            dtype=np.float32,
+        )
+        self._spaces[key] = latent_space
+
+    def presample_goals(self):
+        dataset = []
+        for i in range(self.num_batches):
+            self.env.reset()
+            init_obs = ptu.from_numpy(np.uint8(self.env.render_obs()).transpose() / 255.0)
+            init_z = ptu.get_numpy(self.model.encode(init_obs))
+            sampled_z = self.model.sample_prior(self.samples_per_batch, cond=init_z)
+            dataset.append(sampled_z)
+        return np.concatenate(dataset, axis=0)
 
     def sample(self, batch_size: int, context=None):
         s = self.dist.sample(batch_size) if self.dist else {}

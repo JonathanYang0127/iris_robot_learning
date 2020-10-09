@@ -75,6 +75,7 @@ from rlkit.envs.contextual.latent_distributions import (
     AddLatentDistribution,
     AddConditionalLatentDistribution,
     PriorDistribution,
+    PresamplePriorDistribution,
 )
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
 from rlkit.launchers.rl_exp_launcher_util import create_exploration_policy
@@ -90,6 +91,17 @@ from multiworld.core.image_env import ImageEnv, unormalize_image
 import multiworld
 
 from rlkit.torch.grill.common import train_vae
+
+complete_object_list = ['l_sofa', 'conic_bin', 'square_prism_bin', 'bunsen_burner', 'wide_circular_vase', 'flat_circular_basket', 'pitcher','gatorade', 'narrow_tray', 
+'jar', 'horn_vase', 'fountain_vase', 'narrow_top_vase', 'long_vase', 'conic_cup', 'conic_bowl','ball', 'hex_deep_bowl', 'square_deep_bowl',
+'pillow', 'shed', 'oblong_scooper', 'sack_vase', 'smushed_dumbbell', 'grill_bench','circular_picnic_table', 'circular_table', 'short_handle_cup',
+'curved_handle_cup', 'flowery_half_donut', 'semi_golf_ball_bowl', 'passenger_airplane','open_top_rect_box', 'cookie_circular_lidless_tin', 'chipotle_bowl',
+'toilet_bowl', 'buffet_food_tray', 'keyhole', 'bathtub', 'crooked_rim_capsule_container','colunnade_top', 'pacifier_vase', 'square_rod_embellishment', 'bongo_drum_bowl',
+'flat_bottom_sack_vase', 'stalagcite_chunk', 'pear_ringed_vase', 'two_handled_vase','goblet', 'ringed_cup_oversized_base', 't_cup', 'teepee', 'bullet_vase',
+'haystack_sofa', 'box_wood_frame', 'rect_spotted_hollow_bottom_sofa', 'box_sofa','earmuff', 'l_automatic_faucet', 'double_l_faucet', 'box_crank', 'glass_half_gallon',
+'pepsi_bottle', 'two_layered_lampshade', 'beehive_funnel', 'rabbit_lamp','elliptical_capsule', 'trapezoidal_bin', 'staple_table', 'grill_park_bench', 'thick_wood_chair',
+'park_grill_chair', 'long_half_pipe_smooth_park_chair', 'flat_boat_dish','modern_canoe', 'vintage_canoe', 'oil_tanker', 'x_curved_modern_bookshelf', 'pitchfork_shelf',
+'baseball_cap', 'tongue_chair', 'crooked_lid_trash_can','aero_cylinder']
 
 
 class RewardFn:
@@ -514,6 +526,7 @@ def awac_rig_experiment(
         pretrain_policy=False,
         pretrain_rl=False,
         save_pretrained_algorithm=False,
+        train_model_func=train_vae,
 
         # Video parameters
         save_video=True,
@@ -521,12 +534,17 @@ def awac_rig_experiment(
         renderer_kwargs=None,
         imsize=84,
         pretrained_vae_path="",
+        input_representation="",
+        goal_representation="",
         presampled_goal_kwargs=None,
         presampled_goals_path="",
         ccvae_or_cbigan_exp=False,
-        num_presample=0,
+        num_presample=5000,
         init_camera=None,
         qf_class=ConcatMlp,
+
+        # ICLR 2020 SPECIFIC
+        num_pybullet_objects=None,
     ):
 
     #Kwarg Definitions
@@ -622,6 +640,14 @@ def awac_rig_experiment(
                 desired_goal_key,
                 model,
             )
+        elif goal_sampling_mode == "presample_latents":
+            diagnostics = state_env.get_contextual_diagnostics
+            latent_goal_distribution = PresamplePriorDistribution(
+                model,
+                desired_goal_key,
+                state_env,
+                num_presample=num_presample,
+            )
         elif goal_sampling_mode == "presampled_latents":
             diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresampledPriorDistribution(
@@ -663,14 +689,22 @@ def awac_rig_experiment(
         )
         return env, latent_goal_distribution, reward_fn
 
-    #VAE Setup
+    # ICRA 2020 SPECIFIC
+    if num_pybullet_objects is not None:
+        assert num_pybullet_objects <= len(complete_object_list)
+        object_list = complete_object_list[:num_pybullet_objects]
+        train_vae_kwargs['generate_vae_dataset_kwargs']['object_list'] = object_list
+        path_loader_kwargs['object_list'] = object_list
+    # ICRA 2020 SPECIFIC
+
     if pretrained_vae_path:
         model = load_local_or_remote_file(pretrained_vae_path)
+        path_loader_kwargs['model_path'] = pretrained_vae_path
     else:
-        model = train_vae(train_vae_kwargs, env_kwargs, env_id, env_class, imsize, init_camera)
-    path_loader_kwargs['model_path'] = pretrained_vae_path
+        model = train_model_func(train_vae_kwargs)
+        path_loader_kwargs['model'] = model
 
-    #Enviorment Definitions
+    #Environment Definitions
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
         env_id, env_class, env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
         presampled_goal_kwargs['expl_goals'], num_presample

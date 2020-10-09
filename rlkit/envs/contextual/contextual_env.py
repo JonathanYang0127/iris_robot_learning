@@ -75,7 +75,7 @@ class ContextualEnv(gym.Wrapper):
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         self._update_obs(obs)
-        new_reward = self._compute_reward(self._last_obs, action, obs)
+        new_reward = self._compute_reward(self._last_obs, action, obs, reward)
         self._last_obs = obs
         info = self._update_env_info(self, info, obs, reward, done)
         return obs, new_reward, done, info

@@ -62,7 +62,7 @@ class VideoSaveFunction:
             )
         else:
             expl_paths = algo.expl_data_collector.get_epoch_paths()
-        if epoch % self.save_period == 0 or epoch == algo.num_epochs:
+        if epoch % self.save_period == 0 or epoch >= algo.num_epochs - 1:
             filename = osp.join(self.logdir,
                                 'video_{epoch}_vae.mp4'.format(epoch=epoch))
             dump_paths(self.env,
@@ -80,7 +80,7 @@ class VideoSaveFunction:
             )
         else:
             eval_paths = algo.eval_data_collector.get_epoch_paths()
-        if epoch % self.save_period == 0 or epoch == algo.num_epochs:
+        if epoch % self.save_period == 0 or epoch >= algo.num_epochs - 1:
             filename = osp.join(self.logdir,
                                 'video_{epoch}_env.mp4'.format(epoch=epoch))
             dump_paths(self.env,
@@ -213,16 +213,18 @@ def dump_video(
         for i_in_path, d in enumerate(path['full_observations']):
             imgs_to_stack = [d[k] for k in keys_to_show]
             imgs_to_stack += get_extra_imgs(path, i_in_path, env)
-            l.append(
-                combine_images_into_grid(
-                    imgs_to_stack,
-                    max_num_cols=num_columns_per_rollout,
-                    imwidth=imsize,
-                    imheight=imsize,
-                    unnormalize=True,
-                    **combine_img_kwargs
-                )
+            grid_img = combine_images_into_grid(
+                imgs_to_stack,
+                max_num_cols=num_columns_per_rollout,
+                imwidth=imsize,
+                imheight=imsize,
+                unnormalize=True,
+                **combine_img_kwargs
             )
+            l.append(grid_img)
+        if len(l) < horizon:
+            frozen_img = l[-1] / 2
+            l += [frozen_img] * (horizon - len(l))
         frames += l
 
         if dirname_to_save_images:
@@ -320,7 +322,11 @@ def dump_paths(
     H = num_imgs * imheight  # imsize
     W = imwidth  # imsize
 
-    rows = min(rows, int(len(paths) / columns))
+    if len(paths) < rows * columns:
+        columns = min(columns, len(paths))
+        rows = max(min(rows, int(len(paths) / columns)), 1)
+    else:
+        rows = min(rows, int(len(paths) / columns))
     N = rows * columns
     for i in range(N):
         start = time.time()

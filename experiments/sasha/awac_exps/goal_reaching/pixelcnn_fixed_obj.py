@@ -98,13 +98,15 @@ if __name__ == "__main__":
             min_num_steps_before_training=4000, #4000
         ),
         replay_buffer_kwargs=dict(
-            fraction_future_context=0.5, #HERE
-            fraction_distribution_context=0.2, #HERE
+            #fraction_next_context=0.0,
+            fraction_future_context=0.6,
+            fraction_distribution_context=0.1,
             max_size=int(2E5),
         ),
         demo_replay_buffer_kwargs=dict(
-            fraction_future_context=0.5, #HERE
-            fraction_distribution_context=0.2, #HERE
+            #fraction_next_context=0.0,
+            fraction_future_context=0.6,
+            fraction_distribution_context=0.1,
         ),
         reward_kwargs=dict(
             reward_type='sparse',
