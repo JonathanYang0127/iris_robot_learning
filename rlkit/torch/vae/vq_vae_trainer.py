@@ -88,6 +88,41 @@ class VQ_VAETrainer(ConvVAETrainer, LossFunction):
 
         return loss
 
+    def dump_reconstructions(self, epoch):
+        obs, reconstructions = self.eval_data["test/last_batch"]
+        n = min(obs.size(0), 8)
+        comparison = torch.cat([
+            obs[:n].narrow(start=0, length=self.imlength, dim=1)
+                .contiguous().view(
+                -1, self.input_channels, self.imsize, self.imsize
+            ).transpose(2, 3),
+            reconstructions.view(
+                self.batch_size,
+                self.input_channels,
+                self.imsize,
+                self.imsize,
+            )[:n].transpose(2, 3)
+        ])
+        save_dir = osp.join(self.log_dir, 'test_recon_%d.png' % epoch)
+        save_image(comparison.data.cpu(), save_dir, nrow=n)
+
+        obs, reconstructions = self.eval_data["train/last_batch"]
+        n = min(obs.size(0), 8)
+        comparison = torch.cat([
+            obs[:n].narrow(start=0, length=self.imlength, dim=1)
+                .contiguous().view(
+                -1, self.input_channels, self.imsize, self.imsize
+            ).transpose(2, 3),
+            reconstructions.view(
+                self.batch_size,
+                self.input_channels,
+                self.imsize,
+                self.imsize,
+            )[:n].transpose(2, 3)
+        ])
+        save_dir = osp.join(self.log_dir, 'train_recon_%d.png' % epoch)
+        save_image(comparison.data.cpu(), save_dir, nrow=n)
+
     def dump_samples(self, epoch):
         return
 

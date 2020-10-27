@@ -124,8 +124,8 @@ class PresampledPathDistribution(DictDistribution):
         self._set_spaces()
 
         ### Temp ###
-        print("Using temp fix to add initial image")
-        self.add_initial_img()
+        #print("Using temp fix to add initial image")
+        #self.add_initial_img()
         ### Temp ###
 
     ### Temp ###

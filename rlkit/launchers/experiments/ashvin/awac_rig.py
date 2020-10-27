@@ -693,8 +693,11 @@ def awac_rig_experiment(
     if num_pybullet_objects is not None:
         assert num_pybullet_objects <= len(complete_object_list)
         object_list = complete_object_list[:num_pybullet_objects]
-        train_vae_kwargs['generate_vae_dataset_kwargs']['object_list'] = object_list
-        path_loader_kwargs['object_list'] = object_list
+    else:
+        object_list = None
+        
+    train_vae_kwargs['generate_vae_dataset_kwargs']['object_list'] = object_list
+    path_loader_kwargs['object_list'] = object_list
     # ICRA 2020 SPECIFIC
 
     if pretrained_vae_path:

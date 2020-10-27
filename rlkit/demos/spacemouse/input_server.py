@@ -71,8 +71,8 @@ class SpaceMouseExpert:
             state["roll"],
             state["pitch"],
             state["yaw"],
-            state["grasp"], #["left_click"],
-            state["reset"], #["right_click"],
+            state["left_click"],
+            state["right_click"],
         )
 
         xyz = dpos[self.xyz_remap]
@@ -81,14 +81,14 @@ class SpaceMouseExpert:
         xyz = np.clip(xyz, self.min_clip, self.max_clip)
 
         rot = np.array([roll, pitch, yaw])
-        rot[np.abs(rot) < self.rot_abs_threshold] = 0.0
-        if self.rot_discrete:
-            max_i = np.argmax(np.abs(rot))
-            for i in range(len(rot)):
-                if i != max_i:
-                    rot[i] = 0.0
-        rot = rot * self.rot_scale
-        rot = np.clip(rot, self.min_clip, self.max_clip)
+        # rot[np.abs(rot) < self.rot_abs_threshold] = 0.0
+        # if self.rot_discrete:
+        #     max_i = np.argmax(np.abs(rot))
+        #     for i in range(len(rot)):
+        #         if i != max_i:
+        #             rot[i] = 0.0
+        # rot = rot * self.rot_scale
+        # rot = np.clip(rot, self.min_clip, self.max_clip)
 
         a = np.concatenate([xyz[:self.xyz_dims], rot[:self.rot_dims]])
 

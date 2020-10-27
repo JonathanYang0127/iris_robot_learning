@@ -251,8 +251,6 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
         self.object_list = object_list
         self.env = env
 
-        print("ZEROING OUT GOALS")
-
     def preprocess(self, observation):
         observation = copy.deepcopy(observation)
         images = np.stack([observation[i]['image_observation'] for i in range(len(observation))])
@@ -301,14 +299,15 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
         rewards = []
         path_builder = PathBuilder()
-        H = min(len(path["observations"]), len(path["actions"]))
 
+
+        H = min(len(path["observations"]), len(path["actions"]))
         if obs_dict:
             traj_obs = self.preprocess(path["observations"])
             next_traj_obs = self.preprocess(path["next_observations"])
         else:
             traj_obs = self.preprocess_array_obs(path["observations"])
-            next_traj_obs = self.preprocess_array_obs(path["observations"])
+            next_traj_obs = self.preprocess_array_obs(path["next_observations"])
 
         for i in range(H):
             ob = traj_obs[i]
