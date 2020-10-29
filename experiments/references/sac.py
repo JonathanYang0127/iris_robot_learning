@@ -237,4 +237,3 @@ if __name__ == "__main__":
                 variant=variant,
                 time_in_mins=int(2.8 * 24 * 60),  # if you use mode=sss
             )
-            break
