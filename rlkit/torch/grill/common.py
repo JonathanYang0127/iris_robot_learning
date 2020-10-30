@@ -191,24 +191,20 @@ def train_vae(variant, return_data=False):
     return model
 
 def concatenate_datasets(data_list):
-        prefix = '/home/ashvin/data/pusher_pucks/'
-        obs, envs, actions, dataset = [], [], [], {}
-        for path in data_list:
-            curr_data = load_local_or_remote_file(prefix + path)
-            curr_data = curr_data.item()
-            n_random_steps = curr_data['observations'].shape[1]
-            imlength = curr_data['observations'].shape[2]
-            action_dim = curr_data['actions'].shape[2]
-            curr_data['env'] = np.repeat(curr_data['env'], n_random_steps, axis=0)
-            curr_data['observations'] = curr_data['observations'].reshape(-1, 1, imlength)
-            curr_data['actions'] = curr_data['actions'].reshape(-1, 1, action_dim)
-            obs.append(curr_data['observations'])
-            envs.append(curr_data['env'])
-            actions.append(curr_data['actions'])
-        dataset['observations'] = np.concatenate(obs, axis=0)
-        dataset['env'] = np.concatenate(envs, axis=0)
-        dataset['actions'] = np.concatenate(actions, axis=0)
-        return dataset
+    from rlkit.misc.asset_loader import load_local_or_remote_file
+    obs, envs, dataset = [], [], {}
+    for path in data_list:
+        curr_data = load_local_or_remote_file(path)
+        curr_data = curr_data.item()
+        n_random_steps = curr_data['observations'].shape[1]
+        imlength = curr_data['observations'].shape[2]
+        curr_data['env'] = np.repeat(curr_data['env'], n_random_steps, axis=0)
+        curr_data['observations'] = curr_data['observations'].reshape(-1, 1, imlength)
+        obs.append(curr_data['observations'])
+        envs.append(curr_data['env'])
+    dataset['observations'] = np.concatenate(obs, axis=0)
+    dataset['env'] = np.concatenate(envs, axis=0)
+    return dataset
 
 def format_flat_dataset(dataset):
     num_samples = dataset['observations'].shape[0]
@@ -290,14 +286,21 @@ def generate_vae_dataset(variant):
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
         if isinstance(dataset_path, dict):
-            dataset = load_local_or_remote_file(dataset_path['train'])
-            dataset = dataset.item()
+            
+            if type(dataset_path['train']) == str:
+                dataset = load_local_or_remote_file(dataset_path['train'])
+                dataset = dataset.item()
+            elif isinstance(dataset_path['train'], list):
+                dataset = concatenate_datasets(dataset_path['train'])
+
+            if type(dataset_path['test']) == str:
+                test_dataset = load_local_or_remote_file(dataset_path['test'])
+                test_dataset = test_dataset.item()
+            elif isinstance(dataset_path['test'], list):
+                test_dataset = concatenate_datasets(dataset_path['test'])
 
             if object_list is not None:
                 process_object_list(object_list, dataset)
-            
-            test_dataset = load_local_or_remote_file(dataset_path['test'])
-            test_dataset = test_dataset.item()
             
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]

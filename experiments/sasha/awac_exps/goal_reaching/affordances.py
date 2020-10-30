@@ -13,17 +13,25 @@ from rlkit.torch.grill.common import train_vqvae
 # demo_paths=[dict(path='sasha/affordances/gr_affordances_demos_0.pkl', obs_dict=True, is_demo=True),
 #             dict(path='sasha/affordances/gr_affordances_demos_1.pkl', obs_dict=True, is_demo=True),
 #             dict(path='sasha/affordances/gr_affordances_demos_2.pkl', obs_dict=True, is_demo=True),]
-demo_paths=[dict(path='sasha/affordances/gr_affordances_nc_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/gr_affordances_nc_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/gr_affordances_nc_demos_2.pkl', obs_dict=True, is_demo=True),]
+# demo_paths=[dict(path='sasha/affordances/gr_affordances_nc_demos_0.pkl', obs_dict=True, is_demo=True),
+#             dict(path='sasha/affordances/gr_affordances_nc_demos_1.pkl', obs_dict=True, is_demo=True),
+#             dict(path='sasha/affordances/gr_affordances_nc_demos_2.pkl', obs_dict=True, is_demo=True),]
+demo_paths=[dict(path='sasha/affordances/h150/gr_affordance_h150_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/h150/gr_affordance_h150_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/h150/gr_affordance_h150_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/h150/gr_affordance_h150_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/h150/gr_affordance_h150_demos_4.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/h150/gr_affordance_h150_demos_5.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/h150/gr_affordance_h150_demos_6.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/h150/gr_affordance_h150_demos_7.pkl', obs_dict=True, is_demo=True),]
 
-image_train_data = 'sasha/affordances/gr_affordances_nc_images.npy'
-image_test_data = 'sasha/affordances/gr_affordances_nc_test_images.npy'
+image_train_data = 'sasha/affordances/h150/gr_affordance_h150_images.npy'
+image_test_data = 'sasha/affordances/h150/gr_affordance_h150_test_images.npy'
 
-top_drawer_goals = 'sasha/presampled_goals/affordances/affordances_top_drawer_goals.pkl'
-bottom_drawer_goals = 'sasha/presampled_goals/affordances/affordances_bottom_drawer_goals.pkl'
-tray_goals = 'sasha/presampled_goals/affordances/affordances_tray_goals.pkl'
-obj_goals = 'sasha/presampled_goals/affordances/affordances_obj_goals.pkl'
+top_drawer_goals = 'sasha/presampled_goals/affordances/h150/affordances_top_drawer_goals.pkl'
+bottom_drawer_goals = 'sasha/presampled_goals/affordances/h150/affordances_bottom_drawer_goals.pkl'
+tray_goals = 'sasha/presampled_goals/affordances/h150/affordances_tray_goals.pkl'
+obj_goals = 'sasha/presampled_goals/affordances/h150/affordances_obj_goals.pkl'
 
 if __name__ == "__main__":
     variant = dict(
@@ -107,7 +115,7 @@ if __name__ == "__main__":
         reset_keys_map=dict(
             image_observation="initial_latent_state"
         ),
-        pretrained_vae_path='sasha/affordances/afford_vqvae.pt',
+        pretrained_vae_path='sasha/affordances/h150/best_vqvae.pt',
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
@@ -139,7 +147,7 @@ if __name__ == "__main__":
                 x_values=(0, 250),
                 y_values=(0, 100),
             ),
-            num_epochs=1001, #1501
+            num_epochs=1501, #1501
             embedding_dim=5,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
@@ -229,4 +237,4 @@ if __name__ == "__main__":
     for variant in sweeper.iterate_hyperparameters():
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=112) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=202) #HERE
