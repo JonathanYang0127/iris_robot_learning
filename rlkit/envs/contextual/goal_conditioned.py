@@ -118,9 +118,17 @@ class PresampledPathDistribution(DictDistribution):
     def __init__(
             self,
             datapath,
+            representation_size,
     ):
         self._presampled_goals = load_local_or_remote_file(datapath)
+        self.representation_size = representation_size 
         self._num_presampled_goals = self._presampled_goals[list(self._presampled_goals)[0]].shape[0]
+
+        # FOLLOWING ASSUMES WE ONLY CARE ABOUT THE IMAGES
+        #ICRA FIX#
+        print('OVERWRITING PRESAMPLED LATENTS')
+        self._presampled_goals['initial_latent_state'] = np.zeros((self._num_presampled_goals, self.representation_size))
+        #ICRA FIX#
         self._set_spaces()
 
     def sample(self, batch_size: int):

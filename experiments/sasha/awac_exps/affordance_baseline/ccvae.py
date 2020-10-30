@@ -6,14 +6,22 @@ from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
+from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.torch.networks import Clamp
-from rlkit.torch.vae.vq_vae import VQ_VAE
-from rlkit.torch.vae.vq_vae import VAE
-from rlkit.torch.vae.vq_vae_trainer import VAETrainer
+from rlkit.torch.vae.vq_vae import CCVAE
+from rlkit.torch.vae.vq_vae_trainer import CCVAETrainer
 from rlkit.torch.grill.common import train_vae
 
 demo_paths=[dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
-]
+            dict(path='sasha/affordances/combined/combined_obj_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/combined_obj_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/combined_obj_demos_3.pkl', obs_dict=True, is_demo=True),
+
+            dict(path='sasha/affordances/combined/combined_workspace_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/combined_workspace_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/combined_workspace_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/combined_workspace_demos_3.pkl', obs_dict=True, is_demo=True),
+            ]
 
 image_train_data = 'sasha/affordances/combined/combined_images.npy'
 image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
@@ -53,7 +61,7 @@ if __name__ == "__main__":
 
             bc_num_pretrain_steps=0,
             q_num_pretrain1_steps=0,
-            q_num_pretrain2_steps=1000, #25000
+            q_num_pretrain2_steps=25000, #25000
             policy_weight_decay=1e-4,
             q_weight_decay=0,
 
@@ -107,6 +115,7 @@ if __name__ == "__main__":
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
             recompute_reward=True,
+            condition_encoding=True,
         ),
 
         renderer_kwargs=dict(
@@ -125,7 +134,7 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-        exploration_goal_sampling_mode="vae_prior",
+        exploration_goal_sampling_mode="conditional_vae_prior",
 
         train_vae_kwargs=dict(
             beta=1,
@@ -135,7 +144,7 @@ if __name__ == "__main__":
                 x_values=(0, 1501),
                 y_values=(0, 50)
             ),
-            num_epochs=2,
+            num_epochs=1501,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -159,8 +168,8 @@ if __name__ == "__main__":
                 enviorment_dataset=False,
                 tag="ccrig_tuning_orig_network",
             ),
-            vae_trainer_class=VAETrainer,
-            vae_class=VAE,
+            vae_trainer_class=CCVAETrainer,
+            vae_class=CCVAE,
             vae_kwargs=dict(
                 input_channels=3,
                 imsize=48,
@@ -188,7 +197,9 @@ if __name__ == "__main__":
 
             save_period=50,
         ),
+        ccvae_or_cbigan_exp=True,
         train_model_func=train_vae,
+        encoder_wrapper=ConditionalEncoderWrappedEnv,
         presampled_goal_kwargs=dict(
             eval_goals='', #HERE
             expl_goals='',
@@ -200,9 +211,9 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(1),
+        "seed": range(2),
         'path_loader_kwargs.demo_paths': [demo_paths],
-        'env_kwargs.env_type': ['bottom_drawer',],
+        'env_kwargs.env_type': ['bottom_drawer', 'top_drawer', 'tray'],
 
         'trainer_kwargs.beta': [0.3],
         'num_pybullet_objects':[None],

@@ -624,6 +624,7 @@ def awac_rig_experiment(
             diagnostics = state_env.get_contextual_diagnostics
             image_goal_distribution = PresampledPathDistribution(
                 presampled_goals_path,
+                model.representation_size,
             )
 
             #TEMP#
