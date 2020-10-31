@@ -6,10 +6,10 @@ from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
+from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.torch.networks import Clamp
-from rlkit.torch.vae.vq_vae import VQ_VAE
-from rlkit.torch.vae.vq_vae import VAE
-from rlkit.torch.vae.vq_vae_trainer import VAETrainer
+from rlkit.torch.gan.bigan import CVBiGAN
+from rlkit.torch.gan.bigan_trainer import CVBiGANTrainer
 from rlkit.torch.grill.common import train_vae
 
 demo_paths=[dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
@@ -96,8 +96,8 @@ if __name__ == "__main__":
             fraction_distribution_context=0.1,
         ),
         reward_kwargs=dict(
-            reward_type='dense',
-            epsilon=1.0,
+            reward_type='sparse',
+            epsilon=5.5,
         ),
 
         observation_key='latent_observation',
@@ -115,6 +115,7 @@ if __name__ == "__main__":
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
             recompute_reward=True,
+            condition_encoding=True,
         ),
 
         renderer_kwargs=dict(
@@ -133,17 +134,17 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-        exploration_goal_sampling_mode="vae_prior",
+        exploration_goal_sampling_mode="conditional_vae_prior",
 
         train_vae_kwargs=dict(
             beta=1,
             imsize=48,
-            embedding_dim=1,
+            representation_size=16,
             beta_schedule_kwargs=dict(
                 x_values=(0, 1501),
                 y_values=(0, 50)
             ),
-            num_epochs=1501,
+            num_epochs=1001,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -167,8 +168,8 @@ if __name__ == "__main__":
                 enviorment_dataset=False,
                 tag="ccrig_tuning_orig_network",
             ),
-            vae_trainer_class=VAETrainer,
-            vae_class=VAE,
+            vae_trainer_class=CVBiGANTrainer,
+            vae_class=CVBiGAN,
             vae_kwargs=dict(
                 input_channels=3,
                 imsize=48,
@@ -196,9 +197,11 @@ if __name__ == "__main__":
 
             save_period=50,
         ),
+        ccvae_or_cbigan_exp=True,
         train_model_func=train_vae,
+        encoder_wrapper=ConditionalEncoderWrappedEnv,
         presampled_goal_kwargs=dict(
-            eval_goals=tray_goals, #HERE
+            eval_goals='', #HERE
             expl_goals='',
         ),
         launcher_config=dict(

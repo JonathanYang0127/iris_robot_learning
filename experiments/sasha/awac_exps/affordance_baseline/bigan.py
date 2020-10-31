@@ -7,21 +7,12 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
 from rlkit.torch.networks import Clamp
-from rlkit.torch.vae.vq_vae import VQ_VAE
-from rlkit.torch.vae.vq_vae import VAE
-from rlkit.torch.vae.vq_vae_trainer import VAETrainer
+from rlkit.torch.gan.bigan import BiGAN
+from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 from rlkit.torch.grill.common import train_vae
 
 demo_paths=[dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_3.pkl', obs_dict=True, is_demo=True),
-
-            dict(path='sasha/affordances/combined/combined_workspace_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_3.pkl', obs_dict=True, is_demo=True),
-            ]
+]
 
 image_train_data = 'sasha/affordances/combined/combined_images.npy'
 image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
@@ -61,7 +52,7 @@ if __name__ == "__main__":
 
             bc_num_pretrain_steps=0,
             q_num_pretrain1_steps=0,
-            q_num_pretrain2_steps=25000, #25000
+            q_num_pretrain2_steps=1000, #25000
             policy_weight_decay=1e-4,
             q_weight_decay=0,
 
@@ -77,14 +68,14 @@ if __name__ == "__main__":
             terminal_transform_kwargs=None,
         ),
 
-        max_path_length=65, #65
+        max_path_length=10, #65
         algo_kwargs=dict(
-            batch_size=1024, #1024
-            num_epochs=1001, #1001
-            num_eval_steps_per_epoch=1000, #1000
-            num_expl_steps_per_train_loop=1000, #1000
-            num_trains_per_train_loop=1000, #1000
-            min_num_steps_before_training=4000, #4000
+            batch_size=102, #1024
+            num_epochs=100, #1001
+            num_eval_steps_per_epoch=100, #1000
+            num_expl_steps_per_train_loop=100, #1000
+            num_trains_per_train_loop=100, #1000
+            min_num_steps_before_training=400, #4000
         ),
         replay_buffer_kwargs=dict(
             fraction_future_context=0.6,
@@ -96,8 +87,8 @@ if __name__ == "__main__":
             fraction_distribution_context=0.1,
         ),
         reward_kwargs=dict(
-            reward_type='dense',
-            epsilon=1.0,
+            reward_type='sparse',
+            epsilon=5.5,
         ),
 
         observation_key='latent_observation',
@@ -138,12 +129,12 @@ if __name__ == "__main__":
         train_vae_kwargs=dict(
             beta=1,
             imsize=48,
-            embedding_dim=1,
+            representation_size=32,
             beta_schedule_kwargs=dict(
                 x_values=(0, 1501),
                 y_values=(0, 50)
             ),
-            num_epochs=1501,
+            num_epochs=2,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -167,8 +158,8 @@ if __name__ == "__main__":
                 enviorment_dataset=False,
                 tag="ccrig_tuning_orig_network",
             ),
-            vae_trainer_class=VAETrainer,
-            vae_class=VAE,
+            vae_trainer_class=BiGANTrainer,
+            vae_class=BiGAN,
             vae_kwargs=dict(
                 input_channels=3,
                 imsize=48,
@@ -208,9 +199,9 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(2),
+        "seed": range(1),
         'path_loader_kwargs.demo_paths': [demo_paths],
-        'env_kwargs.env_type': ['bottom_drawer', 'top_drawer', 'tray'],
+        'env_kwargs.env_type': ['bottom_drawer'],
 
         'trainer_kwargs.beta': [0.3],
         'num_pybullet_objects':[None],

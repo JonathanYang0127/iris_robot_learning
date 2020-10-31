@@ -22,12 +22,6 @@ demo_paths=[dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs
             dict(path='sasha/affordances/combined/combined_workspace_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
-# obj_train_data = 'sasha/affordances/combined/combined_obj_images.npy'
-# obj_test_data = 'sasha/affordances/combined/combined_obj_test_images.npy'
-
-# workspace_train_data = 'sasha/affordances/combined/combined_workspace_images.npy'
-# workspace_test_data = 'sasha/affordances/combined/combined_workspace_test_images.npy'
-
 image_train_data = 'sasha/affordances/combined/combined_images.npy'
 image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
 
