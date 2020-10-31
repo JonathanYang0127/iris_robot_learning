@@ -214,6 +214,7 @@ if __name__ == "__main__":
         "seed": range(2),
         'path_loader_kwargs.demo_paths': [demo_paths],
         'env_kwargs.env_type': ['bottom_drawer', 'top_drawer', 'tray'],
+        'reward_kwargs.epsilon': [2., 4., 6.],
 
         'trainer_kwargs.beta': [0.3],
         'num_pybullet_objects':[None],
