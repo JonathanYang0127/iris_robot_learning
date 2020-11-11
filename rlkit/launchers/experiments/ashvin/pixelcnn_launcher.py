@@ -136,7 +136,7 @@ def train_pixelcnn(
         should_save = (epoch % save_period == 0) and (epoch > 0)
         trainer.train_epoch(epoch, train_loader)
         trainer.test_epoch(epoch, test_loader)
-        
+
         trainer.dump_samples(epoch, test_data, test=True)
         trainer.dump_samples(epoch, train_data, test=False)
 
