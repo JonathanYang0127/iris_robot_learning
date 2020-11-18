@@ -73,9 +73,9 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         timer.return_global_times = True
         for _ in range(self.num_epochs):
             self._begin_epoch()
-            #timer.start_timer('saving')
-            #logger.save_itr_params(self.epoch, self._get_snapshot())
-            #timer.stop_timer('saving')
+            # timer.start_timer('saving')
+            # logger.save_itr_params(self.epoch, self._get_snapshot())
+            # timer.stop_timer('saving')
             log_dict, _ = self._train()
             logger.record_dict(log_dict)
             logger.dump_tabular(with_prefix=True, with_timestamp=False)

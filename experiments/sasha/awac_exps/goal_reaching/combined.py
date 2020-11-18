@@ -4,6 +4,7 @@ from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
+from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
 from rlkit.torch.networks import Clamp
@@ -11,28 +12,43 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-demo_paths=[dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
+demo_paths=[dict(path='sasha/affordances/combined/pick_and_place_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pick_and_place_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pick_and_place_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pick_and_place_demos_3.pkl', obs_dict=True, is_demo=True),
+
+            dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
             dict(path='sasha/affordances/combined/combined_obj_demos_1.pkl', obs_dict=True, is_demo=True),
             dict(path='sasha/affordances/combined/combined_obj_demos_2.pkl', obs_dict=True, is_demo=True),
             dict(path='sasha/affordances/combined/combined_obj_demos_3.pkl', obs_dict=True, is_demo=True),
 
-            dict(path='sasha/affordances/combined/combined_workspace_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_3.pkl', obs_dict=True, is_demo=True),
+            #dict(path='sasha/affordances/combined/combined_workspace_demos_0.pkl', obs_dict=True, is_demo=True),
+            #dict(path='sasha/affordances/combined/combined_workspace_demos_1.pkl', obs_dict=True, is_demo=True),
+            #dict(path='sasha/affordances/combined/combined_workspace_demos_2.pkl', obs_dict=True, is_demo=True),
+            #dict(path='sasha/affordances/combined/combined_workspace_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
-image_train_data = 'sasha/affordances/combined/combined_images.npy'
-image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
+#image_train_data = 'sasha/affordances/combined/pick_and_place_images.npy'
+#image_test_data = 'sasha/affordances/combined/pick_and_place_test_images.npy'
+image_train_data = 'sasha/affordances/combined/all_images.npy'
+image_test_data = 'sasha/affordances/combined/all_test_images.npy'
 
 tray_goals = 'sasha/presampled_goals/affordances/combined/tray_goals.pkl'
+pnp_goals = 'sasha/presampled_goals/affordances/combined/pnp_goals.pkl'
+
+# mug_goals = 'sasha/presampled_goals/affordances/combined/mug_goals.pkl'
+# camera_goals = 'sasha/presampled_goals/affordances/combined/camera_goals.pkl'
+# long_sofa_goals = 'sasha/presampled_goals/affordances/combined/long_sofa_goals.pkl'
+# beer_bottle_goals = 'sasha/presampled_goals/affordances/combined/beer_bottle_goals.pkl'
+
 top_drawer_goals = 'sasha/presampled_goals/affordances/combined/top_drawer_goals.pkl'
 bottom_drawer_goals = 'sasha/presampled_goals/affordances/combined/bottom_drawer_goals.pkl'
+
+vqvae = 'sasha/affordances/combined/best_vqvae.pt'
 
 if __name__ == "__main__":
     variant = dict(
         imsize=48,
-        #env_class=SawyerRigMultiobjTrayV0,
         env_kwargs=dict(
             test_env=True,
         ),
@@ -116,6 +132,7 @@ if __name__ == "__main__":
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
             recompute_reward=True,
+            demo_paths=demo_paths,
         ),
 
         renderer_kwargs=dict(
@@ -198,26 +215,25 @@ if __name__ == "__main__":
         ),
         train_model_func=train_vqvae,
         presampled_goal_kwargs=dict(
-            eval_goals=tray_goals, #HERE
+            eval_goals='', #HERE
             expl_goals='',
         ),
         launcher_config=dict(
             unpack_variant=True,
-            region='us-east-2', #HERE
+            region='us-west-2', #HERE
         ),
     )
 
     search_space = {
         "seed": range(2),
-        'path_loader_kwargs.demo_paths': [demo_paths],
-        'env_class': [SawyerRigMultiobjTrayV0], #[SawyerRigMultiobjTrayV0, SawyerRigAffordancesV0] #HERE
-        #'env_kwargs.env_type': ['bottom_drawer'], #['top_drawer', 'bottom_drawer']
-        'reward_kwargs.epsilon': [2.0, 3.5, 5.0, 6.5, 7.5, 9.0, 10.5],
+        'env_type': ['pnp'],
 
-
+        # 'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        
+        'reward_kwargs.epsilon': [3.5, 4.0, 4.5, 5.0, 5.5],
         'trainer_kwargs.beta': [0.3],
-        'num_pybullet_objects':[None],
 
+        'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
         'trainer_kwargs.awr_use_mle_for_vf': [True, ],
@@ -234,6 +250,20 @@ if __name__ == "__main__":
 
     variants = []
     for variant in sweeper.iterate_hyperparameters():
+        env_type = variant['env_type']
+        eval_goals = 'sasha/presampled_goals/affordances/combined/{0}_goals.pkl'.format(env_type)
+        variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
+        
+        if env_type in ['top_drawer', 'bottom_drawer']:
+            variant['env_class'] = SawyerRigAffordancesV0
+            variant['env_kwargs']['env_type'] = env_type
+        if env_type == 'tray':
+            variant['env_class'] = SawyerRigMultiobjTrayV0
+        if env_type == 'pnp':
+            variant['env_class'] = SawyerRigMultiobjV0
+
+
+        del variant['env_type']
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=1) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=36) #HERE
