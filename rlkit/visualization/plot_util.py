@@ -395,7 +395,7 @@ def split(exps,
     for c in configs:
         if split_fig:
             plt.figure(figsize=figsize)
-        fsplit = lambda exp: all([exp['flat_params'][k] == v for k, v in c]) and f(exp)
+        fsplit = lambda exp: all([str(exp['flat_params'][k]) == v for k, v in c]) and f(exp)
         # for exp in exps:
         #     print(fsplit(exp), exp['flat_params'])
         lines = []
