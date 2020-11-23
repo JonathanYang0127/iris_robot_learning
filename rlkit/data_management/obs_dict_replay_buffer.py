@@ -25,7 +25,8 @@ class ObsDictReplayBuffer(ReplayBuffer):
             env,
             ob_keys_to_save=None,
             internal_keys=None,
-            observation_key='observation',
+            observation_key=None,  # for backwards compatibility
+            observation_keys=None,
             save_data_in_snapshot=False,
             reward_dim=1,
             preallocate_arrays=False,
@@ -36,6 +37,14 @@ class ObsDictReplayBuffer(ReplayBuffer):
         :param env:
         :param ob_keys_to_save: List of keys to save
         """
+        if observation_key is not None and observation_keys is not None:
+            raise ValueError('Only specify observation_key or observation_keys')
+        if observation_key is None and observation_keys is None:
+            raise ValueError(
+                'Specify either observation_key or observation_keys'
+            )
+        if observation_keys is None:
+            observation_keys = [observation_key]
         if ob_keys_to_save is None:
             ob_keys_to_save = []
         else:  # in case it's a tuple
@@ -46,8 +55,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
         assert isinstance(env.observation_space, Dict)
         self.max_size = max_size
         self.env = env
-        self.ob_keys_to_save = ob_keys_to_save
-        self.observation_key = observation_key
+        self.observation_keys = observation_keys
         self.save_data_in_snapshot = save_data_in_snapshot
 
         self._action_dim = env.action_space.low.size
@@ -65,7 +73,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
         self._obs = {}
         self._next_obs = {}
         self.ob_spaces = self.env.observation_space.spaces
-        for key in [observation_key]:
+        for key in observation_keys:
             if key not in ob_keys_to_save:
                 ob_keys_to_save.append(key)
         for key in ob_keys_to_save + internal_keys:
@@ -82,6 +90,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
                 dtype=self.ob_spaces[key].dtype,
             )
 
+        self.ob_keys_to_save = ob_keys_to_save
         self._top = 0
         self._size = 0
 
@@ -159,10 +168,15 @@ class ObsDictReplayBuffer(ReplayBuffer):
 
     def random_batch(self, batch_size):
         indices = np.random.randint(0, self._size, batch_size)
-        obs = self._obs[self.observation_key][indices]
         actions = self._actions[indices]
         rewards = self._rewards[indices]
-        next_obs = self._next_obs[self.observation_key][indices]
+        if len(self.observation_keys) == 1:
+            obs = self._obs[self.observation_keys[0]][indices]
+            next_obs = self._next_obs[self.observation_keys[0]][indices]
+        else:
+            obs = tuple(self._obs[k][indices] for k in self.observation_keys)
+            next_obs = tuple(self._next_obs[k][indices]
+                             for k in self.observation_keys)
         terminals = self._terminals[indices]
         batch = {
             'observations': obs,
@@ -355,8 +369,12 @@ class ObsDictRelabelingBuffer(ObsDictReplayBuffer):
         if not self.vectorized:
             new_rewards = new_rewards.reshape(-1, 1)
 
-        new_obs = new_obs_dict[self.observation_key]
-        new_next_obs = new_next_obs_dict[self.observation_key]
+        if len(self.observation_keys) == 1:
+            new_obs = new_obs_dict[self.observation_keys[0]]
+            new_next_obs = new_obs_dict[self.observation_keys[0]]
+        else:
+            new_obs = tuple(new_obs_dict[k] for k in self.observation_keys)
+            new_next_obs = tuple(new_next_obs_dict[k] for k in self.observation_keys)
         resampled_goals = new_next_obs_dict[self.desired_goal_key]
         batch = {
             'observations': new_obs,

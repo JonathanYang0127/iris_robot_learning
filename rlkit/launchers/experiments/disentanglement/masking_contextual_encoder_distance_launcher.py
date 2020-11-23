@@ -503,7 +503,7 @@ def encoder_goal_conditioned_sac_experiment(
         context_keys=context_keys_to_save,
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=sample_context_from_observation,
-        observation_keys=ob_keys_to_save_in_buffer,
+        observation_keys_to_save=ob_keys_to_save_in_buffer,
         observation_key=observation_key_for_rl,
         reward_fn=reward_fn,
         post_process_batch_fn=concat_context_to_obs,

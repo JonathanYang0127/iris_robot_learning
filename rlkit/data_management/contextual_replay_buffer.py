@@ -49,7 +49,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             max_size,
             env,
             context_keys,
-            observation_keys,  # TODO: rename as observation_keys_to_save
+            observation_keys_to_save,  # TODO: rename as observation_keys_to_save
             sample_context_from_obs_dict_fn: SampleContextFromObsDictFn,
             reward_fn: ContextualRewardFn,
             context_distribution: DictDistribution,
@@ -58,18 +58,27 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             fraction_next_context=0.,
             fraction_replay_buffer_context=0.0,
             post_process_batch_fn=None,
-            observation_key='observation',
+            observation_key=None,  # for backwards compatibility
+            observation_keys=None,
             save_data_in_snapshot=False,
             internal_keys=None,
             **kwargs
     ):
-        ob_keys_to_save = observation_keys + context_keys
+        if observation_key is not None and observation_keys is not None:
+            raise ValueError('Only specify observation_key or observation_keys')
+        if observation_key is None and observation_keys is None:
+            raise ValueError(
+                'Specify either observation_key or observation_keys'
+            )
+        if observation_keys is None:
+            observation_keys = [observation_key]
+        ob_keys_to_save = observation_keys_to_save + context_keys
         super().__init__(
             max_size,
             env,
             ob_keys_to_save=ob_keys_to_save,
             internal_keys=internal_keys,
-            observation_key=observation_key,
+            observation_keys=observation_keys,
             save_data_in_snapshot=save_data_in_snapshot,
             **kwargs
         )
@@ -183,12 +192,18 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         new_contexts = ppp.treemap(concat, *tuple(contexts),
                                    atomic_type=np.ndarray)
 
+        if len(self.observation_keys) == 1:
+            obs = obs_dict[self.observation_keys[0]]
+            next_obs = obs_dict[self.observation_keys[0]]
+        else:
+            obs = tuple(obs_dict[k] for k in self.observation_keys)
+            next_obs = tuple(next_obs_dict[k] for k in self.observation_keys)
         batch = {
-            'observations': obs_dict[self.observation_key],
+            'observations': obs,
             'actions': actions,
             'rewards': self._rewards[indices],
             'terminals': self._terminals[indices],
-            'next_observations': next_obs_dict[self.observation_key],
+            'next_observations': next_obs,
             'indices': np.array(indices).reshape(-1, 1),
             **new_contexts
             # 'contexts': new_contexts,

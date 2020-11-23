@@ -226,7 +226,7 @@ def rig_experiment(
     replay_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
         context_keys=[context_key],
-        observation_keys=[observation_key],
+        observation_keys_to_save=[observation_key],
         observation_key=observation_key,
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=RemapKeyFn({context_key: observation_key}),

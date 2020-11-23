@@ -306,7 +306,7 @@ def offline_disco_experiment(
         max_size=num_samples,
         env=eval_env,
         context_keys=context_keys,
-        observation_keys=list({
+        observation_keys_to_save=list({
             observation_key,
             state_observation_key,
             latent_observation_key

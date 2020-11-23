@@ -602,7 +602,7 @@ def probabilistic_goal_reaching_experiment(
     replay_buffer = ContextualRelabelingReplayBuffer(
         env=expl_env,
         context_keys=[context_key],
-        observation_keys=ob_keys_to_save_in_buffer,
+        observation_keys_to_save=ob_keys_to_save_in_buffer,
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=sample_context_from_obs_dict_fn,
         reward_fn=reward_fn,

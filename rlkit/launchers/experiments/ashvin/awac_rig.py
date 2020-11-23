@@ -669,7 +669,7 @@ def awac_rig_experiment(
     replay_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
         context_keys=cont_keys,
-        observation_keys=obs_keys,
+        observation_keys_to_save=obs_keys,
         observation_key=observation_key,
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
@@ -681,7 +681,7 @@ def awac_rig_experiment(
     demo_train_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
         context_keys=cont_keys,
-        observation_keys=obs_keys,
+        observation_keys_to_save=obs_keys,
         observation_key=observation_key,
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
@@ -692,7 +692,7 @@ def awac_rig_experiment(
     demo_test_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
         context_keys=cont_keys,
-        observation_keys=obs_keys,
+        observation_keys_to_save=obs_keys,
         observation_key=observation_key,
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
