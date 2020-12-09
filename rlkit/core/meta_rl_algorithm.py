@@ -409,7 +409,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         # save the paths for visualization, only useful for point mass
         if self.dump_eval_paths:
-            logger.save_extra_data(paths, path='eval_trajectories/task{}-epoch{}-run{}'.format(idx, epoch, run))
+            logger.save_extra_data(paths, file_name='eval_trajectories/task{}-epoch{}-run{}'.format(idx, epoch, run))
 
         return paths
 
@@ -443,12 +443,12 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             prior_paths, _ = self.sampler.obtain_samples(deterministic=self.eval_deterministic, max_samples=self.max_path_length * 20,
                                                          accum_context=False,
                                                          resample=1)
-            logger.save_extra_data(prior_paths, path='eval_trajectories/prior-epoch{}'.format(epoch))
+            logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
 
         ### train tasks
         # eval on a subset of train tasks for speed
         indices = np.random.choice(self.train_tasks, len(self.eval_tasks))
-        eval_util.dprint('evaluating on {} train tasks'.format(len(indices)))
+        # logger.log('evaluating on {} train tasks'.format(len(indices)))
         ### eval train tasks with posterior sampled from the training replay buffer
         train_returns = []
         for idx in indices:
@@ -473,14 +473,14 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         train_returns = np.mean(train_returns)
         ### eval train tasks with on-policy data to match eval of test tasks
         train_final_returns, train_online_returns = self._do_eval(indices, epoch)
-        # eval_util.dprint('train online returns')
-        # eval_util.dprint(train_online_returns)
+        # logger.log('train online returns')
+        # logger.log(train_online_returns)
 
         ### test tasks
-        # eval_util.dprint('evaluating on {} test tasks'.format(len(self.eval_tasks)))
+        # logger.log('evaluating on {} test tasks'.format(len(self.eval_tasks)))
         test_final_returns, test_online_returns = self._do_eval(self.eval_tasks, epoch)
-        # eval_util.dprint('test online returns')
-        # eval_util.dprint(test_online_returns)
+        # logger.log('test online returns')
+        # logger.log(test_online_returns)
 
         # save the final posterior
         self.agent.log_diagnostics(self.eval_statistics)
@@ -495,8 +495,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.eval_statistics['AverageTrainReturn_all_train_tasks'] = train_returns
         self.eval_statistics['AverageReturn_all_train_tasks'] = avg_train_return
         self.eval_statistics['AverageReturn_all_test_tasks'] = avg_test_return
-        logger.save_extra_data(avg_train_online_return, path='online-train-epoch{}'.format(epoch))
-        logger.save_extra_data(avg_test_online_return, path='online-test-epoch{}'.format(epoch))
+        logger.save_extra_data(avg_train_online_return, file_name='online-train-epoch{}'.format(epoch))
+        logger.save_extra_data(avg_test_online_return, file_name='online-test-epoch{}'.format(epoch))
 
         for key, value in self.eval_statistics.items():
             logger.record_tabular(key, value)

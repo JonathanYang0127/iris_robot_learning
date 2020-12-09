@@ -16,6 +16,7 @@ import torch
 from collections import OrderedDict
 from contextlib import contextmanager
 from enum import Enum
+from pathlib import Path
 
 import dateutil.tz
 import dateutil.tz
@@ -318,13 +319,14 @@ class Logger(object):
         del self._prefixes[-1]
         self._prefix_str = ''.join(self._prefixes)
 
-    def _save_params_to_file(self, params, file_name, mode):
+    def _save_params_to_file(self, params, file_path, mode):
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         if mode == 'joblib':
-            joblib.dump(params, file_name + ".pkl", compress=3)
+            joblib.dump(params, file_path + ".pkl", compress=3)
         elif mode == 'pickle':
-            pickle.dump(params, open(file_name + ".pkl", "wb"))
+            pickle.dump(params, open(file_path + ".pkl", "wb"))
         elif mode == 'torch':
-            torch.save(params, file_name + ".pt")
+            torch.save(params, file_path + ".pt")
         else:
             raise ValueError("Invalid mode: {}".format(mode))
 

@@ -208,7 +208,7 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
         # run inference in networks
-        action_distrib, task_z = self.agent(obs, context)
+        action_distrib, task_z = self.agent(obs, context, return_task_z=True)
         new_actions, log_pi, pre_tanh_value = action_distrib.rsample_and_logprob(return_pre_tanh_value=True)
         policy_mean = action_distrib.mean
         policy_log_std = action_distrib.log_std
@@ -240,7 +240,7 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
             t_rp, b_rp, _ = context_dict['observations'].shape
             obs_rp = context_dict['observations'].view(t_rp * b_rp, -1)
             actions_rp = context_dict['actions'].view(t_rp * b_rp, -1)
-            _, task_z_rp = self.agent(context_dict['observations'], context)
+            _, task_z_rp = self.agent(context_dict['observations'], context, return_task_z=True)
             if self.back_prop_reward_prediction_into_encoder:
                 reward_pred = self.agent.reward_predictor(obs_rp, actions_rp, task_z_rp)
             else:

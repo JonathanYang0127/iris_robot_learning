@@ -1,5 +1,6 @@
 import numpy as np
 
+from rlkit.torch.pearl.agent import MakePEARLAgentDeterministic
 from rlkit.torch.sac.policies import MakeDeterministic
 
 
@@ -33,7 +34,7 @@ class PEARLInPlacePathSampler(object):
         The resample argument specifies how often (in trajectories) the agent will resample it's context.
         """
         assert max_samples < np.inf or max_trajs < np.inf, "either max_samples or max_trajs must be finite"
-        policy = MakeDeterministic(self.policy) if deterministic else self.policy
+        policy = MakePEARLAgentDeterministic(self.policy) if deterministic else self.policy
         paths = []
         n_steps_total = 0
         n_trajs = 0
