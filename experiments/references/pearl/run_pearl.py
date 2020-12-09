@@ -13,11 +13,11 @@ from rlkit.torch.pearl.launcher import pearl_experiment
 import rlkit.misc.hyperparameter as hyp
 
 
-
 @click.command()
 @click.argument('config', default=None)
 @click.option('--debug', is_flag=True, default=False)
-def main(config, debug):
+@click.option('--exp_name', default=None)
+def main(config, debug, exp_name):
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -72,20 +72,24 @@ def main(config, debug):
 
     n_seeds = 1
     mode = 'local'
-    exp_name = 'dev'
+    exp_name = exp_name or 'dev'
 
-    # n_seeds = 5
+    # n_seeds = 1
     # mode = 'sss'
-    # exp_name = 'pearl-half-cheetah-dir'
-
+    # exp_name = exp_name or 'pearl-half-cheetah-dir-first-try-on-railrl-gpu'
 
     search_space = {
-        'algo_params.num_iterations_with_reward_supervision': [
-            10,
-            15,
-            20,
-            30,
-        ],
+        # 'algo_params.num_iterations_with_reward_supervision': [
+        #     10,
+        #     20,
+        #     30,
+        #     100,
+        #     9999,
+        # ],
+        # 'algo_params.freeze_encoder_buffer_in_unsupervised_phase': [
+        #     True,
+        #     False,
+        # ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -100,7 +104,9 @@ def main(config, debug):
                 mode=mode,
                 variant=variant,
                 time_in_mins=int(2.8 * 24 * 60),  # if you use mode=sss
+                use_gpu=True,
             )
+    print(exp_name)
 
 if __name__ == "__main__":
     main()
