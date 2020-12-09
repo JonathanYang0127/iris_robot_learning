@@ -22,30 +22,7 @@ def main(config, debug, exp_name):
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
     else:  # You can also hard-code it if you don't give a config file.
-        exp_params = {
-            "env_name": "cheetah-dir",
-            "n_train_tasks": 2,
-            "n_eval_tasks": 2,
-            "env_params": {
-                "n_tasks": 2
-            }
-            ,
-            "algo_params": {
-                "meta_batch": 4,
-                "num_initial_steps": 2000,
-                "num_steps_prior": 1000,
-                "num_steps_posterior": 0,
-                "num_extra_rl_steps_posterior": 1000,
-                "num_evals": 4,
-                "num_steps_per_eval": 600,
-                "num_exp_traj_eval": 2,
-                "embedding_batch_size": 256,
-                "num_iterations_with_reward_supervision": 10,
-                "freeze_encoder_buffer_in_unsupervised_phase": True,
-                "train_reward_pred_in_unsupervised_phase": False,
-                "embedding_mini_batch_size": 256
-            }
-        }
+        exp_params = {}
     if debug:
         exp_params['algo_params'] = {
             "meta_batch": 4,
@@ -62,6 +39,7 @@ def main(config, debug, exp_name):
             "train_reward_pred_in_unsupervised_phase": False,
             "embedding_mini_batch_size": 256,
             "num_train_steps_per_itr": 20,
+            "max_path_length": 2,
         }
         exp_params["net_size"] = 3
     variant = ppp.merge_recursive_dicts(
@@ -74,9 +52,9 @@ def main(config, debug, exp_name):
     mode = 'local'
     exp_name = exp_name or 'dev'
 
-    # n_seeds = 1
-    # mode = 'sss'
-    # exp_name = exp_name or 'pearl-half-cheetah-dir-first-try-on-railrl-gpu'
+    n_seeds = 1
+    mode = 'sss'
+    exp_name = exp_name or 'pearl-half-cheetah-dir-first-try-on-railrl-gpu'
 
     search_space = {
         # 'algo_params.num_iterations_with_reward_supervision': [

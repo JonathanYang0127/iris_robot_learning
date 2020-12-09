@@ -1,10 +1,6 @@
-import numpy as np
-from rand_param_envs.hopper_rand_params import HopperRandParamsEnv
-
-from . import register_env
+from rlkit.envs.pearl_envs.rand_param_envs.hopper_rand_params import HopperRandParamsEnv
 
 
-@register_env('hopper-rand-params')
 class HopperRandParamsWrappedEnv(HopperRandParamsEnv):
     def __init__(self, n_tasks=2, randomize_tasks=True):
         super(HopperRandParamsWrappedEnv, self).__init__()

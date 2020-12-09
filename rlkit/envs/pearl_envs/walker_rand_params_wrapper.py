@@ -1,10 +1,6 @@
-import numpy as np
-from rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
-
-# from . import register_env
+from rlkit.envs.pearl_envs.rand_param_envs.walker2d_rand_params import Walker2DRandParamsEnv
 
 
-# @register_env('walker-rand-params')
 class WalkerRandParamsWrappedEnv(Walker2DRandParamsEnv):
     def __init__(self, n_tasks=2, randomize_tasks=True):
         super(WalkerRandParamsWrappedEnv, self).__init__()
