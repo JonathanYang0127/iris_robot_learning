@@ -17,7 +17,8 @@ import rlkit.misc.hyperparameter as hyp
 @click.argument('config', default=None)
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--exp_name', default=None)
-def main(config, debug, exp_name):
+@click.option('--mode', default='local')
+def main(config, debug, exp_name, mode):
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -49,12 +50,9 @@ def main(config, debug, exp_name):
     )
 
     n_seeds = 1
-    mode = 'local'
+    mode = mode or 'local'
     exp_name = exp_name or 'dev'
 
-    n_seeds = 1
-    mode = 'sss'
-    exp_name = exp_name or 'pearl-half-cheetah-dir-first-try-on-railrl-gpu'
 
     search_space = {
         # 'algo_params.num_iterations_with_reward_supervision': [
@@ -85,6 +83,7 @@ def main(config, debug, exp_name):
                 use_gpu=True,
             )
     print(exp_name)
+
 
 if __name__ == "__main__":
     main()
