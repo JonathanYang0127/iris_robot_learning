@@ -208,8 +208,10 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
         # run inference in networks
-        policy_outputs, task_z = self.agent(obs, context)
-        new_actions, policy_mean, policy_log_std, log_pi = policy_outputs[:4]
+        action_distrib, task_z = self.agent(obs, context)
+        new_actions, log_pi, pre_tanh_value = action_distrib.rsample_and_logprob(return_pre_tanh_value=True)
+        policy_mean = action_distrib.mean
+        policy_log_std = action_distrib.log_std
 
         # flattens out the task dimension
         t, b, _ = obs.size()
@@ -287,7 +289,6 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
 
         mean_reg_loss = self.policy_mean_reg_weight * (policy_mean**2).mean()
         std_reg_loss = self.policy_std_reg_weight * (policy_log_std**2).mean()
-        pre_tanh_value = policy_outputs[-1]
         pre_activation_reg_loss = self.policy_pre_activation_weight * (
             (pre_tanh_value**2).sum(dim=1).mean()
         )

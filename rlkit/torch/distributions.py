@@ -350,7 +350,7 @@ class TanhNormal(Distribution):
 
     Note: this is not very numerically stable.
     """
-    def __init__(self, normal_mean, normal_std, epsilon=1e-6):
+    def __init__(self, normal_mean, normal_std, epsilon=1e-6, log_std=None):
         """
         :param normal_mean: Mean of the normal distribution
         :param normal_std: Std of the normal distribution
@@ -360,6 +360,9 @@ class TanhNormal(Distribution):
         self.normal_std = normal_std
         self.normal = MultivariateDiagonalNormal(normal_mean, normal_std)
         self.epsilon = epsilon
+        if log_std is None:
+            log_std = torch.log(normal_std)
+        self.log_std = log_std
 
     def sample_n(self, n, return_pre_tanh_value=False):
         z = self.normal.sample_n(n)
@@ -436,10 +439,13 @@ class TanhNormal(Distribution):
         log_p = self.log_prob(value, pre_tanh_value)
         return value, log_p
 
-    def rsample_and_logprob(self):
+    def rsample_and_logprob(self, return_pre_tanh_value=False):
         value, pre_tanh_value = self.rsample_with_pretanh()
         log_p = self.log_prob(value, pre_tanh_value)
-        return value, log_p
+        if return_pre_tanh_value:
+            return value, log_p, pre_tanh_value
+        else:
+            return value, log_p
 
     @property
     def mean(self):

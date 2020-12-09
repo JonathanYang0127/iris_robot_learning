@@ -182,7 +182,8 @@ class PEARLAgent(nn.Module):
 
         # run policy, get log probs and new actions
         in_ = torch.cat([obs, task_z.detach()], dim=1)
-        policy_outputs = self.policy(in_, reparameterize=True, return_log_prob=True)
+        policy_outputs = self.policy(in_)
+        # policy_outputs = self.policy(in_, reparameterize=True, return_log_prob=True)
 
         return policy_outputs, task_z
 
