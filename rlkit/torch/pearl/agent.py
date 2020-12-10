@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 
 import torch
@@ -76,7 +77,30 @@ class PEARLAgent(nn.Module):
         self.register_buffer('z_means', torch.zeros(1, latent_dim))
         self.register_buffer('z_vars', torch.zeros(1, latent_dim))
 
+        self.z_means = None
+        self.z_vars = None
+        self.context = None
+        self.z = None
+
+        # rp = reward predictor
+        self.z_means_rp = None
+        self.z_vars_rp = None
+        self.z_rp = None
+        self.context_encoder_rp = context_encoder
+        self._in_unsupervised_phase = False
+
         self.clear_z()
+
+    @property
+    def in_unsupervised_phase(self):
+        return self._in_unsupervised_phase
+
+    @in_unsupervised_phase.setter
+    def in_unsupervised_phase(self, value):
+        if value and not self.in_unsupervised_phase:
+            # copy context encoder on switch
+            self.context_encoder_rp = copy.deepcopy(self.context_encoder)
+        self._in_unsupervised_phase = value
 
     def clear_z(self, num_tasks=1):
         '''
@@ -91,6 +115,8 @@ class PEARLAgent(nn.Module):
             var = ptu.zeros(num_tasks, self.latent_dim)
         self.z_means = mu
         self.z_vars = var
+        self.z_means_rp = mu
+        self.z_vars_rp = var
         # sample a new z from the prior
         self.sample_z()
         # reset the context collected so far
@@ -103,6 +129,10 @@ class PEARLAgent(nn.Module):
         self.z = self.z.detach()
         if self.recurrent:
             self.context_encoder.hidden = self.context_encoder.hidden.detach()
+
+        self.z_rp = self.z_rp.detach()
+        if self.recurrent:
+            self.context_encoder_rp.hidden = self.context_encoder_rp.hidden.detach()
 
     def update_context(self, inputs):
         ''' append single transition to the current context '''
@@ -148,6 +178,21 @@ class PEARLAgent(nn.Module):
         # sum rather than product of gaussians structure
         else:
             self.z_means = torch.mean(params, dim=1)
+        if self.in_unsupervised_phase:
+            params_rp = self.context_encoder_rp(context)
+            params_rp = params_rp.view(context.size(0), -1, self.context_encoder_rp.output_size)
+            if self.use_ib:
+                mu_rp = params_rp[..., :self.latent_dim]
+                sigma_squared_rp = F.softplus(params_rp[..., self.latent_dim:])
+                z_params_rp = [_product_of_gaussians(m, s) for m, s in zip(torch.unbind(mu_rp), torch.unbind(sigma_squared_rp))]
+                self.z_means_rp = torch.stack([p[0] for p in z_params_rp])
+                self.z_vars_rp = torch.stack([p[1] for p in z_params_rp])
+            # sum rather than product of gaussians structure
+            else:
+                self.z_means_rp = torch.mean(params_rp, dim=1)
+        else:
+            self.z_means_rp = self.z_means
+            self.z_vars_rp = self.z_vars
         self.sample_z()
 
     def sample_z(self):
@@ -157,6 +202,15 @@ class PEARLAgent(nn.Module):
             self.z = torch.stack(z)
         else:
             self.z = self.z_means
+        if self.in_unsupervised_phase:
+            if self.use_ib:
+                posteriors_rp = [torch.distributions.Normal(m, torch.sqrt(s)) for m, s in zip(torch.unbind(self.z_means_rp), torch.unbind(self.z_vars_rp))]
+                z_rp = [d.rsample() for d in posteriors_rp]
+                self.z_rp = torch.stack(z_rp)
+            else:
+                self.z_rp = self.z_means_rp
+        else:
+            self.z_rp = self.z
 
     def get_action(self, obs, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
@@ -195,7 +249,7 @@ class PEARLAgent(nn.Module):
         # return policy_outputs, task_z
 
     def infer_reward(self, obs, action):
-        z = self.z
+        z = self.z_rp
         obs = ptu.from_numpy(obs[None])
         action = ptu.from_numpy(action[None])
         # in_ = torch.cat([obs, action, z], dim=self.z)
@@ -210,6 +264,11 @@ class PEARLAgent(nn.Module):
         z_sig = np.mean(ptu.get_numpy(self.z_vars[0]))
         eval_statistics['Z mean eval'] = z_mean
         eval_statistics['Z variance eval'] = z_sig
+
+        z_mean_rp = np.mean(np.abs(ptu.get_numpy(self.z_means_rp[0])))
+        z_sig_rp = np.mean(ptu.get_numpy(self.z_vars_rp[0]))
+        eval_statistics['Z rew-pred mean eval'] = z_mean_rp
+        eval_statistics['Z rew-pred variance eval'] = z_sig_rp
 
     @property
     def networks(self):

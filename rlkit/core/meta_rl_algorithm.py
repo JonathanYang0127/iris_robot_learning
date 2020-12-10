@@ -172,6 +172,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     self.env.reset_task(idx)
                     self.collect_data(self.num_initial_steps, 1, np.inf)
             self.in_unsupervised_phase = (it_ >= self.num_iterations_with_reward_supervision)
+            self.agent.in_unsupervised_phase = self.in_unsupervised_phase
             freeze_buffer = (
                     self.in_unsupervised_phase
                     and self.freeze_encoder_buffer_in_unsupervised_phase
