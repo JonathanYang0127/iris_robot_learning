@@ -92,12 +92,12 @@ class PEARLAgent(nn.Module):
         self.clear_z()
 
     @property
-    def in_unsupervised_phase(self):
+    def use_context_encoder_snapshot_for_reward_pred(self):
         return self._in_unsupervised_phase
 
-    @in_unsupervised_phase.setter
-    def in_unsupervised_phase(self, value):
-        if value and not self.in_unsupervised_phase:
+    @use_context_encoder_snapshot_for_reward_pred.setter
+    def use_context_encoder_snapshot_for_reward_pred(self, value):
+        if value and not self.use_context_encoder_snapshot_for_reward_pred:
             # copy context encoder on switch
             self.context_encoder_rp = copy.deepcopy(self.context_encoder)
         self._in_unsupervised_phase = value
@@ -178,7 +178,7 @@ class PEARLAgent(nn.Module):
         # sum rather than product of gaussians structure
         else:
             self.z_means = torch.mean(params, dim=1)
-        if self.in_unsupervised_phase:
+        if self.use_context_encoder_snapshot_for_reward_pred:
             params_rp = self.context_encoder_rp(context)
             params_rp = params_rp.view(context.size(0), -1, self.context_encoder_rp.output_size)
             if self.use_ib:
@@ -202,7 +202,7 @@ class PEARLAgent(nn.Module):
             self.z = torch.stack(z)
         else:
             self.z = self.z_means
-        if self.in_unsupervised_phase:
+        if self.use_context_encoder_snapshot_for_reward_pred:
             if self.use_ib:
                 posteriors_rp = [torch.distributions.Normal(m, torch.sqrt(s)) for m, s in zip(torch.unbind(self.z_means_rp), torch.unbind(self.z_vars_rp))]
                 z_rp = [d.rsample() for d in posteriors_rp]
@@ -272,8 +272,10 @@ class PEARLAgent(nn.Module):
 
     @property
     def networks(self):
-        return [self.context_encoder, self.policy]
-
+        if self.context_encoder is self.context_encoder_rp:
+            return [self.context_encoder, self.policy]
+        else:
+            return [self.context_encoder, self.context_encoder_rp, self.policy]
 
 
 class MakePEARLAgentDeterministic(Wrapper, Policy):

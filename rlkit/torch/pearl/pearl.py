@@ -38,6 +38,7 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
             back_prop_reward_prediction_into_encoder=False,
 
             train_reward_pred_in_unsupervised_phase=False,
+            use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
 
             soft_target_tau=1e-2,
             plotter=None,
@@ -61,6 +62,9 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         self.back_prop_reward_prediction_into_encoder = back_prop_reward_prediction_into_encoder
 
         self.train_reward_pred_in_unsupervised_phase = train_reward_pred_in_unsupervised_phase
+        self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = (
+            use_encoder_snapshot_for_reward_pred_in_unsupervised_phase
+        )
 
         self.recurrent = recurrent
         self.latent_dim = latent_dim
