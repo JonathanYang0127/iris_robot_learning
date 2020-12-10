@@ -18,7 +18,9 @@ import rlkit.misc.hyperparameter as hyp
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--exp_name', default=None)
 @click.option('--mode', default='local')
-def main(config, debug, exp_name, mode):
+@click.option('--gpu', default=False)
+@click.option('--nseeds', default=1)
+def main(config, debug, exp_name, mode, gpu, nseeds):
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -49,7 +51,6 @@ def main(config, debug, exp_name, mode):
         ignore_duplicate_keys_in_second_dict=True,
     )
 
-    n_seeds = 2
     mode = mode or 'local'
     exp_name = exp_name or 'dev'
 
@@ -59,18 +60,18 @@ def main(config, debug, exp_name, mode):
             # 20,
             30,
             # 100,
-            # 9999,
+            9999,
         ],
         'algo_params.freeze_encoder_buffer_in_unsupervised_phase': [
             True,
-            False,
+            # False,
         ],
         'algo_params.train_reward_pred_in_unsupervised_phase': [
-            True,
+            # True,
             False,
         ],
         'algo_params.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase': [
-            True,
+            # True,
             False,
         ],
     }
@@ -78,7 +79,7 @@ def main(config, debug, exp_name, mode):
         search_space, default_parameters=variant,
     )
     for exp_id, variant in enumerate(sweeper.iterate_hyperparameters()):
-        for _ in range(n_seeds):
+        for _ in range(nseeds):
             variant['exp_id'] = exp_id
             run_experiment(
                 pearl_experiment,
@@ -87,7 +88,7 @@ def main(config, debug, exp_name, mode):
                 mode=mode,
                 variant=variant,
                 time_in_mins=int(2.8 * 24 * 60),  # if you use mode=sss
-                # use_gpu=True,
+                use_gpu=gpu,
             )
     print(exp_name)
 
