@@ -87,20 +87,21 @@ class PEARLAgent(nn.Module):
         self.z_vars_rp = None
         self.z_rp = None
         self.context_encoder_rp = context_encoder
-        self._in_unsupervised_phase = False
+        self._use_context_encoder_snapshot_for_reward_pred = False
 
         self.clear_z()
 
     @property
     def use_context_encoder_snapshot_for_reward_pred(self):
-        return self._in_unsupervised_phase
+        return self._use_context_encoder_snapshot_for_reward_pred
 
     @use_context_encoder_snapshot_for_reward_pred.setter
     def use_context_encoder_snapshot_for_reward_pred(self, value):
         if value and not self.use_context_encoder_snapshot_for_reward_pred:
             # copy context encoder on switch
             self.context_encoder_rp = copy.deepcopy(self.context_encoder)
-        self._in_unsupervised_phase = value
+            self.context_encoder_rp.to(ptu.device)
+        self._use_context_encoder_snapshot_for_reward_pred = value
 
     def clear_z(self, num_tasks=1):
         '''
@@ -108,21 +109,23 @@ class PEARLAgent(nn.Module):
         sample a new z from the prior
         '''
         # reset distribution over z to the prior
-        mu = ptu.zeros(num_tasks, self.latent_dim)
-        if self.use_ib:
-            var = ptu.ones(num_tasks, self.latent_dim)
-        else:
-            var = ptu.zeros(num_tasks, self.latent_dim)
-        self.z_means = mu
-        self.z_vars = var
-        self.z_means_rp = mu
-        self.z_vars_rp = var
+        def _create_mu_var():
+            mu = ptu.zeros(num_tasks, self.latent_dim)
+            if self.use_ib:
+                var = ptu.ones(num_tasks, self.latent_dim)
+            else:
+                var = ptu.zeros(num_tasks, self.latent_dim)
+            return mu, var
+        self.z_means, self.z_vars = _create_mu_var()
+        self.z_means_rp, self.z_vars_rp = _create_mu_var()
         # sample a new z from the prior
         self.sample_z()
         # reset the context collected so far
         self.context = None
         # reset any hidden state in the encoder network (relevant for RNN)
         self.context_encoder.reset(num_tasks)
+        if self.use_context_encoder_snapshot_for_reward_pred:
+            self.context_encoder_rp.reset(num_tasks)
 
     def detach_z(self):
         ''' disable backprop through z '''
