@@ -1,5 +1,5 @@
 import rlkit.misc.hyperparameter as hyp
-from rlkit.demos.source.dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
+from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
 from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
@@ -12,39 +12,37 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-demo_paths=[dict(path='sasha/affordances/combined/pick_and_place_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/pick_and_place_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/pick_and_place_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/pick_and_place_demos_3.pkl', obs_dict=True, is_demo=True),
+demo_paths=[dict(path='sasha/affordances/combined/drawer_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_0.pkl', obs_dict=True, is_demo=True),
+        
+            dict(path='sasha/affordances/combined/drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-            dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_2.pkl', obs_dict=True, is_demo=True),
 
-            #dict(path='sasha/affordances/combined/combined_workspace_demos_0.pkl', obs_dict=True, is_demo=True),
-            #dict(path='sasha/affordances/combined/combined_workspace_demos_1.pkl', obs_dict=True, is_demo=True),
-            #dict(path='sasha/affordances/combined/combined_workspace_demos_2.pkl', obs_dict=True, is_demo=True),
-            #dict(path='sasha/affordances/combined/combined_workspace_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
-#image_train_data = 'sasha/affordances/combined/pick_and_place_images.npy'
-#image_test_data = 'sasha/affordances/combined/pick_and_place_test_images.npy'
-image_train_data = 'sasha/affordances/combined/all_images.npy'
-image_test_data = 'sasha/affordances/combined/all_test_images.npy'
+image_train_data = 'sasha/affordances/combined/combined_images.npy'
+image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
 
 tray_goals = 'sasha/presampled_goals/affordances/combined/tray_goals.pkl'
 pnp_goals = 'sasha/presampled_goals/affordances/combined/pnp_goals.pkl'
 
-# mug_goals = 'sasha/presampled_goals/affordances/combined/mug_goals.pkl'
-# camera_goals = 'sasha/presampled_goals/affordances/combined/camera_goals.pkl'
-# long_sofa_goals = 'sasha/presampled_goals/affordances/combined/long_sofa_goals.pkl'
-# beer_bottle_goals = 'sasha/presampled_goals/affordances/combined/beer_bottle_goals.pkl'
-
 top_drawer_goals = 'sasha/presampled_goals/affordances/combined/top_drawer_goals.pkl'
 bottom_drawer_goals = 'sasha/presampled_goals/affordances/combined/bottom_drawer_goals.pkl'
 
-vqvae = 'sasha/affordances/combined/best_vqvae.pt'
+#vqvae = 'sasha/affordances/combined/best_vqvae.pt'
 
 if __name__ == "__main__":
     variant = dict(
@@ -105,7 +103,7 @@ if __name__ == "__main__":
         replay_buffer_kwargs=dict(
             fraction_future_context=0.6,
             fraction_distribution_context=0.1,
-            max_size=int(3E5),
+            max_size=int(5E5),
         ),
         demo_replay_buffer_kwargs=dict(
             fraction_future_context=0.6,
@@ -160,7 +158,7 @@ if __name__ == "__main__":
                 x_values=(0, 250),
                 y_values=(0, 100),
             ),
-            num_epochs=1501, #1001
+            num_epochs=1501, #1501
             embedding_dim=5,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
@@ -220,19 +218,17 @@ if __name__ == "__main__":
         ),
         launcher_config=dict(
             unpack_variant=True,
-            region='us-west-2', #HERE
+            region='us-west-1', #HERE
         ),
     )
 
     search_space = {
         "seed": range(2),
-        'env_type': ['pnp'],
 
-        # 'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'reward_kwargs.epsilon': [3.5, 4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
         
-        'reward_kwargs.epsilon': [3.5, 4.0, 4.5, 5.0, 5.5],
         'trainer_kwargs.beta': [0.3],
-
         'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
         'trainer_kwargs.awr_weight': [1.0],
@@ -262,8 +258,6 @@ if __name__ == "__main__":
         if env_type == 'pnp':
             variant['env_class'] = SawyerRigMultiobjV0
 
-
-        del variant['env_type']
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=36) #HERE
+    run_variants(awac_rig_experiment, variants, run_id=52) #HERE

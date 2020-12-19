@@ -1,9 +1,10 @@
 import rlkit.misc.hyperparameter as hyp
-from rlkit.demos.source.dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
+from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
 from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
+from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
 from rlkit.torch.networks import Clamp
@@ -12,21 +13,33 @@ from rlkit.torch.vae.vq_vae import VAE
 from rlkit.torch.vae.vq_vae_trainer import VAETrainer
 from rlkit.torch.grill.common import train_vae
 
-demo_paths=[dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_obj_demos_3.pkl', obs_dict=True, is_demo=True),
+demo_paths=[dict(path='sasha/affordances/combined/drawer_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_0.pkl', obs_dict=True, is_demo=True),
+        
+            dict(path='sasha/affordances/combined/drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-            dict(path='sasha/affordances/combined/combined_workspace_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/combined_workspace_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_2.pkl', obs_dict=True, is_demo=True),
+
+            dict(path='sasha/affordances/combined/drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
 image_train_data = 'sasha/affordances/combined/combined_images.npy'
 image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
 
 tray_goals = 'sasha/presampled_goals/affordances/combined/tray_goals.pkl'
+pnp_goals = 'sasha/presampled_goals/affordances/combined/pnp_goals.pkl'
+
 top_drawer_goals = 'sasha/presampled_goals/affordances/combined/top_drawer_goals.pkl'
 bottom_drawer_goals = 'sasha/presampled_goals/affordances/combined/bottom_drawer_goals.pkl'
 
@@ -80,7 +93,7 @@ if __name__ == "__main__":
         max_path_length=65, #65
         algo_kwargs=dict(
             batch_size=1024, #1024
-            num_epochs=1001, #1001
+            num_epochs=501, #1001
             num_eval_steps_per_epoch=1000, #1000
             num_expl_steps_per_train_loop=1000, #1000
             num_trains_per_train_loop=1000, #1000
@@ -114,6 +127,7 @@ if __name__ == "__main__":
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
+            delete_after_loading=True,
             recompute_reward=True,
         ),
 
@@ -151,6 +165,7 @@ if __name__ == "__main__":
                 N=1000,
                 n_random_steps=2,
                 test_p=.9,
+                delete_after_loading=True,
                 dataset_path={'train': image_train_data,
                               'test': image_test_data,
                               },
@@ -203,15 +218,17 @@ if __name__ == "__main__":
         ),
         launcher_config=dict(
             unpack_variant=True,
-            region='us-east-2', #HERE
+            region='us-west-2', #HERE
         ),
     )
 
     search_space = {
-        "seed": range(2),
+        "seed": range(1),
         'path_loader_kwargs.demo_paths': [demo_paths],
-        'env_kwargs.env_type': ['bottom_drawer', 'top_drawer', 'tray'],
-
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'reward_kwargs':[dict(reward_type='dense', epsilon=1.0),
+                        dict(reward_type='sparse', epsilon=1.0),
+                        dict(reward_type='sparse', epsilon=3.0),],
         'trainer_kwargs.beta': [0.3],
         'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
@@ -229,12 +246,19 @@ if __name__ == "__main__":
     )
 
     variants = []
-
-    GOALS = dict(tray=tray_goals, top_drawer=top_drawer_goals, bottom_drawer=bottom_drawer_goals)
-    ENV = dict(tray=SawyerRigMultiobjTrayV0, top_drawer=SawyerRigAffordancesV0, bottom_drawer=SawyerRigAffordancesV0)
     for variant in sweeper.iterate_hyperparameters():
-        variant["presampled_goal_kwargs"]["eval_goals"] = GOALS[variant["env_kwargs"]["env_type"]]
-        variant["env_class"] = ENV[variant["env_kwargs"]["env_type"]]
+        env_type = variant['env_type']
+        eval_goals = 'sasha/presampled_goals/affordances/combined/{0}_goals.pkl'.format(env_type)
+        variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
+        
+        if env_type in ['top_drawer', 'bottom_drawer']:
+            variant['env_class'] = SawyerRigAffordancesV0
+            variant['env_kwargs']['env_type'] = env_type
+        if env_type == 'tray':
+            variant['env_class'] = SawyerRigMultiobjTrayV0
+        if env_type == 'pnp':
+            variant['env_class'] = SawyerRigMultiobjV0
+
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=1)
+    run_variants(awac_rig_experiment, variants, run_id=11)

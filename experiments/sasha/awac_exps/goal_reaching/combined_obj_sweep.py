@@ -7,11 +7,10 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
-from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.torch.networks import Clamp
-from rlkit.torch.gan.bigan import CVBiGAN
-from rlkit.torch.gan.bigan_trainer import CVBiGANTrainer
-from rlkit.torch.grill.common import train_vae
+from rlkit.torch.vae.vq_vae import VQ_VAE
+from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
+from rlkit.torch.grill.common import train_vqvae
 
 demo_paths=[dict(path='sasha/affordances/combined/drawer_demos_0.pkl', obs_dict=True, is_demo=True),
             dict(path='sasha/affordances/combined/drawer_demos_1.pkl', obs_dict=True, is_demo=True),
@@ -42,6 +41,8 @@ pnp_goals = 'sasha/presampled_goals/affordances/combined/pnp_goals.pkl'
 
 top_drawer_goals = 'sasha/presampled_goals/affordances/combined/top_drawer_goals.pkl'
 bottom_drawer_goals = 'sasha/presampled_goals/affordances/combined/bottom_drawer_goals.pkl'
+
+vqvae = 'sasha/affordances/combined/best_vqvae.pt'
 
 if __name__ == "__main__":
     variant = dict(
@@ -90,7 +91,7 @@ if __name__ == "__main__":
             terminal_transform_kwargs=None,
         ),
 
-        max_path_length=65, #65
+        max_path_length=65, #50
         algo_kwargs=dict(
             batch_size=1024, #1024
             num_epochs=501, #1001
@@ -102,7 +103,7 @@ if __name__ == "__main__":
         replay_buffer_kwargs=dict(
             fraction_future_context=0.6,
             fraction_distribution_context=0.1,
-            max_size=int(3E5),
+            max_size=int(5E5),
         ),
         demo_replay_buffer_kwargs=dict(
             fraction_future_context=0.6,
@@ -110,7 +111,7 @@ if __name__ == "__main__":
         ),
         reward_kwargs=dict(
             reward_type='sparse',
-            epsilon=5.5,
+            epsilon=1.0,
         ),
 
         observation_key='latent_observation',
@@ -124,12 +125,13 @@ if __name__ == "__main__":
         reset_keys_map=dict(
             image_observation="initial_latent_state"
         ),
+        pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
             delete_after_loading=True,
             recompute_reward=True,
-            condition_encoding=True,
+            demo_paths=demo_paths,
         ),
 
         renderer_kwargs=dict(
@@ -148,17 +150,17 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-        exploration_goal_sampling_mode="conditional_vae_prior",
+        exploration_goal_sampling_mode="presample_latents",
 
         train_vae_kwargs=dict(
-            beta=1,
             imsize=48,
-            representation_size=16,
+            beta=1,
             beta_schedule_kwargs=dict(
-                x_values=(0, 1501),
-                y_values=(0, 50)
+                x_values=(0, 250),
+                y_values=(0, 100),
             ),
-            num_epochs=1001,
+            num_epochs=1501, #1501
+            embedding_dim=5,
             dump_skew_debug_plots=False,
             decoder_activation='sigmoid',
             use_linear_dynamics=False,
@@ -166,10 +168,10 @@ if __name__ == "__main__":
                 N=1000,
                 n_random_steps=2,
                 test_p=.9,
-                delete_after_loading=True,
                 dataset_path={'train': image_train_data,
                               'test': image_test_data,
                               },
+                delete_after_loading=True,
                 augment_data=False,
                 use_cached=False,
                 show=False,
@@ -183,13 +185,12 @@ if __name__ == "__main__":
                 enviorment_dataset=False,
                 tag="ccrig_tuning_orig_network",
             ),
-            vae_trainer_class=CVBiGANTrainer,
-            vae_class=CVBiGAN,
+            vae_trainer_class=VQ_VAETrainer,
+            vae_class=VQ_VAE,
             vae_kwargs=dict(
                 input_channels=3,
                 imsize=48,
             ),
-
             algo_kwargs=dict(
                 key_to_reconstruct='x_t',
                 start_skew_epoch=5000,
@@ -212,9 +213,7 @@ if __name__ == "__main__":
 
             save_period=50,
         ),
-        ccvae_or_cbigan_exp=True,
-        train_model_func=train_vae,
-        encoder_wrapper=ConditionalEncoderWrappedEnv,
+        train_model_func=train_vqvae,
         presampled_goal_kwargs=dict(
             eval_goals='', #HERE
             expl_goals='',
@@ -226,14 +225,16 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(1),
-        'path_loader_kwargs.demo_paths': [demo_paths],
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        "seed": range(2), #2
 
-        'reward_kwargs':[dict(reward_type='sparse', epsilon=1.0),
-                        dict(reward_type='sparse', epsilon=2.0),
-                        dict(reward_type='sparse', epsilon=3.0),],
+        'env_type': ['pnp',], #'tray', 'pnp'
+        'env_kwargs.object_subset': [['grill_trash_can']],
 
+        # 'env_type': ['pnp'], #'tray', 'pnp'
+        # 'env_kwargs.object_subset': [['camera'], ['mug'], ['long_sofa'], ['grill_trash_can'], ['beer_bottle']],
+        'reward_kwargs.epsilon': [3.0, 3.5, 4.0],
+        
+        'logger_config.snapshot_mode': ["none"], # MAKE SURE THIS WORKS!!!!!
         'trainer_kwargs.beta': [0.3],
         'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
@@ -253,12 +254,10 @@ if __name__ == "__main__":
     variants = []
     for variant in sweeper.iterate_hyperparameters():
         env_type = variant['env_type']
-        eval_goals = 'sasha/presampled_goals/affordances/combined/{0}_goals.pkl'.format(env_type)
+        obj = variant['env_kwargs']['object_subset'][0]
+        eval_goals = 'sasha/presampled_goals/affordances/combined/{0}_{1}_goals.pkl'.format(env_type, obj)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
-        
-        if env_type in ['top_drawer', 'bottom_drawer']:
-            variant['env_class'] = SawyerRigAffordancesV0
-            variant['env_kwargs']['env_type'] = env_type
+
         if env_type == 'tray':
             variant['env_class'] = SawyerRigMultiobjTrayV0
         if env_type == 'pnp':
@@ -266,4 +265,4 @@ if __name__ == "__main__":
 
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=10)
+    run_variants(awac_rig_experiment, variants, run_id=31) #HERE

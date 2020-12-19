@@ -196,7 +196,6 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             'next_observations': next_obs_dict[self.observation_key],
             'indices': np.array(indices).reshape(-1, 1),
             **new_contexts
-            # 'contexts': new_contexts,
         }
         new_batch = self._post_process_batch_fn(
             batch,

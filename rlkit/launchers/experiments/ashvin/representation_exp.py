@@ -162,7 +162,8 @@ def process_args(variant):
         variant['trainer_kwargs']['q_num_pretrain1_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain1_steps', 0))
         variant['trainer_kwargs']['q_num_pretrain2_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain2_steps', 0))
 
-def awac_rig_experiment(
+
+def duel_awac_rig_experiment(
         max_path_length,
         qf_kwargs,
         trainer_kwargs,
@@ -175,7 +176,7 @@ def awac_rig_experiment(
         env_class=None,
         env_kwargs=None,
         reward_kwargs=None,
-        encoder_wrapper=EncoderWrappedEnv,
+        encoder_wrapper=DuelEncoderWrappedEnv,
         observation_key='latent_observation',
         desired_goal_key='latent_desired_goal',
         state_observation_key='state_observation',
@@ -210,14 +211,15 @@ def awac_rig_experiment(
         renderer_kwargs=None,
         imsize=84,
         pretrained_vae_path="",
-        input_representation="",
-        goal_representation="",
+        input_model_path="",
         presampled_goal_kwargs=None,
         presampled_goals_path="",
         ccvae_or_cbigan_exp=False,
         num_presample=5000,
         init_camera=None,
         qf_class=ConcatMlp,
+
+        # ICLR 2020 SPECIFIC
         env_type=None, # For plotting
     ):
 
@@ -250,6 +252,7 @@ def awac_rig_experiment(
         trainer_kwargs['bc_num_pretrain_steps'] = min(10, trainer_kwargs.get('bc_num_pretrain_steps', 0))
         trainer_kwargs['q_num_pretrain1_steps'] = min(10, trainer_kwargs.get('q_num_pretrain1_steps', 0))
         trainer_kwargs['q_num_pretrain2_steps'] = min(10, trainer_kwargs.get('q_num_pretrain2_steps', 0))
+        num_presample = 10
 
     #Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
@@ -260,11 +263,13 @@ def awac_rig_experiment(
         renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
         img_env = InsertImageEnv(state_env, renderer=renderer)
 
-        encoded_env = encoder_wrapper(
+        encoded_env = DuelEncoderWrappedEnv(
             img_env,
             model,
+            input_model,
             step_keys_map=dict(image_observation="latent_observation"),
             reset_keys_map=reset_keys_map,
+            conditional_input_model=ccvae_or_cbigan_exp,
         )
         if goal_sampling_mode == "vae_prior":
             latent_goal_distribution = PriorDistribution(
@@ -301,14 +306,8 @@ def awac_rig_experiment(
                 model.representation_size,
             )
 
-            #Representation Check
-            if ccvae_or_cbigan_exp:
-                add_distrib = AddConditionalLatentDistribution
-            else:
-                add_distrib = AddLatentDistribution
-
             #AddLatentDistribution
-            latent_goal_distribution = add_distrib(
+            latent_goal_distribution = AddLatentDistribution(
                 image_goal_distribution,
                 image_goal_key,
                 desired_goal_key,
@@ -370,12 +369,13 @@ def awac_rig_experiment(
         model = train_model_func(train_vae_kwargs)
         path_loader_kwargs['model'] = model
 
+    input_model = load_local_or_remote_file(input_model_path)
+    path_loader_kwargs['input_model_path'] = input_model_path
+
     #Representation Check
-    if isinstance(model, CCVAE) or isinstance(model, CVBiGAN):
+    if isinstance(input_model, CCVAE) or isinstance(input_model, CVBiGAN):
         ccvae_or_cbigan_exp = True
-        path_loader_kwargs['condition_encoding'] = True
-        encoder_wrapper = ConditionalEncoderWrappedEnv
-        exploration_goal_sampling_mode = "conditional_vae_prior"
+        path_loader_kwargs['condition_input_encoding'] = True
 
     #Environment Definitions
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
@@ -394,6 +394,7 @@ def awac_rig_experiment(
     if add_env_offpolicy_data:
         path_loader_kwargs["demo_paths"].append(env_offpolicy_data_path)
 
+
     #Key Setting
     context_key = desired_goal_key
     obs_dim = (
@@ -408,8 +409,8 @@ def awac_rig_experiment(
         obs_keys = [state_observation_key, observation_key]
         cont_keys = [state_goal_key, context_key]
     else:
-        mapper = RemapKeyFn({context_key: observation_key})
-        obs_keys = [observation_key] + list(reset_keys_map.values())
+        mapper = RemapKeyFn({context_key: 'latent_observation'})
+        obs_keys = [observation_key] + list(reset_keys_map.values()) + ['latent_observation']
         cont_keys = [context_key]
 
     #Replay Buffer
@@ -454,6 +455,7 @@ def awac_rig_experiment(
         post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
+
 
     #Neural Network Architecture
     def create_qf():
