@@ -108,15 +108,15 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         # - training RL update
         # - training encoder update
         self.replay_buffer = MultiTaskReplayBuffer(
-            self.replay_buffer_size,
-            env,
-            self.train_tasks,
+                self.replay_buffer_size,
+                env,
+                self.train_tasks,
         )
 
         self.enc_replay_buffer = MultiTaskReplayBuffer(
-            self.replay_buffer_size,
-            env,
-            self.train_tasks,
+                self.replay_buffer_size,
+                env,
+                self.train_tasks,
         )
 
         self._n_env_steps_total = 0
@@ -173,9 +173,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     self.collect_data(self.num_initial_steps, 1, np.inf)
             self.in_unsupervised_phase = (it_ >= self.num_iterations_with_reward_supervision)
             self.agent.use_context_encoder_snapshot_for_reward_pred = (
-                self.in_unsupervised_phase
-                and
-                self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase
+                    self.in_unsupervised_phase
+                    and
+                    self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase
             )
             freeze_buffer = (
                     self.in_unsupervised_phase
@@ -199,17 +199,13 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 # collect some trajectories with z ~ posterior
                 if self.num_steps_posterior > 0:
                     self.collect_data(
-                        self.num_steps_posterior, 1,
-                        # self.update_post_train,
-                        np.inf,
+                        self.num_steps_posterior, 1, self.update_post_train,
                         add_to_enc_buffer=not freeze_buffer,
                         use_predicted_reward=self.in_unsupervised_phase)
                 # even if encoder is trained only on samples from the prior, the policy needs to learn to handle z ~ posterior
                 if self.num_extra_rl_steps_posterior > 0:
                     self.collect_data(
-                        self.num_extra_rl_steps_posterior, 1,
-                        # self.update_post_train,
-                        np.inf,
+                        self.num_extra_rl_steps_posterior, 1, self.update_post_train,
                         add_to_enc_buffer=False,
                         use_predicted_reward=self.in_unsupervised_phase)
 
@@ -445,9 +441,12 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             # 100 arbitrarily chosen for visualizations of point_robot trajectories
             # just want stochasticity of z, not the policy
             self.agent.clear_z()
-            prior_paths, _ = self.sampler.obtain_samples(deterministic=self.eval_deterministic, max_samples=self.max_path_length * 20,
-                                                         accum_context=False,
-                                                         resample=1)
+            prior_paths, _ = self.sampler.obtain_samples(
+                    deterministic=self.eval_deterministic,
+                    max_samples=self.max_path_length * 20,
+                    accum_context=False,
+                    resample=1,
+            )
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
 
         ### train tasks
@@ -463,10 +462,13 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             for _ in range(self.num_steps_per_eval // self.max_path_length):
                 context = self.sample_context(idx)
                 self.agent.infer_posterior(context)
-                p, _ = self.sampler.obtain_samples(deterministic=self.eval_deterministic, max_samples=self.max_path_length,
-                                                   accum_context=False,
-                                                   max_trajs=1,
-                                                   resample=np.inf)
+                p, _ = self.sampler.obtain_samples(
+                        deterministic=self.eval_deterministic,
+                        max_samples=self.max_path_length,
+                        accum_context=False,
+                        max_trajs=1,
+                        resample=np.inf,
+                )
                 paths += p
 
             if self.sparse_rewards:
