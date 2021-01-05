@@ -52,7 +52,17 @@ class PEARLInPlacePathSampler(object):
         return paths, n_steps_total
 
 
-def rollout(env, agent, max_path_length=np.inf, accum_context=True, animated=False, save_frames=False, use_predicted_reward=False):
+def rollout(
+        env,
+        agent,
+        task_idx,
+        max_path_length=np.inf,
+        accum_context=True,
+        animated=False,
+        save_frames=False,
+        use_predicted_reward=False,
+        resample_latent_period=1,
+    ):
     """
     The following value for the following keys will be a 2D array, with the
     first dimension corresponding to the time dimension.
@@ -69,10 +79,13 @@ def rollout(env, agent, max_path_length=np.inf, accum_context=True, animated=Fal
 
     :param env:
     :param agent:
+    :task_idx: the task index
     :param max_path_length:
     :param accum_context: if True, accumulate the collected context
     :param animated:
     :param save_frames: if True, save video of rollout
+    :param resample_latent_period: How often to resample the latent posterior.
+        If zero, never resample.
     :return:
     """
     observations = []
@@ -81,26 +94,29 @@ def rollout(env, agent, max_path_length=np.inf, accum_context=True, animated=Fal
     terminals = []
     agent_infos = []
     env_infos = []
+    env.reset_task(task_idx)
     o = env.reset()
     next_o = None
-    path_length = 0
 
     if animated:
         env.render()
-    while path_length < max_path_length:
-        a, agent_info = agent.get_action(o)
+    context = []
+    z = agent.latent_prior.sample()
+    for path_length in range(max_path_length):
+        a, agent_info = agent.get_action(o, z)
         next_o, r, d, env_info = env.step(a)
         if use_predicted_reward:
-            r = agent.infer_reward(o, a)
-        # update the agent's current context
+            r = agent.infer_reward(o, a, z)
         if accum_context:
-            agent.update_context([o, a, r, next_o, d, env_info])
+            context.append([o, a, r, next_o, d, env_info]))
+        if resample_latent_period and path_length % resample_latent_period == 0:
+            latent_posterior = agent.latent_posterior(context)
+            z = latent_posterior.rsample()
         observations.append(o)
         rewards.append(r)
         terminals.append(d)
         actions.append(a)
         agent_infos.append(agent_info)
-        path_length += 1
         o = next_o
         if animated:
             env.render()

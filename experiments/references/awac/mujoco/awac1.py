@@ -62,12 +62,14 @@ if __name__ == "__main__":
         ),
         path_loader_kwargs=dict(
             demo_paths=[  # these can be loaded in awac_rl.py per env
-                # dict(
-                #     path='demos/ant_action_noise_15.npy',
-                #     obs_dict=False,
-                #     is_demo=True,
-                #     train_split=.9,
-                # ),
+                dict(
+                    # path='demos/ant_action_noise_15.npy',
+                    # path='/home/vitchyr/mnt2/log2/manual-upload/awac-demos/hc_off_policy_15_demos_100.npy',
+                    path='/home/vitchyr/mnt2/log2/demos/icml2020/mujoco/hc_off_policy_15_demos_100.npy',
+                    obs_dict=False,
+                    is_demo=True,
+                    train_split=.9,
+                ),
             ],
         ),
         path_loader_class=DictToMDPPathLoader,
@@ -84,8 +86,12 @@ if __name__ == "__main__":
         'train_rl':[True],
         'pretrain_rl':[True],
         'pretrain_policy':[False],
-        'env_id': ['HalfCheetah-v2', 'Ant-v2', 'Walker2d-v2', ],
-        'seedid': range(5),
+        'env_id': [
+            'HalfCheetah-v2',
+            # 'Ant-v2',
+            # 'Walker2d-v2',
+        ],
+        'seedid': range(1),
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
