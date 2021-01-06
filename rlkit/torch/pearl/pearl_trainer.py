@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch import nn as nn
+from torch.distributions import kl_divergence
 
 import rlkit.torch.pytorch_util as ptu
 
@@ -109,6 +110,9 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
             lr=context_lr,
         )
 
+        self.eval_statistics = None
+        self._need_to_update_eval_statistics = True
+
     ###### Torch stuff #####
     @property
     def networks(self):
@@ -156,7 +160,9 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         # obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
         # run inference in networks
-        action_distrib, task_z = self.agent(obs, context, return_task_z=True)
+        action_distrib, p_z, task_z = self.agent(
+            obs, context, return_latent_posterior_and_task_z=True,
+        )
         new_actions, log_pi, pre_tanh_value = action_distrib.rsample_and_logprob(return_pre_tanh_value=True)
         policy_mean = action_distrib.mean
         policy_log_std = action_distrib.log_std
@@ -179,7 +185,7 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         # KL constraint on z if probabilistic
         self.context_optimizer.zero_grad()
         if self.use_information_bottleneck:
-            kl_div = self.agent.compute_kl_div()
+            kl_div = kl_divergence(p_z, self.agent.latent_prior).sum()
             kl_loss = self.kl_lambda * kl_div
             kl_loss.backward(retain_graph=True)
 
@@ -231,14 +237,15 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         self.policy_optimizer.step()
 
         # save some statistics for eval
-        if self.eval_statistics is None:
+        if self._need_to_update_eval_statistics:
+            self._need_to_update_eval_statistics = False
             # eval should set this to None.
             # this way, these statistics are only computed for one batch.
             self.eval_statistics = OrderedDict()
             if self.use_information_bottleneck:
-                z_mean = np.mean(np.abs(ptu.get_numpy(self.agent.z_means[0])))
-                z_sig = np.mean(ptu.get_numpy(self.agent.z_vars[0]))
-                self.eval_statistics['Z mean train'] = z_mean
+                z_mean = np.mean(np.abs(ptu.get_numpy(p_z.mean)))
+                z_sig = np.mean(ptu.get_numpy(p_z.stddev))
+                self.eval_statistics['Z mean-abs train'] = z_mean
                 self.eval_statistics['Z variance train'] = z_sig
                 self.eval_statistics['KL Divergence'] = ptu.get_numpy(kl_div)
                 self.eval_statistics['KL Loss'] = ptu.get_numpy(kl_loss)
@@ -280,3 +287,6 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
             context_encoder=self.agent.context_encoder.state_dict(),
         )
         return snapshot
+
+    def end_epoch(self, epoch):
+        self._need_to_update_eval_statistics = True

@@ -29,7 +29,15 @@ class PEARLInPlacePathSampler(object):
     def shutdown_worker(self):
         pass
 
-    def obtain_samples(self, deterministic=False, max_samples=np.inf, max_trajs=np.inf, accum_context=True, resample=1, use_predicted_reward=False, task_idx=0):
+    def obtain_samples(
+            self,
+            deterministic=False,
+            max_samples=np.inf, max_trajs=np.inf, accum_context=True,
+            update_posterior_period=0,
+            resample_latent_period=1,
+            use_predicted_reward=False, task_idx=0,
+            initial_context=None,
+    ):
         """
         Obtains samples in the environment until either we reach either max_samples transitions or
         num_traj trajectories.
@@ -44,7 +52,13 @@ class PEARLInPlacePathSampler(object):
             path = rollout(
                 self.env, policy,
                 task_idx=task_idx,
-                max_path_length=self.max_path_length, accum_context=accum_context, use_predicted_reward=use_predicted_reward)
+                max_path_length=self.max_path_length,
+                accum_context=accum_context,
+                use_predicted_reward=use_predicted_reward,
+                update_posterior_period=update_posterior_period,
+                resample_latent_period=resample_latent_period,
+                initial_context=initial_context,
+            )
             # save the latent context that generated this trajectory
             # path['context'] = policy.z.detach().cpu().numpy()
             paths.append(path)
@@ -66,6 +80,8 @@ def rollout(
         save_frames=False,
         use_predicted_reward=False,
         resample_latent_period=1,
+        update_posterior_period=1,
+        initial_context=None,
     ):
     """
     The following value for the following keys will be a 2D array, with the
@@ -88,8 +104,10 @@ def rollout(
     :param accum_context: if True, accumulate the collected context
     :param animated:
     :param save_frames: if True, save video of rollout
-    :param resample_latent_period: How often to resample the latent posterior.
+    :param resample_latent_period: How often to resample from the latent posterior.
         If zero, never resample.
+    :param update_posterior_period: How often to update the latent posterior.
+        If zero, never update.
     :return:
     """
     observations = []
@@ -98,26 +116,35 @@ def rollout(
     terminals = []
     agent_infos = []
     env_infos = []
-    contexts = []
+    zs = []
     env.reset_task(task_idx)
     o = env.reset()
     next_o = None
 
     if animated:
         env.render()
-    context = []
-    z = agent.latent_prior.sample()
+
+    if initial_context is not None and len(initial_context):
+        context = initial_context
+        z_dist = agent.latent_posterior(context, squeeze=True)
+    else:
+        context = None
+        z_dist = agent.latent_prior
+
+    z = ptu.get_numpy(z_dist.sample())
     for path_length in range(max_path_length):
+        if resample_latent_period and path_length % resample_latent_period == 0:
+            z = ptu.get_numpy(z_dist.rsample())
         a, agent_info = agent.get_action(o, z)
         next_o, r, d, env_info = env.step(a)
         if use_predicted_reward:
             r = agent.infer_reward(o, a, z)
         if accum_context:
-            context.append([o, a, r, next_o, d, env_info])
-        if resample_latent_period and path_length % resample_latent_period == 0 and len(context) > 0:
-            latent_posterior = agent.latent_posterior(context)
-            z = latent_posterior.rsample()
-        contexts.append(ptu.get_numpy(z))
+            # context.append([o, a, r, next_o, d, env_info])
+            context = agent.update_context(context, [o, a, r, next_o, d, env_info])
+        if update_posterior_period and path_length % update_posterior_period == 0 and len(context) > 0:
+            z_dist = agent.latent_posterior(context, squeeze=True)
+        zs.append(z)
         observations.append(o)
         rewards.append(r)
         terminals.append(d)
@@ -155,7 +182,8 @@ def rollout(
         terminals=np.array(terminals).reshape(-1, 1),
         agent_infos=agent_infos,
         env_infos=env_infos,
-        cotnexts=np.array(contexts),
+        latents=np.array(zs),
+        context=context,
     )
 
 

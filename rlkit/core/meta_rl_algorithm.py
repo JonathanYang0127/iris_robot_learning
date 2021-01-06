@@ -62,6 +62,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = False
         self.env = env
         self.agent = agent
         self.trainer = trainer
@@ -212,7 +213,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         # task_idx=task_idx,
                         # max_path_length=self.max_path_length,
                         # resample_z_rate=1,
-                        # update_posterior_rate=np.inf,
+                        # update_posterior_period=np.inf,
                         # num_steps=self.num_steps_prior,
                         # use_predicted_rewards=self.in_unsupervised_phase,
                         # discard_incomplete_paths=False,
@@ -233,7 +234,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         # task_idx=task_idx,
                         # max_path_length=self.max_path_length,
                         # resample_z_rate=1,
-                        # update_posterior_rate=self.update_post_train,
+                        # update_posterior_period=self.update_post_train,
                         # num_steps=self.num_steps_posterior,
                         # use_predicted_rewards=self.in_unsupervised_phase,
                         # discard_incomplete_paths=False,
@@ -254,7 +255,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         # task_idx=task_idx,
                         # max_path_length=self.max_path_length,
                         # resample_z_rate=1,
-                        # update_posterior_rate=self.update_post_train,
+                        # update_posterior_period=self.update_post_train,
                         # num_steps=self.num_extra_rl_steps_posterior,
                         # use_predicted_rewards=self.in_unsupervised_phase,
                         # discard_incomplete_paths=False,
@@ -278,13 +279,13 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 for i in range(num_updates):
                     context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
                     batch = self.sample_batch(indices)
-                    batch['context'] = batch
+                    batch['context'] = context
                     batch['task_indices'] = indices
                     self.trainer.train(batch)
                     self._n_train_steps_total += 1
 
                     # stop backprop
-                    self.agent.detach_z()
+                    # self.agent.detach_z()
                 # train_data = self.replay_buffer.random_batch(self.batch_size)
             gt.stamp('train')
 
@@ -294,18 +295,20 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self._try_to_eval(it_)
             gt.stamp('eval')
 
-            self._end_epoch()
+            self._end_epoch(it_)
 
     def sample_batch(self, indices):
         ''' sample batch of training data from a list of tasks for training the actor-critic '''
         # TODO: replace with pythonplusplus.treemap
         # this batch consists of transitions sampled randomly from replay buffer
         # rewards are always dense
-        batches = [np_to_pytorch_batch(self.replay_buffer.random_batch(idx, batch_size=self.batch_size)) for idx in indices]
+        # batches = [np_to_pytorch_batch(self.replay_buffer.random_batch(idx, batch_size=self.batch_size)) for idx in indices]
+        batches = [self.replay_buffer.random_batch(idx, batch_size=self.batch_size) for idx in indices]
         unpacked = [self.unpack_batch(batch) for batch in batches]
         # group like elements together
         unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
-        unpacked = [torch.cat(x, dim=0) for x in unpacked]
+        # unpacked = [torch.cat(x, dim=0) for x in unpacked]
+        unpacked = [np.concatenate(x, axis=0) for x in unpacked]
 
         obs, actions, rewards, next_obs, terms = unpacked
         return {
@@ -321,12 +324,17 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         # make method work given a single task index
         if not hasattr(indices, '__iter__'):
             indices = [indices]
-        batches = [np_to_pytorch_batch(self.enc_replay_buffer.random_batch(idx, batch_size=self.embedding_batch_size, sequence=False)) for idx in indices]
-        env_info_sizes=dict(),
-        context = [self.unpack_batch(batch, sparse_reward=False) for batch in batches]
+        # batches = [np_to_pytorch_batch(self.enc_replay_buffer.random_batch(idx, batch_size=self.embedding_batch_size, sequence=False)) for idx in indices]
+        batches = [
+            self.enc_replay_buffer.random_batch(
+                idx, batch_size=self.embedding_batch_size, sequence=False)
+            for idx in indices
+        ]
+        context = [self.unpack_batch(batch) for batch in batches]
         # group like elements together
         context = [[x[i] for x in context] for i in range(len(context[0]))]
-        context = [torch.cat(x, dim=0) for x in context]
+        # context = [torch.cat(x, dim=0) for x in context]
+        context = [np.concatenate(x, axis=0) for x in context]
         # full context consists of [obs, act, rewards, next_obs, terms]
         # if dynamics don't change across tasks, don't include next_obs
         # don't include terminals in context
@@ -334,7 +342,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         #     context = torch.cat(context[:-1], dim=2)
         # else:
         #     context = torch.cat(context[:-2], dim=2)
-        context = torch.cat(context[:-2], dim=2)
+        # context = torch.cat(context[:-2], dim=2)
+        context = np.concatenate(context[:-2], axis=2)
 
         if also_return_dict:
             context_dict = {}
@@ -344,13 +353,34 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         else:
             return context
 
+    def unpack_batch(self, batch):
+        ''' unpack a batch and return individual elements '''
+        o = batch['observations'][None, ...]
+        a = batch['actions'][None, ...]
+        r = batch['rewards'][None, ...]
+        no = batch['next_observations'][None, ...]
+        t = batch['terminals'][None, ...]
+        return [o, a, r, no, t]
+
+    def sample_sac(self, indices):
+        ''' sample batch of training data from a list of tasks for training the actor-critic '''
+        # this batch consists of transitions sampled randomly from replay buffer
+        # rewards are always dense
+        batches = [np_to_pytorch_batch(self.replay_buffer.random_batch(idx, batch_size=self.batch_size)) for idx in indices]
+        unpacked = [self.unpack_batch(batch) for batch in batches]
+        # group like elements together
+        unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
+        unpacked = [torch.cat(x, dim=0) for x in unpacked]
+        return unpacked
+
     def pretrain(self):
         """
         Do anything before the main training phase.
         """
         pass
 
-    def collect_exploration_data(self, num_samples, resample_z_rate, update_posterior_rate, task_idx, add_to_enc_buffer=True, use_predicted_reward=False):
+    def collect_exploration_data(self, num_samples,
+                                 resample_z_rate, update_posterior_period, task_idx, add_to_enc_buffer=True, use_predicted_reward=False):
         '''
         get trajectories from current env in batch mode with given policy
         collect complete trajectories until the number of collected transitions >= num_samples
@@ -358,7 +388,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         :param agent: policy to rollout
         :param num_samples: total number of transitions to sample
         :param resample_z_rate: how often to resample latent context z (in units of trajectories)
-        :param update_posterior_rate: how often to update q(z | c) from which z is sampled (in units of trajectories)
+        :param update_posterior_period: how often to update q(z | c) from which z is sampled (in units of trajectories)
         :param add_to_enc_buffer: whether to add collected data to encoder replay buffer
         :param use_predicted_reward: whether to replace the env reward with the predicted reward to simulate not having access to rewards.
         '''
@@ -366,23 +396,27 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.agent.clear_z()
 
         num_transitions = 0
+        init_context = None
         while num_transitions < num_samples:
             paths, n_samples = self.sampler.obtain_samples(
                 max_samples=num_samples - num_transitions,
-                max_trajs=update_posterior_rate,
+                max_trajs=update_posterior_period,
                 accum_context=False,
-                resample=resample_z_rate,
+                resample_latent_period=resample_z_rate,
+                update_posterior_period=0,
                 use_predicted_reward=use_predicted_reward,
                 task_idx=task_idx,
+                initial_context=init_context,
             )
             num_transitions += n_samples
             self.replay_buffer.add_paths(task_idx, paths)
             if add_to_enc_buffer:
                 self.enc_replay_buffer.add_paths(task_idx, paths)
-            if update_posterior_rate != np.inf:
-                # pass
-                context = self.sample_context(task_idx)
-                self.agent.infer_posterior(context)
+            if update_posterior_period != np.inf:
+                init_context = self.sample_context(task_idx)
+                init_context = ptu.from_numpy(init_context)
+            # else:
+            #     init_context = []  # recreate list to avoid pass-by-ref bug
                 # self.agent.clear_z()
                 # HACK: try just resampling from the prior
         self._n_env_steps_total += num_transitions
@@ -467,7 +501,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self._do_train_time = 0
         logger.push_prefix('Iteration #%d | ' % epoch)
 
-    def _end_epoch(self):
+    def _end_epoch(self, epoch):
+        self.trainer.end_epoch(epoch)
         logger.log("Epoch Duration: {0}".format(
             time.time() - self._epoch_start_time
         ))
@@ -511,18 +546,25 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         paths = []
         num_transitions = 0
         num_trajs = 0
+        init_context = None
         while num_transitions < self.num_steps_per_eval:
-            path, num = self.sampler.obtain_samples(deterministic=self.eval_deterministic, max_samples=self.num_steps_per_eval - num_transitions, max_trajs=1, accum_context=True)
-            paths += path
+            loop_paths, num = self.sampler.obtain_samples(
+                deterministic=self.eval_deterministic,
+                max_samples=self.num_steps_per_eval - num_transitions,
+                max_trajs=1,
+                accum_context=True,
+                initial_context=init_context
+            )
+            paths += loop_paths
             num_transitions += num
             num_trajs += 1
             if num_trajs >= self.num_exp_traj_eval:
-                self.agent.infer_posterior(self.agent.context)
-
-        if self.sparse_rewards:
-            for p in paths:
-                sparse_rewards = np.stack(e['sparse_reward'] for e in p['env_infos']).reshape(-1, 1)
-                p['rewards'] = sparse_rewards
+                # init_context = np.concatenate([
+                #     path['context'] for path in paths
+                # ], axis=0)
+                init_context = paths[-1]['context']
+                # import ipdb; ipdb.set_trace()
+                # self.agent.infer_posterior(self.agent.context)
 
         goal = self.env._goal
         for path in paths:
@@ -565,7 +607,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     deterministic=self.eval_deterministic,
                     max_samples=self.max_path_length * 20,
                     accum_context=False,
-                    resample=1,
+                    resample_latent_period=1,
             )
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
 
@@ -579,21 +621,18 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self.env.reset_task(idx)
             paths = []
             for _ in range(self.num_steps_per_eval // self.max_path_length):
-                context = self.sample_context(idx)
-                self.agent.infer_posterior(context)
+                init_context = self.sample_context(idx)
+                init_context = ptu.from_numpy(init_context)
+                # self.agent.infer_posterior(context)
                 p, _ = self.sampler.obtain_samples(
-                        deterministic=self.eval_deterministic,
-                        max_samples=self.max_path_length,
-                        accum_context=False,
-                        max_trajs=1,
-                        resample=np.inf,
+                    deterministic=self.eval_deterministic,
+                    max_samples=self.max_path_length,
+                    accum_context=False,
+                    max_trajs=1,
+                    resample_latent_period=0,
+                    initial_context=init_context,
                 )
                 paths += p
-
-            if self.sparse_rewards:
-                for p in paths:
-                    sparse_rewards = np.stack(e['sparse_reward'] for e in p['env_infos']).reshape(-1, 1)
-                    p['rewards'] = sparse_rewards
 
             train_returns.append(eval_util.get_average_returns(paths))
         train_returns = np.mean(train_returns)

@@ -127,35 +127,40 @@ class PEARLAgent(nn.Module):
         if self.recurrent:
             self.context_encoder_rp.hidden = self.context_encoder_rp.hidden.detach()
 
-    def update_context(self, inputs):
+    def update_context(self, context, inputs):
         ''' append single transition to the current context '''
         o, a, r, no, d, info = inputs
-        if self.sparse_rewards:
-            r = info['sparse_reward']
         o = ptu.from_numpy(o[None, None, ...])
         a = ptu.from_numpy(a[None, None, ...])
         r = ptu.from_numpy(np.array([r])[None, None, ...])
         no = ptu.from_numpy(no[None, None, ...])
 
-        if self.use_next_obs_in_context:
-            data = torch.cat([o, a, r, no], dim=2)
+        data = torch.cat([o, a, r], dim=2)
+        if context is None:
+            context = data
         else:
-            data = torch.cat([o, a, r], dim=2)
-        if self.context is None:
-            self.context = data
-        else:
-            self.context = torch.cat([self.context, data], dim=1)
+            context = torch.cat([context, data], dim=1)
+        return context
 
     def compute_kl_div(self):
         ''' compute KL( q(z|c) || r(z) ) '''
+        import ipdb; ipdb.set_trace()
         prior = torch.distributions.Normal(ptu.zeros(self.latent_dim), ptu.ones(self.latent_dim))
         posteriors = [torch.distributions.Normal(mu, torch.sqrt(var)) for mu, var in zip(torch.unbind(self.z_means), torch.unbind(self.z_vars))]
         kl_divs = [torch.distributions.kl.kl_divergence(post, prior) for post in posteriors]
         kl_div_sum = torch.sum(torch.stack(kl_divs))
         return kl_div_sum
 
-    def latent_posterior(self, context):
+    def batched_latent_prior(self, batch_size):
+        return torch.distributions.Normal(
+            ptu.zeros(batch_size, self.latent_dim),
+            ptu.ones(batch_size, self.latent_dim)
+        )
+
+    def latent_posterior(self, context, squeeze=False):
         ''' compute q(z|c) as a function of input context and sample new z from it'''
+        if isinstance(context, np.ndarray):
+            context = ptu.from_numpy(context)
         params = self.context_encoder(context)
         params = params.view(context.size(0), -1, self.context_encoder.output_size)
         mu = params[..., :self.latent_dim]
@@ -163,12 +168,18 @@ class PEARLAgent(nn.Module):
         z_params = [_product_of_gaussians(m, s) for m, s in zip(torch.unbind(mu), torch.unbind(sigma_squared))]
         z_means = torch.stack([p[0] for p in z_params])
         z_vars = torch.stack([p[1] for p in z_params])
-        return MultivariateDiagonalNormal(z_means, z_vars)
+        if squeeze:
+            z_means = z_means.squeeze()
+            z_vars = z_vars.squeeze()
+        return torch.distributions.Normal(z_means, z_vars)
+        # return MultivariateDiagonalNormal(z_means, z_vars)
 
     def get_action(self, obs, z, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
         obs = ptu.from_numpy(obs[None])
-        z = z.unsqueeze(0)
+        z = ptu.from_numpy(z[None])
+        if len(obs.shape) != len(z.shape):
+            import ipdb; ipdb.set_trace()
         in_ = torch.cat([obs, z], dim=1)[0]
         if deterministic:
             return self.deterministic_policy.get_action(in_)
@@ -179,8 +190,10 @@ class PEARLAgent(nn.Module):
         self.policy.set_num_steps_total(n)
 
     def forward(
-            self, obs, context, return_task_z=False,
+            self, obs, context,
+            return_task_z=False,
             return_latent_posterior=False,
+            return_latent_posterior_and_task_z=False,
     ):
         ''' given context, get statistics under the current policy of a set of observations '''
         context_distrib = self.latent_posterior(context)
@@ -195,6 +208,8 @@ class PEARLAgent(nn.Module):
         in_ = torch.cat([obs, task_z.detach()], dim=1)
         action_distribution = self.policy(in_)
         # policy_outputs = self.policy(in_, reparameterize=True, return_log_prob=True)
+        if return_latent_posterior_and_task_z:
+            return action_distribution, context_distrib, task_z
         if return_latent_posterior:
             return action_distribution, context_distrib
         if return_task_z:
@@ -207,7 +222,7 @@ class PEARLAgent(nn.Module):
     def infer_reward(self, obs, action, z):
         obs = ptu.from_numpy(obs[None])
         action = ptu.from_numpy(action[None])
-        # in_ = torch.cat([obs, action, z], dim=self.z)
+        z = ptu.from_numpy(z[None])
         reward = self.reward_predictor(obs, action, z)
         return ptu.get_numpy(reward)[0]
 
@@ -220,10 +235,10 @@ class PEARLAgent(nn.Module):
         eval_statistics['Z mean eval'] = z_mean
         eval_statistics['Z variance eval'] = z_sig
 
-        z_mean_rp = np.mean(np.abs(ptu.get_numpy(self.z_means_rp[0])))
-        z_sig_rp = np.mean(ptu.get_numpy(self.z_vars_rp[0]))
-        eval_statistics['Z rew-pred mean eval'] = z_mean_rp
-        eval_statistics['Z rew-pred variance eval'] = z_sig_rp
+        # z_mean_rp = np.mean(np.abs(ptu.get_numpy(self.z_means_rp[0])))
+        # z_sig_rp = np.mean(ptu.get_numpy(self.z_vars_rp[0]))
+        # eval_statistics['Z rew-pred mean eval'] = z_mean_rp
+        # eval_statistics['Z rew-pred variance eval'] = z_sig_rp
 
     @property
     def networks(self):
@@ -238,10 +253,8 @@ class MakePEARLAgentDeterministic(Wrapper, Policy):
         super().__init__(stochastic_policy)
         self.stochastic_policy = stochastic_policy
 
-    def get_action(self, observation):
-        return self.stochastic_policy.get_action(observation,
-                                                 deterministic=True)
+    def get_action(self, *args):
+        return self.stochastic_policy.get_action(*args, deterministic=True)
 
-    def get_actions(self, observations):
-        return self.stochastic_policy.get_actions(observations,
-                                                  deterministic=True)
+    def get_actions(self, *args):
+        return self.stochastic_policy.get_actions(*args, deterministic=True)

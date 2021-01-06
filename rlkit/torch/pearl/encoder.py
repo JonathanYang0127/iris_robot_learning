@@ -8,10 +8,6 @@ class MlpEncoder(ConcatMlp):
     '''
     encode context via MLP
     '''
-    def forward(self, *inputs, **kwargs):
-        import ipdb; ipdb.set_trace()
-        return super().forward(*inputs, **kwargs)
-
     def reset(self, num_tasks=1):
         pass
 
