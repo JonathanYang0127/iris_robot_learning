@@ -66,10 +66,10 @@ class PEARLAgent(nn.Module):
         self.reward_predictor = reward_predictor
         self.deterministic_policy = MakeDeterministic(self.policy)
 
-        self.recurrent = kwargs['recurrent']
-        self.use_ib = kwargs['use_information_bottleneck']
-        self.sparse_rewards = kwargs['sparse_rewards']
-        self.use_next_obs_in_context = kwargs['use_next_obs_in_context']
+        # self.recurrent = kwargs['recurrent']
+        # self.use_ib = kwargs['use_information_bottleneck']
+        # self.sparse_rewards = kwargs['sparse_rewards']
+        # self.use_next_obs_in_context = kwargs['use_next_obs_in_context']
 
         # initialize buffers for z dist and z
         # use buffers so latent context can be saved along with model weights
@@ -93,6 +93,17 @@ class PEARLAgent(nn.Module):
             ptu.zeros(self.latent_dim),
             ptu.ones(self.latent_dim)
         )
+
+    def clear_z(self, num_tasks=1):
+        '''
+        reset q(z|c) to the prior
+        sample a new z from the prior
+        '''
+        #  reset distribution over z to the prior
+        mu = ptu.zeros(num_tasks, self.latent_dim)
+        var = ptu.ones(num_tasks, self.latent_dim)
+        self.z_means = mu
+        self.z_vars = var
 
     @property
     def use_context_encoder_snapshot_for_reward_pred(self):
@@ -157,6 +168,7 @@ class PEARLAgent(nn.Module):
     def get_action(self, obs, z, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
         obs = ptu.from_numpy(obs[None])
+        z = z.unsqueeze(0)
         in_ = torch.cat([obs, z], dim=1)[0]
         if deterministic:
             return self.deterministic_policy.get_action(in_)

@@ -1,5 +1,6 @@
 import gym
 # import roboverse
+from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
 from rlkit.data_management.awr_env_replay_buffer import AWREnvReplayBuffer
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.data_management.split_buffer import SplitReplayBuffer
@@ -8,6 +9,7 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.samplers.data_collector.step_collector import MdpStepCollector
 from rlkit.torch.networks import ConcatMlp
+from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
@@ -232,6 +234,8 @@ def pearl_experiment(
     path_loader_kwargs = path_loader_kwargs or {}
     exploration_kwargs = exploration_kwargs or {}
     replay_buffer_kwargs = replay_buffer_kwargs or {}
+    context_encoder_kwargs = context_encoder_kwargs or {}
+    trainer_kwargs = trainer_kwargs or {}
     # expl_env = make(env_id, env_class, env_kwargs, normalize_env)
     # eval_env = make(env_id, env_class, env_kwargs, normalize_env)
     expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
@@ -266,6 +270,8 @@ def pearl_experiment(
 
     qf1 = create_qf()
     qf2 = create_qf()
+    target_qf1 = create_qf()
+    target_qf2 = create_qf()
     vf = ConcatMlp(
         input_size=obs_dim + latent_dim,
         output_size=1,
@@ -282,9 +288,15 @@ def pearl_experiment(
     context_encoder = MlpEncoder(
         input_size=context_encoder_input_dim,
         output_size=context_encoder_output_dim,
+        hidden_sizes=[200, 200, 200],
         **context_encoder_kwargs
     )
-    policy = PEARLAgent(
+    reward_predictor = ConcatMlp(
+        input_size=obs_dim + action_dim + latent_dim,
+        output_size=1,
+        hidden_sizes=[200, 200, 200],
+    )
+    agent = PEARLAgent(
         latent_dim,
         context_encoder,
         policy,
@@ -296,32 +308,47 @@ def pearl_experiment(
     expl_policy = policy
 
     trainer = PEARLSoftActorCriticTrainer(
-        policy=policy,
+        latent_dim=latent_dim,
+        agent=agent,
         qf1=qf1,
         qf2=qf2,
-        target_qf1=target_qf1,
-        target_qf2=target_qf2,
+        vf=vf,
+        reward_predictor=reward_predictor,
+        context_encoder=context_encoder,
+        # target_qf1=target_qf1,
+        # target_qf2=target_qf2,
         **trainer_kwargs
     )
     expl_path_collector = PearlPathCollector(expl_env, expl_policy)
+    agent = PEARLAgent(
+        latent_dim,
+        context_encoder,
+        policy,
+        reward_predictor,
+    )
+    tasks = expl_env.get_all_task_idx()
     algorithm = MetaRLAlgorithm(
         agent=agent,
-        env=env,
+        env=expl_env,
         trainer=trainer,
-        train_tasks=list(tasks[:n_train_tasks]),
-        eval_tasks=list(tasks[-n_eval_tasks:]),
-        nets=[agent, qf1, qf2, vf],
-        latent_dim=latent_dim,
-        **variant['algo_params']
-    )
-
-    # algorithm = TorchBatchRLAlgorithm(
-        # trainer=trainer,
         # exploration_env=expl_env,
         # evaluation_env=eval_env,
         # exploration_data_collector=expl_path_collector,
         # evaluation_data_collector=eval_path_collector,
-        # **algo_kwargs
+        train_tasks=list(tasks[:n_train_tasks]),
+        eval_tasks=list(tasks[-n_eval_tasks:]),
+        # nets=[agent, qf1, qf2, vf],
+        # latent_dim=latent_dim,
+        **algo_kwargs
+    )
+
+    # algorithm = TorchBatchRLAlgorithm(
+    #     trainer=trainer,
+    #     exploration_env=expl_env,
+    #     evaluation_env=eval_env,
+    #     exploration_data_collector=expl_path_collector,
+    #     evaluation_data_collector=eval_path_collector,
+    #     **algo_kwargs
     # )
     algorithm.to(ptu.device)
 

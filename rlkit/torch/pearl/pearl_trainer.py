@@ -16,11 +16,15 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
     def __init__(
             self,
             latent_dim,
-            policy,
+            agent,
             qf1,
             qf2,
             vf,
+            context_encoder,
+            reward_predictor,
 
+            reward_scale=1.,
+            discount=0.99,
             policy_lr=1e-3,
             qf_lr=1e-3,
             vf_lr=1e-3,
@@ -45,6 +49,8 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
     ):
         super().__init__()
 
+        self.reward_scale = reward_scale
+        self.discount = discount
         self.soft_target_tau = soft_target_tau
         self.policy_mean_reg_weight = policy_mean_reg_weight
         self.policy_std_reg_weight = policy_std_reg_weight
@@ -71,12 +77,15 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         self.sparse_rewards = sparse_rewards
         self.use_next_obs_in_context = use_next_obs_in_context
 
-        self.policy = policy
+        self.agent = agent
+        self.policy = agent.policy
         self.qf1, self.qf2, self.vf = qf1, qf2, vf
         self.target_vf = copy.deepcopy(self.vf)
+        self.context_encoder = context_encoder
+        self.reward_predictor = reward_predictor
 
         self.policy_optimizer = optimizer_class(
-            self.agent.policy.parameters(),
+            self.policy.parameters(),
             lr=policy_lr,
         )
         self.qf1_optimizer = optimizer_class(
@@ -92,18 +101,23 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
             lr=vf_lr,
         )
         self.context_optimizer = optimizer_class(
-            self.agent.context_encoder.parameters(),
+            self.context_encoder.parameters(),
             lr=context_lr,
         )
         self.reward_predictor_optimizer = optimizer_class(
-            self.agent.reward_predictor.parameters(),
+            self.reward_predictor.parameters(),
             lr=context_lr,
         )
 
     ###### Torch stuff #####
     @property
     def networks(self):
-        return self.agent.networks + [self.agent] + [self.qf1, self.qf2, self.vf, self.target_vf]
+        return [
+            self.policy,
+            self.qf1, self.qf2, self.vf, self.target_vf,
+            self.context_encoder,
+            self.reward_predictor,
+        ]
 
     def training_mode(self, mode):
         for net in self.networks:
@@ -117,27 +131,6 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
 
 
     ##### Training #####
-    def _do_training(self, indices):
-        mb_size = self.embedding_mini_batch_size
-        num_updates = self.embedding_batch_size // mb_size
-
-        # sample context batch
-        context_batch, context_dict = self.sample_context(indices, also_return_dict=True)
-
-        # zero out context and hidden encoder state
-        self.agent.clear_z(num_tasks=len(indices))
-
-        # do this in a loop so we can truncate backprop in the recurrent encoder
-        for i in range(num_updates):
-            context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
-            minibatch_context_dict = {}
-            for k in ['rewards', 'observations', 'actions']:
-                minibatch_context_dict[k] = context_dict[k][:, i * mb_size: i * mb_size + mb_size, :]
-            self._take_step(indices, context, minibatch_context_dict)
-
-            # stop backprop
-            self.agent.detach_z()
-
     def _min_q(self, obs, actions, task_z):
         q1 = self.qf1(obs, actions, task_z.detach())
         q2 = self.qf2(obs, actions, task_z.detach())
@@ -160,7 +153,7 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         num_tasks = len(indices)
 
         # data is (task, batch, feat)
-        obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
+        # obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
         # run inference in networks
         action_distrib, task_z = self.agent(obs, context, return_task_z=True)
@@ -193,10 +186,12 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         # qf and encoder update (note encoder does not get grads from policy or vf)
         self.qf1_optimizer.zero_grad()
         self.qf2_optimizer.zero_grad()
-        rewards_flat = rewards.view(self.batch_size * num_tasks, -1)
-        # scale rewards for Bellman update
-        rewards_flat = rewards_flat * self.reward_scale
-        terms_flat = terms.view(self.batch_size * num_tasks, -1)
+        # rewards_flat = rewards.view(self.batch_size * num_tasks, -1)
+        # # scale rewards for Bellman update
+        # rewards_flat = rewards_flat * self.reward_scale
+        # terms_flat = terminals.view(self.batch_size * num_tasks, -1)
+        rewards_flat = rewards.view(-1, 1) * self.reward_scale
+        terms_flat = terminals.view(-1, 1)
         q_target = rewards_flat + (1. - terms_flat) * self.discount * target_v_values
         qf_loss = torch.mean((q1_pred - q_target) ** 2) + torch.mean((q2_pred - q_target) ** 2)
         qf_loss.backward()

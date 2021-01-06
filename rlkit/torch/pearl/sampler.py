@@ -2,6 +2,8 @@ import numpy as np
 
 from rlkit.torch.pearl.agent import MakePEARLAgentDeterministic
 from rlkit.torch.sac.policies import MakeDeterministic
+import rlkit.torch.pytorch_util as ptu
+
 
 
 class PEARLInPlacePathSampler(object):
@@ -27,7 +29,7 @@ class PEARLInPlacePathSampler(object):
     def shutdown_worker(self):
         pass
 
-    def obtain_samples(self, deterministic=False, max_samples=np.inf, max_trajs=np.inf, accum_context=True, resample=1, use_predicted_reward=False):
+    def obtain_samples(self, deterministic=False, max_samples=np.inf, max_trajs=np.inf, accum_context=True, resample=1, use_predicted_reward=False, task_idx=0):
         """
         Obtains samples in the environment until either we reach either max_samples transitions or
         num_traj trajectories.
@@ -40,15 +42,17 @@ class PEARLInPlacePathSampler(object):
         n_trajs = 0
         while n_steps_total < max_samples and n_trajs < max_trajs:
             path = rollout(
-                self.env, policy, max_path_length=self.max_path_length, accum_context=accum_context, use_predicted_reward=use_predicted_reward)
+                self.env, policy,
+                task_idx=task_idx,
+                max_path_length=self.max_path_length, accum_context=accum_context, use_predicted_reward=use_predicted_reward)
             # save the latent context that generated this trajectory
-            path['context'] = policy.z.detach().cpu().numpy()
+            # path['context'] = policy.z.detach().cpu().numpy()
             paths.append(path)
             n_steps_total += len(path['observations'])
             n_trajs += 1
             # don't we also want the option to resample z ever transition?
-            if n_trajs % resample == 0:
-                policy.sample_z()
+            # if n_trajs % resample == 0:
+            #     policy.sample_z()
         return paths, n_steps_total
 
 
@@ -94,6 +98,7 @@ def rollout(
     terminals = []
     agent_infos = []
     env_infos = []
+    contexts = []
     env.reset_task(task_idx)
     o = env.reset()
     next_o = None
@@ -108,10 +113,11 @@ def rollout(
         if use_predicted_reward:
             r = agent.infer_reward(o, a, z)
         if accum_context:
-            context.append([o, a, r, next_o, d, env_info]))
-        if resample_latent_period and path_length % resample_latent_period == 0:
+            context.append([o, a, r, next_o, d, env_info])
+        if resample_latent_period and path_length % resample_latent_period == 0 and len(context) > 0:
             latent_posterior = agent.latent_posterior(context)
             z = latent_posterior.rsample()
+        contexts.append(ptu.get_numpy(z))
         observations.append(o)
         rewards.append(r)
         terminals.append(d)
@@ -149,6 +155,7 @@ def rollout(
         terminals=np.array(terminals).reshape(-1, 1),
         agent_infos=agent_infos,
         env_infos=env_infos,
+        cotnexts=np.array(contexts),
     )
 
 

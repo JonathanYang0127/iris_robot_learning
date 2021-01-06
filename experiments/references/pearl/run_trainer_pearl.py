@@ -39,7 +39,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             "embedding_batch_size": 256,
             "num_iterations_with_reward_supervision": 10,
             "freeze_encoder_buffer_in_unsupervised_phase": True,
-            "train_reward_pred_in_unsupervised_phase": False,
+            # "train_reward_pred_in_unsupervised_phase": False,
             "embedding_mini_batch_size": 256,
             "num_train_steps_per_itr": 20,
             "max_path_length": 2,
@@ -47,7 +47,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
         exp_params["net_size"] = 3
     variant = ppp.merge_recursive_dicts(
         exp_params,
-        configs.default_config,
+        configs.default_trainer_config,
         ignore_duplicate_keys_in_second_dict=True,
     )
 
@@ -55,24 +55,24 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
     exp_name = exp_name or 'dev'
 
     search_space = {
-        'algo_params.num_iterations_with_reward_supervision': [
-            # 10,
-            # 20,
-            # 30,
-            9999,
-        ],
-        'algo_params.freeze_encoder_buffer_in_unsupervised_phase': [
-            True,
-            # False,
-        ],
-        'algo_params.train_reward_pred_in_unsupervised_phase': [
-            # True,
-            False,
-        ],
-        'algo_params.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase': [
-            True,
-            # False,
-        ],
+        # 'algo_params.num_iterations_with_reward_supervision': [
+        #     # 10,
+        #     # 20,
+        #     # 30,
+        #     9999,
+        # ],
+        # 'algo_params.freeze_encoder_buffer_in_unsupervised_phase': [
+        #     True,
+        #     # False,
+        # ],
+        # 'algo_params.train_reward_pred_in_unsupervised_phase': [
+        #     # True,
+        #     False,
+        # ],
+        # 'algo_params.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase': [
+        #     True,
+        #     # False,
+        # ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
