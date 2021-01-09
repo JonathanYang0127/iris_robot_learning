@@ -55,6 +55,9 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
     exp_name = exp_name or 'dev'
 
     search_space = {
+        'algo_params.num_iterations': [
+            20,
+        ],
         # 'algo_params.num_iterations_with_reward_supervision': [
         #     # 10,
         #     # 20,

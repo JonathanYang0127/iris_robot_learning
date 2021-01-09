@@ -540,8 +540,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         return data_to_save
 
     def collect_paths(self, idx, epoch, run):
-        self.env.reset_task(idx)
-
         self.agent.clear_z()
         paths = []
         num_transitions = 0
@@ -553,7 +551,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 max_samples=self.num_steps_per_eval - num_transitions,
                 max_trajs=1,
                 accum_context=True,
-                initial_context=init_context
+                initial_context=init_context,
+                task_idx=idx,
             )
             paths += loop_paths
             num_transitions += num
@@ -631,6 +630,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     max_trajs=1,
                     resample_latent_period=0,
                     initial_context=init_context,
+                    task_idx=idx,
                 )
                 paths += p
 
