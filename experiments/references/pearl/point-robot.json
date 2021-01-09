@@ -13,7 +13,9 @@
         "num_extra_rl_steps_posterior": 200,
         "num_train_steps_per_itr": 1000,
         "num_steps_per_eval": 60,
-        "max_path_length": 20,
+        "max_path_length": 20
+    },
+    "trainer_kwargs": {
         "reward_scale": 100.0,
         "kl_lambda": 0.1
     }

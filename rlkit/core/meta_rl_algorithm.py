@@ -51,6 +51,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             render_eval_paths=False,
             dump_eval_paths=False,
             plotter=None,
+            sparse_rewards=False,
+            use_next_obs_in_context=False,
             num_iterations_with_reward_supervision=np.inf,
             freeze_encoder_buffer_in_unsupervised_phase=True,
     ):
@@ -90,6 +92,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.num_exp_traj_eval = num_exp_traj_eval
         self.eval_deterministic = eval_deterministic
         self.render = render
+        self.sparse_rewards = sparse_rewards
+        self.use_next_obs_in_context = use_next_obs_in_context
         self.save_replay_buffer = save_replay_buffer
         self.save_algorithm = save_algorithm
         self.save_environment = save_environment
@@ -338,12 +342,12 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         # full context consists of [obs, act, rewards, next_obs, terms]
         # if dynamics don't change across tasks, don't include next_obs
         # don't include terminals in context
-        # if self.use_next_obs_in_context:
-        #     context = torch.cat(context[:-1], dim=2)
-        # else:
-        #     context = torch.cat(context[:-2], dim=2)
+        if self.use_next_obs_in_context:
+            context = np.concatenate(context[:-1], axis=2)
+        else:
+            context = np.concatenate(context[:-2], axis=2)
         # context = torch.cat(context[:-2], dim=2)
-        context = np.concatenate(context[:-2], axis=2)
+        # context = np.concatenate(context[:-2], axis=2)
 
         if also_return_dict:
             context_dict = {}
@@ -357,7 +361,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         ''' unpack a batch and return individual elements '''
         o = batch['observations'][None, ...]
         a = batch['actions'][None, ...]
-        r = batch['rewards'][None, ...]
+        if self.sparse_rewards:
+            r = batch['sparse_rewards'][None, ...]
+        else:
+            r = batch['rewards'][None, ...]
         no = batch['next_observations'][None, ...]
         t = batch['terminals'][None, ...]
         return [o, a, r, no, t]
@@ -456,7 +463,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             epoch_time = train_time + sample_time + eval_time
             total_time = gt.get_times().total
 
-            logger.record_tabular('in_unsupervised_model', self.in_unsupervised_phase)
+            logger.record_tabular('in_unsupervised_model',
+                                  float(self.in_unsupervised_phase))
             logger.record_tabular('Train Time (s)', train_time)
             logger.record_tabular('(Previous) Eval Time (s)', eval_time)
             logger.record_tabular('Sample Time (s)', sample_time)
@@ -565,6 +573,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 # import ipdb; ipdb.set_trace()
                 # self.agent.infer_posterior(self.agent.context)
 
+        if self.sparse_rewards:
+            for p in paths:
+                sparse_rewards = np.stack(e['sparse_reward'] for e in p['env_infos']).reshape(-1, 1)
+                p['rewards'] = sparse_rewards
+
         goal = self.env._goal
         for path in paths:
             path['goal'] = goal # goal
@@ -633,6 +646,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     task_idx=idx,
                 )
                 paths += p
+
+            if self.sparse_rewards:
+                for p in paths:
+                    sparse_rewards = np.stack(e['sparse_reward'] for e in p['env_infos']).reshape(-1, 1)
+                    p['rewards'] = sparse_rewards
 
             train_returns.append(eval_util.get_average_returns(paths))
         train_returns = np.mean(train_returns)

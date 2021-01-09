@@ -177,10 +177,6 @@ def resume(variant):
 
     algo.train()
 
-def process_args(variant):
-    if env_id:
-        env_params = ENV_PARAMS.get(env_id, {})
-        recursive_dictionary_update(variant, env_params)
 
 def pearl_experiment(
         qf_kwargs=None,
@@ -302,11 +298,6 @@ def pearl_experiment(
         policy,
         reward_predictor,
     )
-
-    eval_policy = MakeDeterministic(policy)
-    eval_path_collector = PearlPathCollector(eval_env, eval_policy)
-    expl_policy = policy
-
     trainer = PEARLSoftActorCriticTrainer(
         latent_dim=latent_dim,
         agent=agent,
@@ -319,7 +310,6 @@ def pearl_experiment(
         # target_qf2=target_qf2,
         **trainer_kwargs
     )
-    expl_path_collector = PearlPathCollector(expl_env, expl_policy)
     agent = PEARLAgent(
         latent_dim,
         context_encoder,
@@ -342,6 +332,10 @@ def pearl_experiment(
         **algo_kwargs
     )
 
+    # eval_policy = MakeDeterministic(policy)
+    # eval_path_collector = PearlPathCollector(eval_env, eval_policy)
+    # expl_policy = policy
+    # expl_path_collector = PearlPathCollector(expl_env, expl_policy)
     # algorithm = TorchBatchRLAlgorithm(
     #     trainer=trainer,
     #     exploration_env=expl_env,
