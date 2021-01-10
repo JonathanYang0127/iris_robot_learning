@@ -223,6 +223,8 @@ def pearl_experiment(
         n_eval_tasks=0,
         path_to_weights=None,
         util_params=None,
+        use_data_collectors=False,
+        use_next_obs_in_context=False,
 ):
     register_pearl_envs()
     env_kwargs = env_kwargs or {}
@@ -255,7 +257,10 @@ def pearl_experiment(
     else:
         env_info_sizes = dict()
 
-    context_encoder_input_dim = obs_dim + action_dim + reward_dim
+    if use_next_obs_in_context:
+        context_encoder_input_dim = 2 * obs_dim + action_dim + reward_dim
+    else:
+        context_encoder_input_dim = obs_dim + action_dim + reward_dim
     context_encoder_output_dim = latent_dim * 2
     def create_qf():
         return ConcatMlp(
@@ -297,6 +302,7 @@ def pearl_experiment(
         context_encoder,
         policy,
         reward_predictor,
+        use_next_obs_in_context=use_next_obs_in_context,
     )
     trainer = PEARLSoftActorCriticTrainer(
         latent_dim=latent_dim,
@@ -310,40 +316,37 @@ def pearl_experiment(
         # target_qf2=target_qf2,
         **trainer_kwargs
     )
-    agent = PEARLAgent(
-        latent_dim,
-        context_encoder,
-        policy,
-        reward_predictor,
-    )
     tasks = expl_env.get_all_task_idx()
-    algorithm = MetaRLAlgorithm(
-        agent=agent,
-        env=expl_env,
-        trainer=trainer,
-        # exploration_env=expl_env,
-        # evaluation_env=eval_env,
-        # exploration_data_collector=expl_path_collector,
-        # evaluation_data_collector=eval_path_collector,
-        train_tasks=list(tasks[:n_train_tasks]),
-        eval_tasks=list(tasks[-n_eval_tasks:]),
-        # nets=[agent, qf1, qf2, vf],
-        # latent_dim=latent_dim,
-        **algo_kwargs
-    )
+    if use_data_collectors:
+        eval_policy = MakeDeterministic(policy)
+        eval_path_collector = PearlPathCollector(eval_env, eval_policy)
+        expl_policy = policy
+        expl_path_collector = PearlPathCollector(expl_env, expl_policy)
+        algorithm = TorchBatchRLAlgorithm(
+            trainer=trainer,
+            exploration_env=expl_env,
+            evaluation_env=eval_env,
+            exploration_data_collector=expl_path_collector,
+            evaluation_data_collector=eval_path_collector,
+            **algo_kwargs
+        )
+    else:
+        algorithm = MetaRLAlgorithm(
+            agent=agent,
+            env=expl_env,
+            trainer=trainer,
+            # exploration_env=expl_env,
+            # evaluation_env=eval_env,
+            # exploration_data_collector=expl_path_collector,
+            # evaluation_data_collector=eval_path_collector,
+            train_tasks=list(tasks[:n_train_tasks]),
+            eval_tasks=list(tasks[-n_eval_tasks:]),
+            # nets=[agent, qf1, qf2, vf],
+            # latent_dim=latent_dim,
+            use_next_obs_in_context=use_next_obs_in_context,
+            **algo_kwargs
+        )
 
-    # eval_policy = MakeDeterministic(policy)
-    # eval_path_collector = PearlPathCollector(eval_env, eval_policy)
-    # expl_policy = policy
-    # expl_path_collector = PearlPathCollector(expl_env, expl_policy)
-    # algorithm = TorchBatchRLAlgorithm(
-    #     trainer=trainer,
-    #     exploration_env=expl_env,
-    #     evaluation_env=eval_env,
-    #     exploration_data_collector=expl_path_collector,
-    #     evaluation_data_collector=eval_path_collector,
-    #     **algo_kwargs
-    # )
     algorithm.to(ptu.device)
 
     algorithm.train()

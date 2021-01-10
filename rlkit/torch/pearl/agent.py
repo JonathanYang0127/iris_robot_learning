@@ -56,7 +56,7 @@ class PEARLAgent(nn.Module):
                  context_encoder,
                  policy,
                  reward_predictor,
-                 **kwargs
+                 use_next_obs_in_context=False,
                  ):
         super().__init__()
         self.latent_dim = latent_dim
@@ -69,7 +69,7 @@ class PEARLAgent(nn.Module):
         # self.recurrent = kwargs['recurrent']
         # self.use_ib = kwargs['use_information_bottleneck']
         # self.sparse_rewards = kwargs['sparse_rewards']
-        # self.use_next_obs_in_context = kwargs['use_next_obs_in_context']
+        self.use_next_obs_in_context = use_next_obs_in_context
 
         # initialize buffers for z dist and z
         # use buffers so latent context can be saved along with model weights
@@ -135,7 +135,10 @@ class PEARLAgent(nn.Module):
         r = ptu.from_numpy(np.array([r])[None, None, ...])
         no = ptu.from_numpy(no[None, None, ...])
 
-        data = torch.cat([o, a, r], dim=2)
+        if self.use_next_obs_in_context:
+            data = torch.cat([o, a, r, no], dim=2)
+        else:
+            data = torch.cat([o, a, r], dim=2)
         if context is None:
             context = data
         else:
@@ -144,7 +147,6 @@ class PEARLAgent(nn.Module):
 
     def compute_kl_div(self):
         ''' compute KL( q(z|c) || r(z) ) '''
-        import ipdb; ipdb.set_trace()
         prior = torch.distributions.Normal(ptu.zeros(self.latent_dim), ptu.ones(self.latent_dim))
         posteriors = [torch.distributions.Normal(mu, torch.sqrt(var)) for mu, var in zip(torch.unbind(self.z_means), torch.unbind(self.z_vars))]
         kl_divs = [torch.distributions.kl.kl_divergence(post, prior) for post in posteriors]

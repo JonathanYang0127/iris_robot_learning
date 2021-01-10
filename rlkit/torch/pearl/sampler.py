@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from rlkit.torch.pearl.agent import MakePEARLAgentDeterministic
 from rlkit.torch.sac.policies import MakeDeterministic
@@ -32,11 +33,9 @@ class PEARLInPlacePathSampler(object):
     def obtain_samples(
             self,
             deterministic=False,
-            max_samples=np.inf, max_trajs=np.inf, accum_context=True,
-            update_posterior_period=0,
-            resample_latent_period=1,
-            use_predicted_reward=False, task_idx=0,
-            initial_context=None,
+            max_trajs=np.inf,
+            max_samples=np.inf,
+            **kwargs
     ):
         """
         Obtains samples in the environment until either we reach either max_samples transitions or
@@ -50,14 +49,10 @@ class PEARLInPlacePathSampler(object):
         n_trajs = 0
         while n_steps_total < max_samples and n_trajs < max_trajs:
             path = rollout(
-                self.env, policy,
-                task_idx=task_idx,
+                self.env,
+                policy,
                 max_path_length=self.max_path_length,
-                accum_context=accum_context,
-                use_predicted_reward=use_predicted_reward,
-                update_posterior_period=update_posterior_period,
-                resample_latent_period=resample_latent_period,
-                initial_context=initial_context,
+                **kwargs
             )
             # save the latent context that generated this trajectory
             # path['context'] = policy.z.detach().cpu().numpy()
@@ -73,7 +68,7 @@ class PEARLInPlacePathSampler(object):
 def rollout(
         env,
         agent,
-        task_idx,
+        task_idx=0,
         max_path_length=np.inf,
         accum_context=True,
         animated=False,
@@ -100,6 +95,7 @@ def rollout(
     :param env:
     :param agent:
     :task_idx: the task index
+    :param task_idx: the index of the task inside the environment.
     :param max_path_length:
     :param accum_context: if True, accumulate the collected context
     :param animated:
@@ -141,7 +137,10 @@ def rollout(
             r = agent.infer_reward(o, a, z)
         if accum_context:
             # context.append([o, a, r, next_o, d, env_info])
-            context = agent.update_context(context, [o, a, r, next_o, d, env_info])
+            context = agent.update_context(
+                context,
+                [o, a, r, next_o, d, env_info],
+            )
         if update_posterior_period and path_length % update_posterior_period == 0 and len(context) > 0:
             z_dist = agent.latent_posterior(context, squeeze=True)
         zs.append(z)
