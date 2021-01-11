@@ -63,9 +63,9 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
         'algo_params.save_replay_buffer': [
             True,
         ],
-        'algo_params.save_extra_manual_epoch_list': [
-            [1, 2, 4],
-        ],
+        # 'algo_params.save_extra_manual_epoch_list': [
+        #     [1, 2, 4],
+        # ],
         'algo_params.num_iterations_with_reward_supervision': [
             # 10,
             # 20,
