@@ -694,6 +694,11 @@ class PearlAwacTrainer(TorchTrainer):
     def end_epoch(self, epoch):
         self._need_to_update_eval_statistics = True
 
+    def get_diagnostics(self):
+        stats = super().get_diagnostics()
+        stats.update(self.eval_statistics)
+        return stats
+
     ###### Torch stuff #####
     @property
     def networks(self):

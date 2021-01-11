@@ -450,6 +450,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 )
             self._old_table_keys = table_keys
 
+            logger.record_dict(self.trainer.get_diagnostics())
+
             logger.record_tabular(
                 "Number of train steps total",
                 self._n_train_steps_total,
