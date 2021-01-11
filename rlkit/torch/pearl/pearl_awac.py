@@ -448,9 +448,7 @@ class PearlAwacTrainer(TorchTrainer):
         dist, p_z, task_z = self.agent(
             obs, context, return_latent_posterior_and_task_z=True,
         )
-        next_dist, _, _ = self.agent(
-            next_obs, context, return_latent_posterior_and_task_z=True,
-        )
+        next_dist = self.agent(next_obs, context)
         new_obs_actions, log_pi = dist.rsample_and_logprob()
 
         # flattens out the task dimension

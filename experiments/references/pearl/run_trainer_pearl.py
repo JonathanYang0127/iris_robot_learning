@@ -34,6 +34,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             "num_steps_posterior": 0,
             "num_extra_rl_steps_posterior": 10,
             "num_evals": 4,
+            "num_iterations": 20,
             "num_steps_per_eval": 6,
             "num_exp_traj_eval": 2,
             "embedding_batch_size": 256,
@@ -55,9 +56,18 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
     exp_name = exp_name or 'dev'
 
     search_space = {
-        # 'algo_params.num_iterations': [
-        #     20,
+        'algo_params.save_replay_buffer': [
+            True,
+        ],
+        # 'algo_params.save_extra_manual_epoch_list': [
+        #     [15, 20, 30, 40, 50, 60, 70, 80, 90, 100],
         # ],
+        'algo_params.num_iterations': [
+            # 10,
+            # 20,
+            50,
+            500,
+        ],
         'algo_params.num_iterations_with_reward_supervision': [
             # 10,
             # 20,

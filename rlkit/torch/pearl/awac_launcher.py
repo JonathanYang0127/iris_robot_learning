@@ -1,5 +1,8 @@
 import gym
 # import roboverse
+import joblib
+
+from rlkit.core.simple_offline_rl_algorithm import SimpleOfflineRlAlgorithm
 from rlkit.data_management.awr_env_replay_buffer import AWREnvReplayBuffer
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.data_management.split_buffer import SplitReplayBuffer
@@ -205,7 +208,6 @@ def pearl_experiment(
         replay_buffer_size=None,
         use_validation_buffer=False,
         pretrain_buffer_policy=False,
-        pretrain_policy=False,
         pretrain_rl=False,
         train_rl=False,
         path_loader_class=MDPPathLoader,
@@ -478,63 +480,34 @@ def pearl_experiment(
 
 
 def pearl_awac_launcher_simple(
-        qf_kwargs=None,
-        vf_kwargs=None,
         trainer_kwargs=None,
         algo_kwargs=None,
-        context_encoder_kwargs=None,
-        policy_class=None,
+        qf_kwargs=None,
         policy_kwargs=None,
-        policy_path=None,
-        normalize_env=True,
+        context_encoder_kwargs=None,
         env_name=None,
-        env_id=None,
-        env_class=None,
-        env_kwargs=None,
         env_params=None,
-        add_env_demos=False,
         path_loader_kwargs=None,
-        env_demo_path=None,
-        env_offpolicy_data_path=None,
-        add_env_offpolicy_data=False,
-        exploration_kwargs=None,
-        replay_buffer_class=EnvReplayBuffer,
-        replay_buffer_kwargs=None,
-        use_validation_buffer=False,
-        pretrain_policy=False,
-        pretrain_rl=False,
-        train_rl=False,
-        path_loader_class=MDPPathLoader,
         latent_dim=None,
         # video/debug
         debug=False,
-        save_video=False,
-        presampled_goals=None,
-        renderer_kwargs=None,
-        image_env_kwargs=None,
-        save_paths=False,
-        load_demos=False,
-        load_env_dataset_demos=False,
-        save_initial_buffers=False,
-        save_pretrained_algorithm=False,
+        # Pre-train params
+        pretrain_rl=False,
+        pretrain_offline_algo_kwargs=None,
+        pretrain_buffer_kwargs=None,
+        pretrain_buffer_path=None,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
-        path_to_weights=None,
-        util_params=None,
         use_data_collectors=False,
         use_next_obs_in_context=False,
 ):
+    pretrain_buffer_kwargs = pretrain_buffer_kwargs or {}
+    pretrain_offline_algo_kwargs = pretrain_offline_algo_kwargs or {}
     register_pearl_envs()
-    env_kwargs = env_kwargs or {}
     env_params = env_params or {}
-    path_loader_kwargs = path_loader_kwargs or {}
-    exploration_kwargs = exploration_kwargs or {}
-    replay_buffer_kwargs = replay_buffer_kwargs or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
-    # expl_env = make(env_id, env_class, env_kwargs, normalize_env)
-    # eval_env = make(env_id, env_class, env_kwargs, normalize_env)
     expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     reward_dim = 1
@@ -550,11 +523,6 @@ def pearl_awac_launcher_simple(
 
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
-
-    if hasattr(expl_env, 'info_sizes'):
-        env_info_sizes = expl_env.info_sizes
-    else:
-        env_info_sizes = dict()
 
     if use_next_obs_in_context:
         context_encoder_input_dim = 2 * obs_dim + action_dim + reward_dim
@@ -638,6 +606,28 @@ def pearl_awac_launcher_simple(
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
             **algo_kwargs
+        )
+
+    if pretrain_rl:
+        # replay_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
+        # demo_train_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
+        # demo_test_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
+        # path_loader = MDPPathLoader(
+        #     trainer,
+        #     replay_buffer=replay_buffer,
+        #     demo_train_buffer=demo_train_buffer,
+        #     demo_test_buffer=demo_test_buffer,
+        #     **path_loader_kwargs
+        # )
+        # path_loader.load_demos()
+        data = joblib.load(pretrain_buffer_path)
+        replay_buffer = data['replay_buffer']
+        enc_replay_buffer = data['enc_replay_buffer']
+
+        SimpleOfflineRlAlgorithm(
+            trainer=trainer,
+            replay_buffer=replay_buffer,
+            **pretrain_offline_algo_kwargs
         )
 
     algorithm.to(ptu.device)

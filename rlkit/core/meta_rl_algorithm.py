@@ -55,6 +55,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             use_next_obs_in_context=False,
             num_iterations_with_reward_supervision=np.inf,
             freeze_encoder_buffer_in_unsupervised_phase=True,
+            save_extra_manual_epoch_list=(),
     ):
         """
         :param env: training env
@@ -64,6 +65,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
         self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = False
         self.env = env
         self.agent = agent
@@ -431,6 +433,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
     def _try_to_eval(self, epoch):
         logger.save_extra_data(self.get_extra_data_to_save(epoch))
+        if epoch in self.save_extra_manual_epoch_list:
+            logger.save_extra_data(
+                self.get_extra_data_to_save(epoch),
+                file_name='extra_snapshot_itr{}'.format(epoch)
+            )
         if self._can_evaluate():
             self.evaluate(epoch)
 
@@ -543,6 +550,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             data_to_save['env'] = self.training_env
         if self.save_replay_buffer:
             data_to_save['replay_buffer'] = self.replay_buffer
+            data_to_save['enc_replay_buffer'] = self.enc_replay_buffer
         if self.save_algorithm:
             data_to_save['algorithm'] = self
         return data_to_save
@@ -622,7 +630,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     resample_latent_period=1,
             )
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
-
         ### train tasks
         # eval on a subset of train tasks for speed
         indices = np.random.choice(self.train_tasks, len(self.eval_tasks))

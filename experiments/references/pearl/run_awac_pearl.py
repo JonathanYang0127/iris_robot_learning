@@ -34,6 +34,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             "num_steps_posterior": 0,
             "num_extra_rl_steps_posterior": 10,
             "num_evals": 4,
+            "num_iterations": 20,
             "num_steps_per_eval": 6,
             "num_exp_traj_eval": 2,
             "embedding_batch_size": 256,
@@ -43,8 +44,9 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             "embedding_mini_batch_size": 256,
             "num_train_steps_per_itr": 20,
             "max_path_length": 2,
+            "save_replay_buffer": True,
         }
-        exp_params["net_size"] = 3
+        # exp_params["net_size"] = 3
     variant = ppp.merge_recursive_dicts(
         exp_params,
         configs.default_awac_trainer_config,
@@ -58,6 +60,12 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
         # 'algo_params.num_iterations': [
         #     20,
         # ],
+        'algo_params.save_replay_buffer': [
+            True,
+        ],
+        'algo_params.save_extra_manual_epoch_list': [
+            [1, 2, 4],
+        ],
         'algo_params.num_iterations_with_reward_supervision': [
             # 10,
             # 20,
@@ -83,16 +91,13 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
     for exp_id, variant in enumerate(sweeper.iterate_hyperparameters()):
         variant['algo_kwargs'] = variant.pop('algo_params')
         variant['latent_dim'] = variant.pop('latent_size')
-        net_size = variant.pop('net_size')
-        variant['qf_kwargs'] = dict(
-            hidden_sizes=[net_size, net_size, net_size],
-        )
-        variant['vf_kwargs'] = dict(
-            hidden_sizes=[net_size, net_size, net_size],
-        )
-        variant['policy_kwargs'] = dict(
-            hidden_sizes=[net_size, net_size, net_size],
-        )
+        # net_size = variant.pop('net_size')
+        # variant['qf_kwargs'] = dict(
+        #     hidden_sizes=[net_size, net_size, net_size],
+        # )
+        # variant['policy_kwargs'] = dict(
+        #     hidden_sizes=[net_size, net_size, net_size],
+        # )
         for _ in range(nseeds):
             variant['exp_id'] = exp_id
             run_experiment(

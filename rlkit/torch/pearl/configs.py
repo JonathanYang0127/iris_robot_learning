@@ -110,12 +110,16 @@ default_awac_trainer_config = dict(
     env_name='cheetah-dir',
     n_train_tasks=2,
     n_eval_tasks=2,
-    latent_size=5, # dimension of the latent context vector
-    net_size=300, # number of units per FC layer in each network
-    path_to_weights=None, # path to pre-trained weights to load into networks
+    latent_size=5,  # dimension of the latent context vector
     env_params=dict(
-        n_tasks=2, # number of distinct tasks in this domain, shoudl equal sum of train and eval tasks
+        n_tasks=2,  # number of distinct tasks in this domain, shoudl equal sum of train and eval tasks
         randomize_tasks=True, # shuffle the tasks after creating them
+    ),
+    qf_kwargs=dict(
+        hidden_sizes=[300, 300, 300],
+    ),
+    policy_kwargs=dict(
+        hidden_sizes=[300, 300, 300],
     ),
     trainer_kwargs=dict(
         soft_target_tau=0.005,  # for SAC target network update
@@ -125,6 +129,10 @@ default_awac_trainer_config = dict(
         context_lr=3e-4,
         kl_lambda=.1,  # weight on KL divergence term in encoder loss
         beta=1,
+        alpha=0,
+        rl_weight=1.0,
+        use_awr_update=True,
+        use_reparam_update=False,
         use_automatic_entropy_tuning=False,
         use_information_bottleneck=True, # False makes latent context deterministic
         use_next_obs_in_context=False, # use next obs if it is useful in distinguishing tasks
@@ -159,11 +167,4 @@ default_awac_trainer_config = dict(
         num_exp_traj_eval=1, # how many exploration trajs to collect before beginning posterior sampling at test time
         dump_eval_paths=False, # whether to save evaluation trajectories
     ),
-    util_params=dict(
-        base_log_dir='output',
-        use_gpu=True,
-        gpu_id=0,
-        debug=False, # debugging triggers printing and writes logs to debug directory
-        docker=False, # TODO docker is not yet supported
-    )
 )
