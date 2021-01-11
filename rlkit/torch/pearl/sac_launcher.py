@@ -1,181 +1,19 @@
-import gym
 # import roboverse
-from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
-from rlkit.data_management.awr_env_replay_buffer import AWREnvReplayBuffer
-from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
-from rlkit.data_management.split_buffer import SplitReplayBuffer
-from rlkit.envs.wrappers import NormalizedBoxEnv, StackObservationEnv, RewardWrapperEnv
 import rlkit.torch.pytorch_util as ptu
-from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
-from rlkit.samplers.data_collector.step_collector import MdpStepCollector
+from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
+from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
+from rlkit.demos.source.mdp_path_loader import MDPPathLoader
+from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
+from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.torch.networks import ConcatMlp
+from rlkit.torch.pearl.agent import PEARLAgent
+from rlkit.torch.pearl.encoder import MlpEncoder
 from rlkit.torch.pearl.path_collector import PearlPathCollector
+from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
 )
-from rlkit.torch.pearl.agent import PEARLAgent
-from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
-from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
-
-from rlkit.demos.source.hdf5_path_loader import HDF5PathLoader
-from rlkit.demos.source.mdp_path_loader import MDPPathLoader
-from rlkit.visualization.video import save_paths, VideoSaveFunction
-
-from multiworld.core.flat_goal_env import FlatGoalEnv
-from multiworld.core.image_env import ImageEnv
-from multiworld.core.gym_to_multi_env import GymToMultiEnv
-from rlkit.misc.hyperparameter import recursive_dictionary_update
-from rlkit.torch.pearl.encoder import MlpEncoder, RecurrentEncoder
-
-import torch
-import numpy as np
-from torchvision.utils import save_image
-
-from rlkit.exploration_strategies.base import \
-    PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import GaussianAndEpislonStrategy
-from rlkit.exploration_strategies.ou_strategy import OUStrategy
-
-import os.path as osp
-from rlkit.core import logger
-from rlkit.misc.asset_loader import load_local_or_remote_file
-import pickle
-
-from rlkit.envs.images import Renderer, InsertImageEnv, EnvRenderer
-from rlkit.envs.make_env import make
-
-ENV_PARAMS = {
-    'HalfCheetah-v2': {
-        'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 1000,
-        'env_demo_path': dict(
-            path="demos/icml2020/mujoco/hc_action_noise_15.npy",
-            obs_dict=False,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            path="demos/icml2020/mujoco/hc_off_policy_15_demos_100.npy",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'Ant-v2': {
-        'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 1000,
-        'env_demo_path': dict(
-            path="demos/icml2020/mujoco/ant_action_noise_15.npy",
-            obs_dict=False,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            path="demos/icml2020/mujoco/ant_off_policy_15_demos_100.npy",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'Walker2d-v2': {
-        'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 1000,
-        'env_demo_path': dict(
-            path="demos/icml2020/mujoco/walker_action_noise_15.npy",
-            obs_dict=False,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            path="demos/icml2020/mujoco/walker_off_policy_15_demos_100.npy",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-
-    'SawyerRigGrasp-v0': {
-        'env_id': 'SawyerRigGrasp-v0',
-        # 'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 50,
-        # 'num_epochs': 1000,
-    },
-
-    'pen-binary-v0': {
-        'env_id': 'pen-binary-v0',
-        'max_path_length': 200,
-        'sparse_reward': True,
-        'env_demo_path': dict(
-            path="demos/icml2020/hand/pen2_sparse.npy",
-            # path="demos/icml2020/hand/sparsity/railrl_pen-binary-v0_demos.npy",
-            obs_dict=True,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            # path="demos/icml2020/hand/pen_bc_sparse1.npy",
-            # path="demos/icml2020/hand/pen_bc_sparse2.npy",
-            # path="demos/icml2020/hand/pen_bc_sparse3.npy",
-            # path="demos/icml2020/hand/pen_bc_sparse4.npy",
-            path="demos/icml2020/hand/pen_bc_sparse4.npy",
-            # path="ashvin/icml2020/hand/sparsity/bc/pen-binary1/run10/id*/video_*_*.p",
-            # sync_dir="ashvin/icml2020/hand/sparsity/bc/pen-binary1/run10",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'door-binary-v0': {
-        'env_id': 'door-binary-v0',
-        'max_path_length': 200,
-        'sparse_reward': True,
-        'env_demo_path': dict(
-            path="demos/icml2020/hand/door2_sparse.npy",
-            # path="demos/icml2020/hand/sparsity/railrl_door-binary-v0_demos.npy",
-            obs_dict=True,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            # path="demos/icml2020/hand/door_bc_sparse1.npy",
-            # path="demos/icml2020/hand/door_bc_sparse3.npy",
-            path="demos/icml2020/hand/door_bc_sparse4.npy",
-            # path="ashvin/icml2020/hand/sparsity/bc/door-binary1/run10/id*/video_*_*.p",
-            # sync_dir="ashvin/icml2020/hand/sparsity/bc/door-binary1/run10",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'relocate-binary-v0': {
-        'env_id': 'relocate-binary-v0',
-        'max_path_length': 200,
-        'sparse_reward': True,
-        'env_demo_path': dict(
-            path="demos/icml2020/hand/relocate2_sparse.npy",
-            # path="demos/icml2020/hand/sparsity/railrl_relocate-binary-v0_demos.npy",
-            obs_dict=True,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            # path="demos/icml2020/hand/relocate_bc_sparse1.npy",
-            path="demos/icml2020/hand/relocate_bc_sparse4.npy",
-            # path="ashvin/icml2020/hand/sparsity/bc/relocate-binary1/run10/id*/video_*_*.p",
-            # sync_dir="ashvin/icml2020/hand/sparsity/bc/relocate-binary1/run10",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-}
-
-
-def resume(variant):
-    data = load_local_or_remote_file(variant.get("pretrained_algorithm_path"), map_location="cuda")
-    algo = data['algorithm']
-
-    algo.num_epochs = variant['num_epochs']
-
-    post_pretrain_hyperparams = variant["trainer_kwargs"].get("post_pretrain_hyperparams", {})
-    algo.trainer.set_algorithm_weights(**post_pretrain_hyperparams)
-
-    algo.train()
 
 
 def pearl_experiment(
