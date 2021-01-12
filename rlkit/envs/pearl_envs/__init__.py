@@ -1,3 +1,4 @@
+from rlkit.envs.pearl_envs.ant_normal import AntNormal
 from rlkit.envs.pearl_envs.ant_dir import AntDirEnv
 from rlkit.envs.pearl_envs.ant_goal import AntGoalEnv
 from rlkit.envs.pearl_envs.half_cheetah_dir import HalfCheetahDirEnv
@@ -38,6 +39,7 @@ def _register_env(name, fn):
 
 def register_pearl_envs():
     _register_env('sparse-point-robot', SparsePointEnv)
+    _register_env('ant-normal', AntNormal)
     _register_env('ant-dir', AntDirEnv)
     _register_env('ant-goal', AntGoalEnv)
     _register_env('cheetah-dir', HalfCheetahDirEnv)

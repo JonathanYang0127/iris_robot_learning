@@ -21,7 +21,7 @@ def get_relative_path(filename):
 
 
 def local_path_from_s3_or_local_path(filename):
-    print(LOCAL_LOG_DIR)
+    print('local log dir', LOCAL_LOG_DIR, 'filename', filename)
     relative_filename = os.path.join(LOCAL_LOG_DIR, filename)
     if os.path.isfile(filename):
         return filename
@@ -33,7 +33,7 @@ def local_path_from_s3_or_local_path(filename):
             filename
         )
         if os.path.isfile(relative_filename2):
-            return relative_filename
+            return relative_filename2
         return sync_down(filename)
 
 
