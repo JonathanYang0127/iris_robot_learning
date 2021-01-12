@@ -238,6 +238,20 @@ def recursive_items(dictionary):
             yield from recursive_items(value)
 
 
+def recursive_string_replace(x, original, new):
+    if isinstance(x, dict):
+        return {k: recursive_string_replace(v, original, new)
+                for k, v in x.items()}
+    elif isinstance(x, str):
+        return x.replace(original, new)
+    elif isinstance(x, list):
+        return [recursive_string_replace(i, original, new) for i in x]
+    elif isinstance(x, tuple):
+        return tuple(recursive_string_replace(i, original, new) for i in x)
+    else:
+        return x
+
+
 # TODO(vitchyr): test methods/classes below
 
 
