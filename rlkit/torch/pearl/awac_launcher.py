@@ -609,17 +609,18 @@ def pearl_awac_launcher_simple(
         )
 
     if pretrain_rl:
-        # replay_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
-        # demo_train_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
-        # demo_test_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
-        # path_loader = MDPPathLoader(
-        #     trainer,
-        #     replay_buffer=replay_buffer,
-        #     demo_train_buffer=demo_train_buffer,
-        #     demo_test_buffer=demo_test_buffer,
-        #     **path_loader_kwargs
-        # )
-        # path_loader.load_demos()
+        replay_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
+        demo_train_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
+        demo_test_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
+        path_loader = MDPPathLoader(
+            trainer,
+            replay_buffer=replay_buffer,
+            demo_train_buffer=demo_train_buffer,
+            demo_test_buffer=demo_test_buffer,
+            **path_loader_kwargs
+        )
+        path_loader.load_demos()
+
         data = joblib.load(pretrain_buffer_path)
         replay_buffer = data['replay_buffer']
         enc_replay_buffer = data['enc_replay_buffer']

@@ -46,6 +46,18 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             "max_path_length": 2,
             "save_replay_buffer": True,
         }
+        exp_params['path_loader_kwargs'] = dict(
+            demo_paths=[  # these can be loaded in awac_rl.py per env
+                dict(
+                    # path='demos/ant_action_noise_15.npy',
+                    # path='/home/vitchyr/mnt2/log2/manual-upload/awac-demos/hc_off_policy_15_demos_100.npy',
+                    path='/home/vitchyr/mnt2/log2/demos/icml2020/mujoco/hc_off_policy_15_demos_100.npy',
+                    obs_dict=False,
+                    is_demo=True,
+                    train_split=.9,
+                ),
+            ],
+        ),
         # exp_params["net_size"] = 3
     variant = ppp.merge_recursive_dicts(
         exp_params,

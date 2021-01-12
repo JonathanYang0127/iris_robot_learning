@@ -21,12 +21,19 @@ def get_relative_path(filename):
 
 
 def local_path_from_s3_or_local_path(filename):
+    print(LOCAL_LOG_DIR)
     relative_filename = os.path.join(LOCAL_LOG_DIR, filename)
     if os.path.isfile(filename):
         return filename
     elif os.path.isfile(relative_filename):
         return relative_filename
     else:
+        relative_filename2 = os.path.join(
+            '/global/scratch/vitchyr/doodad-log-since-2020-11-12',
+            filename
+        )
+        if os.path.isfile(relative_filename2):
+            return relative_filename
         return sync_down(filename)
 
 
