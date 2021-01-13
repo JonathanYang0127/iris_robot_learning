@@ -76,10 +76,13 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             # 30,
             9999,
         ],
-        # 'algo_params.freeze_encoder_buffer_in_unsupervised_phase': [
-        #     True,
-        #     # False,
-        # ],
+        'trainer_kwargs.beta': [
+            0.2,
+            1,
+            2,
+            5,
+            10,
+        ],
         # 'algo_params.train_reward_pred_in_unsupervised_phase': [
         #     # True,
         #     False,
