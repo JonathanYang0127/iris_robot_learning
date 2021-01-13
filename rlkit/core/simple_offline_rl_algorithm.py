@@ -1,9 +1,21 @@
+from collections import OrderedDict
+
 import numpy as np
 
 
+from rlkit.core.timer import timer
 from rlkit.core import logger
 from rlkit.core.logging import add_prefix
 from rlkit.torch.core import np_to_pytorch_batch
+
+
+def _get_epoch_timings():
+    times_itrs = timer.get_times()
+    times = OrderedDict()
+    for key in sorted(times_itrs):
+        time = times_itrs[key]
+        times['time/{} (s)'.format(key)] = time
+    return times
 
 
 class SimpleOfflineRlAlgorithm(object):
@@ -69,6 +81,8 @@ class OfflineMetaRLAlgorithm(object):
     def train(self):
         # first train only the Q function
         iteration = 0
+        timer.return_global_times = True
+        timer.reset()
         for i in range(self.num_batches):
             task_indices = np.random.choice(
                 self.train_tasks, self.meta_batch_size,
@@ -87,11 +101,15 @@ class OfflineMetaRLAlgorithm(object):
                     task_indices,
                     self.task_embedding_batch_size,
                 ))
+            timer.start_timer('train', unique=False)
             self.trainer.train_from_torch(train_data)
+            timer.stop_timer('train')
             if i % self.logging_period == 0:
                 stats_with_prefix = add_prefix(
                     self.trainer.eval_statistics, prefix="trainer/")
                 self.trainer.end_epoch(iteration)
                 iteration += 1
                 logger.record_dict(stats_with_prefix)
+                logger.record_tabular('iteration', iteration)
+                logger.record_dict(_get_epoch_timings())
                 logger.dump_tabular(with_prefix=True, with_timestamp=False)
