@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.networks import ConcatMlp
+import numpy as np
 
 
 class MlpEncoder(ConcatMlp):
@@ -15,7 +16,15 @@ class MlpEncoder(ConcatMlp):
 class DummyMlpEncoder(MlpEncoder):
     def forward(self, *args, **kwargs):
         output = super().forward(*args, **kwargs)
-        return 0 * output
+        z_dim = output.shape[-1]
+        num_components = output.shape[-2]
+        # Make it so that after a soft-plus + product of Gaussians, it always
+        # is a unit Gaussian
+        return torch.cat((
+                0 * output[..., :z_dim//2],
+                np.log(np.exp(num_components) - 1) + 0 * output[..., z_dim//2:],
+            ), dim=-1,
+        )
 
 
 class RecurrentEncoder(ConcatMlp):

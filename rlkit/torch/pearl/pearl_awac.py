@@ -113,6 +113,9 @@ class PearlAwacTrainer(TorchTrainer):
             buffer_policy_reset_period=-1,
             num_buffer_policy_train_steps_on_reset=100,
             advantage_weighted_buffer_loss=True,
+
+            # for debugging
+            _debug_ignore_context=False,
     ):
         super().__init__()
 
@@ -143,6 +146,8 @@ class PearlAwacTrainer(TorchTrainer):
         self.use_information_bottleneck = use_information_bottleneck
         self.sparse_rewards = sparse_rewards
         self.use_next_obs_in_context = use_next_obs_in_context
+
+        self._debug_ignore_context = _debug_ignore_context
 
         self.agent = agent
         self.policy = agent.policy
@@ -312,12 +317,11 @@ class PearlAwacTrainer(TorchTrainer):
         new_obs_actions, log_pi = dist.rsample_and_logprob()
         next_dist = self.agent(next_obs, context)
 
+        if self._debug_ignore_context:
+            task_z = task_z * 0
+
         # flattens out the task dimension
-        try:
-            t, b, _ = obs.size()
-        except ValueError as e:
-            import ipdb; ipdb.set_trace()
-            pass
+        t, b, _ = obs.size()
         obs = obs.view(t * b, -1)
         actions = actions.view(t * b, -1)
         next_obs = next_obs.view(t * b, -1)
@@ -355,7 +359,7 @@ class PearlAwacTrainer(TorchTrainer):
         """
         Information Bottleneck Loss
         """
-        kl_div = kl_divergence(p_z, self.agent.latent_prior).sum()
+        kl_div = kl_divergence(p_z, self.agent.latent_prior).mean(dim=0).sum()
         kl_loss = self.kl_lambda * kl_div
         kl_loss.backward(retain_graph=True)
 

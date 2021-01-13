@@ -213,7 +213,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 # task_idx = idx
                 if self.num_steps_prior > 0:
                     self.collect_exploration_data(
-                        self.num_steps_prior, 1, np.inf,
+                        num_samples=self.num_steps_prior,
+                        resample_z_rate=1,
+                        update_posterior_period=np.inf,
                         add_to_enc_buffer=not freeze_buffer,
                         use_predicted_reward=self.in_unsupervised_phase,
                         task_idx=idx,
@@ -235,7 +237,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 if self.num_steps_posterior > 0:
                     # TODO(vitchyr): replace with sampler
                     self.collect_exploration_data(
-                        self.num_steps_posterior, 1, self.update_post_train,
+                        num_samples=self.num_steps_posterior,
+                        resample_z_rate=1,
+                        update_posterior_period=self.update_post_train,
                         add_to_enc_buffer=not freeze_buffer,
                         use_predicted_reward=self.in_unsupervised_phase,
                         task_idx=idx,
@@ -256,7 +260,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 if self.num_extra_rl_steps_posterior > 0:
                     # TODO(vitchyr): replace with sampler
                     self.collect_exploration_data(
-                        self.num_extra_rl_steps_posterior, 1, self.update_post_train,
+                        num_samples=self.num_extra_rl_steps_posterior,
+                        resample_z_rate=1,
+                        update_posterior_period=self.update_post_train,
                         add_to_enc_buffer=False,
                         use_predicted_reward=self.in_unsupervised_phase,
                         task_idx=idx,
@@ -384,7 +390,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 )
             self._old_table_keys = table_keys
 
-            logger.record_dict(self.trainer.get_diagnostics())
+            logger.record_dict(
+                self.trainer.get_diagnostics(),
+                prefix='trainer/',
+            )
 
             logger.record_tabular(
                 "Number of train steps total",

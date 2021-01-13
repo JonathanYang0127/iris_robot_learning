@@ -57,6 +57,7 @@ class PEARLAgent(nn.Module):
                  policy,
                  reward_predictor,
                  use_next_obs_in_context=False,
+                 _debug_ignore_context=False,
                  ):
         super().__init__()
         self.latent_dim = latent_dim
@@ -65,6 +66,7 @@ class PEARLAgent(nn.Module):
         self.policy = policy
         self.reward_predictor = reward_predictor
         self.deterministic_policy = MakeDeterministic(self.policy)
+        self._debug_ignore_context = _debug_ignore_context
 
         # self.recurrent = kwargs['recurrent']
         # self.use_ib = kwargs['use_information_bottleneck']
@@ -174,13 +176,19 @@ class PEARLAgent(nn.Module):
         if squeeze:
             z_means = z_means.squeeze()
             z_vars = z_vars.squeeze()
+        # This variable is named incorrectly. It's the stddev.
+        # However, I'm keeping it as-is to have the same implementation as in
+        # the original PEARL code.
         return torch.distributions.Normal(z_means, z_vars)
         # return MultivariateDiagonalNormal(z_means, z_vars)
 
     def get_action(self, obs, z, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
         obs = ptu.from_numpy(obs[None])
-        z = ptu.from_numpy(z[None])
+        if self._debug_ignore_context:
+            z = ptu.from_numpy(z[None]) * 0
+        else:
+            z = ptu.from_numpy(z[None])
         if len(obs.shape) != len(z.shape):
             import ipdb; ipdb.set_trace()
         in_ = torch.cat([obs, z], dim=1)[0]

@@ -167,6 +167,7 @@ def pearl_awac_launcher_simple(
         # video/debug
         debug=False,
         use_dummy_encoder=False,
+        networks_ignore_context=False,
         # Pre-train params
         pretrain_rl=False,
         pretrain_offline_algo_kwargs=None,
@@ -245,6 +246,7 @@ def pearl_awac_launcher_simple(
         policy,
         reward_predictor,
         use_next_obs_in_context=use_next_obs_in_context,
+        _debug_ignore_context=networks_ignore_context,
     )
     trainer = PearlAwacTrainer(
         agent=agent,
@@ -256,6 +258,7 @@ def pearl_awac_launcher_simple(
         target_qf2=target_qf2,
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
+        _debug_ignore_context=networks_ignore_context,
         **trainer_kwargs
     )
     tasks = expl_env.get_all_task_idx()
