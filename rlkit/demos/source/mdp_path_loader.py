@@ -50,6 +50,7 @@ class MDPPathLoader:
             recompute_reward=False,
             env_info_key=None,
             obs_key=None,
+            verbose=False,
             **kwargs
     ):
         self.trainer = trainer
@@ -74,14 +75,16 @@ class MDPPathLoader:
         self.trainer.replay_buffer = self.replay_buffer
         self.trainer.demo_train_buffer = self.demo_train_buffer
         self.trainer.demo_test_buffer = self.demo_test_buffer
+        self.verbose = verbose
 
     def load_path(self, path, replay_buffer):
         rewards = []
         path_builder = PathBuilder()
 
-        print("loading path, length", len(path["observations"]), len(path["actions"]))
         H = min(len(path["observations"]), len(path["actions"]))
-        print("actions", np.min(path["actions"]), np.max(path["actions"]))
+        if self.verbose:
+            print("loading path, length", len(path["observations"]), len(path["actions"]))
+            print("actions", np.min(path["actions"]), np.max(path["actions"]))
 
         for i in range(H):
             ob = path["observations"][i]
@@ -119,7 +122,8 @@ class MDPPathLoader:
         if type(self.demo_off_policy_path) is list:
             for demo_pattern in self.demo_off_policy_path:
                 for demo_path in glob.glob(demo_pattern):
-                    print("loading off-policy path", demo_path)
+                    if self.verbose:
+                        print("loading off-policy path", demo_path)
                     self.load_demo_path(demo_path, False)
         else:
             if self.demo_off_policy_path is not None:
