@@ -167,4 +167,7 @@ default_awac_trainer_config = dict(
         num_exp_traj_eval=1, # how many exploration trajs to collect before beginning posterior sampling at test time
         dump_eval_paths=False, # whether to save evaluation trajectories
     ),
+    pretrain_buffer_kwargs=dict(
+        max_replay_buffer_size=int(1e6),
+    ),
 )

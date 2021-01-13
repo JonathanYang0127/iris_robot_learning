@@ -1,52 +1,11 @@
-import gym
-# import roboverse
 import joblib
 
-from rlkit.core.simple_offline_rl_algorithm import SimpleOfflineRlAlgorithm
-from rlkit.data_management.awr_env_replay_buffer import AWREnvReplayBuffer
-from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
-from rlkit.data_management.split_buffer import SplitReplayBuffer
-from rlkit.envs.wrappers import NormalizedBoxEnv, StackObservationEnv, RewardWrapperEnv
 import rlkit.torch.pytorch_util as ptu
-from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
-from rlkit.samplers.data_collector.step_collector import MdpStepCollector
-from rlkit.torch.networks import ConcatMlp
-from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
-from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
-from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.torch_rl_algorithm import (
-    TorchBatchRLAlgorithm,
-    TorchOnlineRLAlgorithm,
-)
-
-from rlkit.demos.source.hdf5_path_loader import HDF5PathLoader
-from rlkit.demos.source.mdp_path_loader import MDPPathLoader
-from rlkit.visualization.video import save_paths, VideoSaveFunction
-
-from multiworld.core.flat_goal_env import FlatGoalEnv
-from multiworld.core.image_env import ImageEnv
-from multiworld.core.gym_to_multi_env import GymToMultiEnv
-from rlkit.misc.hyperparameter import recursive_dictionary_update
-
-import torch
-import numpy as np
-from torchvision.utils import save_image
-
-from rlkit.exploration_strategies.base import \
-    PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import GaussianAndEpislonStrategy
-from rlkit.exploration_strategies.ou_strategy import OUStrategy
-
-import os.path as osp
 from rlkit.core import logger
-from rlkit.misc.asset_loader import load_local_or_remote_file
-import pickle
-
-from rlkit.envs.images import Renderer, InsertImageEnv, EnvRenderer
-from rlkit.envs.make_env import make
-# import roboverse
-import rlkit.torch.pytorch_util as ptu
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
+from rlkit.core.simple_offline_rl_algorithm import (
+    OfflineMetaRLAlgorithm,
+)
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
@@ -55,7 +14,10 @@ from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
 from rlkit.torch.pearl.encoder import MlpEncoder
 from rlkit.torch.pearl.path_collector import PearlPathCollector
-from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
+from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
+from rlkit.torch.sac.policies import (
+    GaussianPolicy,
+)
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
@@ -182,6 +144,15 @@ ENV_PARAMS = {
 }
 
 
+def policy_class_from_str(policy_class):
+    if policy_class == 'GaussianPolicy':
+        return GaussianPolicy
+    elif policy_class == 'TanhGaussianPolicy':
+        return TanhGaussianPolicy
+    else:
+        raise ValueError(policy_class)
+
+
 def pearl_awac_launcher_simple(
         trainer_kwargs=None,
         algo_kwargs=None,
@@ -192,6 +163,7 @@ def pearl_awac_launcher_simple(
         env_params=None,
         path_loader_kwargs=None,
         latent_dim=None,
+        policy_class="TanhGaussianPolicy",
         # video/debug
         debug=False,
         # Pre-train params
@@ -212,6 +184,7 @@ def pearl_awac_launcher_simple(
     env_params = env_params or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
+    path_loader_kwargs = path_loader_kwargs or {}
     expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     reward_dim = 1
@@ -246,7 +219,9 @@ def pearl_awac_launcher_simple(
     target_qf1 = create_qf()
     target_qf2 = create_qf()
 
-    policy = TanhGaussianPolicy(
+    if isinstance(policy_class, str):
+        policy_class = policy_class_from_str(policy_class)
+    policy = policy_class(
         obs_dim=obs_dim + latent_dim,
         action_dim=action_dim,
         **policy_kwargs,
@@ -314,26 +289,52 @@ def pearl_awac_launcher_simple(
 
     if pretrain_rl:
         if use_mdp_path_loader:
-            replay_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
-            demo_train_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
-            demo_test_buffer = EnvReplayBuffer(**pretrain_buffer_kwargs)
+            # replay_buffer = EnvReplayBuffer(
+            #     env=expl_env, **pretrain_buffer_kwargs)
+            replay_buffer = algorithm.replay_buffer.task_buffers[0]
+            enc_replay_buffer = algorithm.enc_replay_buffer.task_buffers[0]
+            # demo_train_buffer = EnvReplayBuffer(
+            #     env=expl_env, **pretrain_buffer_kwargs)
+            demo_test_buffer = EnvReplayBuffer(
+                env=expl_env, **pretrain_buffer_kwargs)
             path_loader = MDPPathLoader(
                 trainer,
                 replay_buffer=replay_buffer,
-                demo_train_buffer=demo_train_buffer,
+                demo_train_buffer=enc_replay_buffer,
                 demo_test_buffer=demo_test_buffer,
                 **path_loader_kwargs
             )
             path_loader.load_demos()
         else:
             data = joblib.load(pretrain_buffer_path)
-            replay_buffer = data['replay_buffer']
-            enc_replay_buffer = data['enc_replay_buffer']
+            saved_replay_buffer = data['replay_buffer']
+            saved_enc_replay_buffer = data['enc_replay_buffer']
+            for k in algorithm.replay_buffer.task_buffers:
+                algorithm.replay_buffer.task_buffers[k] = saved_replay_buffer[k]
+            for k in algorithm.replay_buffer.task_buffers:
+                algorithm.enc_replay_buffer.task_buffers[k] = (
+                    saved_enc_replay_buffer[k]
+                )
 
-        SimpleOfflineRlAlgorithm(
+        pretrain_algo = OfflineMetaRLAlgorithm(
+            replay_buffer=algorithm.replay_buffer,
+            task_embedding_replay_buffer=algorithm.enc_replay_buffer,
             trainer=trainer,
-            replay_buffer=replay_buffer,
+            train_tasks=expl_env.tasks,
             **pretrain_offline_algo_kwargs
+        )
+        logger.remove_tabular_output(
+            'progress.csv', relative_to_snapshot_dir=True
+        )
+        logger.add_tabular_output(
+            'pretrain.csv', relative_to_snapshot_dir=True
+        )
+        pretrain_algo.train()
+        logger.remove_tabular_output(
+            'pretrain.csv', relative_to_snapshot_dir=True
+        )
+        logger.add_tabular_output(
+            'progress.csv', relative_to_snapshot_dir=True,
         )
 
     algorithm.to(ptu.device)

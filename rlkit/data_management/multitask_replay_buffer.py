@@ -11,12 +11,16 @@ class MultiTaskReplayBuffer(object):
             max_replay_buffer_size,
             env,
             tasks,
+            use_next_obs_in_context,
+            sparse_rewards,
     ):
         """
         :param max_replay_buffer_size:
         :param env:
         :param tasks: for multi-task setting
         """
+        self.use_next_obs_in_context = use_next_obs_in_context
+        self.sparse_rewards = sparse_rewards
         self.env = env
         self._ob_space = env.observation_space
         self._action_space = env.action_space
@@ -60,6 +64,72 @@ class MultiTaskReplayBuffer(object):
     def clear_buffer(self, task):
         self.task_buffers[task].clear()
 
+    def sample_batch(self, indices, batch_size):
+        """
+        sample batch of training data from a list of tasks for training the
+        actor-critic.
+
+        :param indices: task indices
+        :param batch_size: batch size for each task index
+        :return:
+        """
+        # TODO: replace with pythonplusplus.treemap
+        # this batch consists of transitions sampled randomly from replay buffer
+        # rewards are always dense
+        # batches = [np_to_pytorch_batch(self.replay_buffer.random_batch(idx, batch_size=self.batch_size)) for idx in indices]
+        batches = [self.random_batch(idx, batch_size=batch_size) for idx in indices]
+        unpacked = [self.unpack_batch(batch) for batch in batches]
+        # group like elements together
+        unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
+        # unpacked = [torch.cat(x, dim=0) for x in unpacked]
+        unpacked = [np.concatenate(x, axis=0) for x in unpacked]
+
+        obs, actions, rewards, next_obs, terms = unpacked
+        return {
+            'observations': obs,
+            'actions': actions,
+            'rewards': rewards,
+            'next_observations': next_obs,
+            'terminals': terms,
+        }
+
+    def sample_context(self, indices, batch_size):
+        ''' sample batch of context from a list of tasks from the replay buffer '''
+        # make method work given a single task index
+        if not hasattr(indices, '__iter__'):
+            indices = [indices]
+        batches = [
+            self.random_batch(
+                idx,
+                batch_size=batch_size,
+                sequence=False)
+            for idx in indices
+        ]
+        context = [self.unpack_batch(batch) for batch in batches]
+        # group like elements together
+        context = [[x[i] for x in context] for i in range(len(context[0]))]
+        # context = [torch.cat(x, dim=0) for x in context]
+        context = [np.concatenate(x, axis=0) for x in context]
+        # full context consists of [obs, act, rewards, next_obs, terms]
+        # if dynamics don't change across tasks, don't include next_obs
+        # don't include terminals in context
+        if self.use_next_obs_in_context:
+            context = np.concatenate(context[:-1], axis=2)
+        else:
+            context = np.concatenate(context[:-2], axis=2)
+        return context
+
+    def unpack_batch(self, batch):
+        ''' unpack a batch and return individual elements '''
+        o = batch['observations'][None, ...]
+        a = batch['actions'][None, ...]
+        if self.sparse_rewards:
+            r = batch['sparse_rewards'][None, ...]
+        else:
+            r = batch['rewards'][None, ...]
+        no = batch['next_observations'][None, ...]
+        t = batch['terminals'][None, ...]
+        return [o, a, r, no, t]
 
 def get_dim(space):
     if isinstance(space, Box):

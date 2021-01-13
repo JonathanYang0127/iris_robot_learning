@@ -46,18 +46,13 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             "max_path_length": 2,
             "save_replay_buffer": True,
         }
-        exp_params['path_loader_kwargs'] = dict(
-            demo_paths=[  # these can be loaded in awac_rl.py per env
-                dict(
-                    # path='demos/ant_action_noise_15.npy',
-                    # path='/home/vitchyr/mnt2/log2/manual-upload/awac-demos/hc_off_policy_15_demos_100.npy',
-                    path='/home/vitchyr/mnt2/log2/demos/icml2020/mujoco/hc_off_policy_15_demos_100.npy',
-                    obs_dict=False,
-                    is_demo=True,
-                    train_split=.9,
-                ),
-            ],
-        ),
+        exp_params['pretrain_offline_algo_kwargs'] = {
+            "batch_size": 128,
+            "logging_period": 5,
+            "meta_batch_size": 2,
+            "num_batches": 50,
+            "task_embedding_batch_size": 3
+        }
         # exp_params["net_size"] = 3
     variant = ppp.merge_recursive_dicts(
         exp_params,
@@ -69,15 +64,12 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
     exp_name = exp_name or 'dev'
 
     search_space = {
-        # 'algo_params.num_iterations': [
-        #     20,
-        # ],
         'algo_params.save_replay_buffer': [
             True,
         ],
-        # 'algo_params.save_extra_manual_epoch_list': [
-        #     [1, 2, 4],
-        # ],
+        'pretrain_rl': [
+            True,
+        ],
         'algo_params.num_iterations_with_reward_supervision': [
             # 10,
             # 20,

@@ -119,15 +119,19 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         # - training RL update
         # - training encoder update
         self.replay_buffer = MultiTaskReplayBuffer(
-                self.replay_buffer_size,
-                env,
-                self.train_tasks,
+            self.replay_buffer_size,
+            env,
+            self.train_tasks,
+            use_next_obs_in_context=use_next_obs_in_context,
+            sparse_rewards=sparse_rewards,
         )
 
         self.enc_replay_buffer = MultiTaskReplayBuffer(
-                self.replay_buffer_size,
-                env,
-                self.train_tasks,
+            self.replay_buffer_size,
+            env,
+            self.train_tasks,
+            use_next_obs_in_context=use_next_obs_in_context,
+            sparse_rewards=sparse_rewards,
         )
 
         self._n_env_steps_total = 0
@@ -276,7 +280,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 num_updates = self.embedding_batch_size // mb_size
 
                 # sample context batch
-                context_batch = self.sample_context(indices)
+                # context_batch = self.sample_context(indices)
+                context_batch = self.enc_replay_buffer.sample_context(
+                    indices,
+                    self.embedding_batch_size
+                )
 
                 # zero out context and hidden encoder state
                 # self.agent.clear_z(num_tasks=len(indices))
@@ -284,7 +292,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 # do this in a loop so we can truncate backprop in the recurrent encoder
                 for i in range(num_updates):
                     context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
-                    batch = self.sample_batch(indices)
+                    # batch = self.sample_batch(indices)
+                    batch = self.replay_buffer.sample_batch(indices, self.batch_size)
                     batch['context'] = context
                     batch['task_indices'] = indices
                     self.trainer.train(batch)
@@ -302,85 +311,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             gt.stamp('eval')
 
             self._end_epoch(it_)
-
-    def sample_batch(self, indices):
-        ''' sample batch of training data from a list of tasks for training the actor-critic '''
-        # TODO: replace with pythonplusplus.treemap
-        # this batch consists of transitions sampled randomly from replay buffer
-        # rewards are always dense
-        # batches = [np_to_pytorch_batch(self.replay_buffer.random_batch(idx, batch_size=self.batch_size)) for idx in indices]
-        batches = [self.replay_buffer.random_batch(idx, batch_size=self.batch_size) for idx in indices]
-        unpacked = [self.unpack_batch(batch) for batch in batches]
-        # group like elements together
-        unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
-        # unpacked = [torch.cat(x, dim=0) for x in unpacked]
-        unpacked = [np.concatenate(x, axis=0) for x in unpacked]
-
-        obs, actions, rewards, next_obs, terms = unpacked
-        return {
-                'observations': obs,
-                'actions': actions,
-                'rewards': rewards,
-                'next_observations': next_obs,
-                'terminals': terms,
-        }
-
-    def sample_context(self, indices, also_return_dict=False):
-        ''' sample batch of context from a list of tasks from the replay buffer '''
-        # make method work given a single task index
-        if not hasattr(indices, '__iter__'):
-            indices = [indices]
-        # batches = [np_to_pytorch_batch(self.enc_replay_buffer.random_batch(idx, batch_size=self.embedding_batch_size, sequence=False)) for idx in indices]
-        batches = [
-            self.enc_replay_buffer.random_batch(
-                idx, batch_size=self.embedding_batch_size, sequence=False)
-            for idx in indices
-        ]
-        context = [self.unpack_batch(batch) for batch in batches]
-        # group like elements together
-        context = [[x[i] for x in context] for i in range(len(context[0]))]
-        # context = [torch.cat(x, dim=0) for x in context]
-        context = [np.concatenate(x, axis=0) for x in context]
-        # full context consists of [obs, act, rewards, next_obs, terms]
-        # if dynamics don't change across tasks, don't include next_obs
-        # don't include terminals in context
-        if self.use_next_obs_in_context:
-            context = np.concatenate(context[:-1], axis=2)
-        else:
-            context = np.concatenate(context[:-2], axis=2)
-        # context = torch.cat(context[:-2], dim=2)
-        # context = np.concatenate(context[:-2], axis=2)
-
-        if also_return_dict:
-            context_dict = {}
-            for k in batches[0]:
-                context_dict[k] = torch.stack([d[k] for d in batches], dim=0)
-            return context, context_dict
-        else:
-            return context
-
-    def unpack_batch(self, batch):
-        ''' unpack a batch and return individual elements '''
-        o = batch['observations'][None, ...]
-        a = batch['actions'][None, ...]
-        if self.sparse_rewards:
-            r = batch['sparse_rewards'][None, ...]
-        else:
-            r = batch['rewards'][None, ...]
-        no = batch['next_observations'][None, ...]
-        t = batch['terminals'][None, ...]
-        return [o, a, r, no, t]
-
-    def sample_sac(self, indices):
-        ''' sample batch of training data from a list of tasks for training the actor-critic '''
-        # this batch consists of transitions sampled randomly from replay buffer
-        # rewards are always dense
-        batches = [np_to_pytorch_batch(self.replay_buffer.random_batch(idx, batch_size=self.batch_size)) for idx in indices]
-        unpacked = [self.unpack_batch(batch) for batch in batches]
-        # group like elements together
-        unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
-        unpacked = [torch.cat(x, dim=0) for x in unpacked]
-        return unpacked
 
     def pretrain(self):
         """
@@ -422,7 +352,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             if add_to_enc_buffer:
                 self.enc_replay_buffer.add_paths(task_idx, paths)
             if update_posterior_period != np.inf:
-                init_context = self.sample_context(task_idx)
+                # init_context = self.sample_context(task_idx)
+                init_context = self.enc_replay_buffer.sample_context(
+                    task_idx,
+                    self.embedding_batch_size
+                )
                 init_context = ptu.from_numpy(init_context)
             # else:
             #     init_context = []  # recreate list to avoid pass-by-ref bug
@@ -642,7 +576,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self.env.reset_task(idx)
             paths = []
             for _ in range(self.num_steps_per_eval // self.max_path_length):
-                init_context = self.sample_context(idx)
+                # init_context = self.sample_context(idx)
+                init_context = self.enc_replay_buffer.sample_context(
+                    idx,
+                    self.embedding_batch_size
+                )
                 init_context = ptu.from_numpy(init_context)
                 # self.agent.infer_posterior(context)
                 p, _ = self.sampler.obtain_samples(

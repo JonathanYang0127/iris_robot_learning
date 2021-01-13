@@ -18,10 +18,28 @@
         "embedding_batch_size": 1024,
         "embedding_mini_batch_size": 1024
     },
+    "latent_size": 2,
     "qf_kwargs": {
         "hidden_sizes": [256, 256]
     },
     "policy_kwargs": {
-        "hidden_sizes": [256, 256]
+        "hidden_sizes": [256, 256, 256, 256],
+        "max_log_std": 0,
+        "min_log_std": -6,
+        "std_architecture": "values"
+    },
+    "policy_class": "GaussianPolicy",
+    "pretrain_offline_algo_kwargs": {
+        "batch_size": 128,
+        "logging_period": 1000,
+        "meta_batch_size": 2,
+        "num_batches": 50000,
+        "task_embedding_batch_size": 3
+    },
+    "path_loader_kwargs": {
+        "demo_path": [
+            "demos/icml2020/mujoco/ant_action_noise_15.npy",
+            "demos/icml2020/mujoco/ant_off_policy_15_demos_100.npy"
+        ]
     }
 }
