@@ -12,7 +12,7 @@ from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
-from rlkit.torch.pearl.encoder import MlpEncoder
+from rlkit.torch.pearl.encoder import MlpEncoder, DummyMlpEncoder
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
 from rlkit.torch.sac.policies import (
@@ -166,6 +166,7 @@ def pearl_awac_launcher_simple(
         policy_class="TanhGaussianPolicy",
         # video/debug
         debug=False,
+        use_dummy_encoder=False,
         # Pre-train params
         pretrain_rl=False,
         pretrain_offline_algo_kwargs=None,
@@ -226,7 +227,8 @@ def pearl_awac_launcher_simple(
         action_dim=action_dim,
         **policy_kwargs,
     )
-    context_encoder = MlpEncoder(
+    encoder_class = DummyMlpEncoder if use_dummy_encoder else MlpEncoder
+    context_encoder = encoder_class(
         input_size=context_encoder_input_dim,
         output_size=context_encoder_output_dim,
         hidden_sizes=[200, 200, 200],

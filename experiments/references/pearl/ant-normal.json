@@ -6,11 +6,11 @@
     },
     "algo_params": {
         "max_path_length": 1000,
-        "meta_batch": 4,
-        "num_initial_steps": 2000,
-        "num_steps_prior": 400,
+        "meta_batch": 1,
+        "num_initial_steps": 1000,
+        "num_steps_prior": 1000,
         "num_steps_posterior": 0,
-        "num_extra_rl_steps_posterior": 600,
+        "num_extra_rl_steps_posterior": 0,
         "num_train_steps_per_itr": 1000,
         "num_evals": 4,
         "num_steps_per_eval": 600,
@@ -19,6 +19,7 @@
         "embedding_mini_batch_size": 1024
     },
     "latent_size": 2,
+    "use_dummy_encoder": true,
     "qf_kwargs": {
         "hidden_sizes": [256, 256]
     },

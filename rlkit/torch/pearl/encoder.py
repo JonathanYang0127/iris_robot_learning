@@ -12,6 +12,12 @@ class MlpEncoder(ConcatMlp):
         pass
 
 
+class DummyMlpEncoder(MlpEncoder):
+    def forward(self, *args, **kwargs):
+        output = super().forward(*args, **kwargs)
+        return 0 * output
+
+
 class RecurrentEncoder(ConcatMlp):
     '''
     encode context via recurrent network

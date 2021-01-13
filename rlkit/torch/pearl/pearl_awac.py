@@ -505,6 +505,12 @@ class PearlAwacTrainer(TorchTrainer):
                 'Q Targets',
                 ptu.get_numpy(q_target),
             ))
+            self.eval_statistics['task_embedding/kl_divergence'] = (
+                ptu.get_numpy(kl_div)
+            )
+            self.eval_statistics['task_embedding/kl_loss'] = (
+                ptu.get_numpy(kl_loss)
+            )
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Log Pis',
                 ptu.get_numpy(log_pi),

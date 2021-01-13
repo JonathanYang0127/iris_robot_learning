@@ -83,6 +83,7 @@ class PEARLAgent(nn.Module):
         self.z = None
 
         # rp = reward predictor
+        # TODO: add back in reward predictor code
         self.z_means_rp = None
         self.z_vars_rp = None
         self.z_rp = None
