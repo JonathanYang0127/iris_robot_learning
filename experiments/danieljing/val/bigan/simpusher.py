@@ -14,7 +14,7 @@ from rlkit.torch.gan.bigan import BiGAN
 from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 from rlkit.data_management.online_vae_replay_buffer import \
         OnlineVaeRelabelingBuffer
-from experiments.danieljing.val.gan_launcher import train_gan
+from rlkit.launchers.experiments.danieljing.gan_launcher import train_gan
 
 
 x_var = 0.2

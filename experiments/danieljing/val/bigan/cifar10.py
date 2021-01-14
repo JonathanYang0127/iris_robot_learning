@@ -1,14 +1,12 @@
 from __future__ import print_function
 import rlkit.misc.hyperparameter as hyp
-from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in, sawyer_pusher_camera_upright_v2
-from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.gan.bigan import BiGAN
 from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 from multiworld.envs.pygame.multiobject_pygame_env import Multiobj2DEnv
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
 from rlkit.launchers.config import CIFAR10_DATASET
-from experiments.danieljing.val.gan_launcher import train_gan
+from rlkit.launchers.experiments.danieljing.gan_launcher import train_gan
 
 if __name__ == "__main__":
 
