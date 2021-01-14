@@ -1,6 +1,6 @@
 import rlkit.misc.hyperparameter as hyp
-from rlkit.demos.source.dict_to_mdp_path_loader import DuelEncoderDictToMDPPathLoader
-from rlkit.launchers.experiments.ashvin.awac_rig import duel_awac_rig_experiment
+from rlkit.demos.source.encoder_dict_to_mdp_path_loader import DuelEncoderDictToMDPPathLoader
+from rlkit.launchers.experiments.ashvin.representation_exp import duel_awac_rig_experiment
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy

@@ -164,10 +164,8 @@ class BiGANTrainer(ConvVAETrainer, LossFunction):
     def dump_samples(self, epoch):
 
         save_dir = osp.join(self.log_dir, 's%d.png' % epoch)
-        #n_samples = 64
         samples = ptu.randn(64, self.representation_size)
         samples = self.model.decode(samples)
-        #samples = self.model.netG(self.fixed_noise(n_samples))
 
         save_image(
             samples.data.view(64, self.input_channels, self.imsize, self.imsize).transpose(2, 3),

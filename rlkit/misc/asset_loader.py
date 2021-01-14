@@ -101,7 +101,7 @@ class CPU_Unpickler(pickle.Unpickler):
             return lambda b: torch.load(io.BytesIO(b), map_location='cpu')
         else: return super().find_class(module, name)
 
-def load_local_or_remote_file(filepath, file_type=None, **kwargs):
+def load_local_or_remote_file(filepath, file_type=None, delete_after_loading=False, **kwargs):
     local_path = local_path_from_s3_or_local_path(filepath)
     assert local_path is not None, "file not found. Filename: %s" % filepath
     if file_type is None:
@@ -123,34 +123,12 @@ def load_local_or_remote_file(filepath, file_type=None, **kwargs):
         #object = CPU_Unpickler(f).load()
         object = pickle.load(open(local_path, "rb"))
     print("loaded", local_path)
-    if local_path[:4] == "/tmp":
+    
+    if (local_path[:4] == "/tmp") and delete_after_loading:
         print("deleting tmp file after loading.")
         os.remove(local_path)
+    
     return object
-
-# def load_local_or_remote_file(filepath, file_type=None, **kwargs):
-#     local_path = local_path_from_s3_or_local_path(filepath)
-#     if file_type is None:
-#         extension = local_path.split('.')[-1]
-#         if extension == 'npy' or extension == 'npz':
-#             file_type = NUMPY
-#         elif extension == "pt":
-#             file_type = TORCH
-#         else:
-#             file_type = PICKLE
-#     if file_type == NUMPY:
-#         object = np.load(open(local_path, "rb"), allow_pickle=True)
-#     elif file_type == JOBLIB:
-#         object = joblib.load(local_path)
-#     elif file_type == TORCH:
-#         object = torch.load(local_path, **kwargs)
-#     else:
-#         #f = open(local_path, 'rb')
-#         #object = CPU_Unpickler(f).load()
-#         object = pickle.load(open(local_path, "rb"))
-#     print("loaded", local_path)
-#     return object
-
 
 def get_absolute_path(path):
     if path[0] == "/":

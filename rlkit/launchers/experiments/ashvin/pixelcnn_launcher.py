@@ -38,7 +38,7 @@ def train_pixelcnn(
     cached_dataset_path=False,
     trainer_kwargs=None,
     model_kwargs=None,
-    object_list=None,
+    data_filter_fn=lambda x: x,
     debug=False,
 ):
     trainer_kwargs = {} if trainer_kwargs is None else trainer_kwargs
@@ -67,29 +67,16 @@ def train_pixelcnn(
 
     def prep_sample_data(cached_path):
         data = load_local_or_remote_file(cached_path).item()
-        train_data = data['train']#.reshape(-1, discrete_size)
-        test_data = data['test']#.reshape(-1, discrete_size)
+        train_data = data['train']
+        test_data = data['test']
         return train_data, test_data
-
-    def process_object_list(object_list, dataset):
-        keep_ind = 0
-        objects_np = np.array(dataset['object'])
-        for o in object_list:
-            keep_ind += (objects_np == o)
-
-        keep_ind = np.where(keep_ind == 1)
-        dataset['env'] = dataset['env'][keep_ind]
-        dataset['observations'] = dataset['observations'][keep_ind]
 
     def encode_dataset(path, object_list):
         data = load_local_or_remote_file(path)
         data = data.item()
-
-        if object_list is not None:
-            process_object_list(object_list, data)
-
+        data = data_filter_fn(data)
+        
         all_data = []
-
         n = data["observations"].shape[0]
 
         for i in tqdm(range(n)):

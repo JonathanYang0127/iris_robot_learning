@@ -78,10 +78,9 @@ def train_vqvae(variant):
     from rlkit.launchers.experiments.ashvin.pixelcnn_launcher import train_pixelcnn
     vqvae = train_vae(variant)
     dataset_path = variant['generate_vae_dataset_kwargs']['dataset_path']
-    object_list = variant['generate_vae_dataset_kwargs']['object_list']
-    vqvae = train_pixelcnn(vqvae=vqvae, dataset_path=dataset_path, object_list=object_list)
+    data_filter_fn = variant['generate_vae_dataset_kwargs'].get('data_filter_fn', lambda x: x)
+    vqvae = train_pixelcnn(vqvae=vqvae, dataset_path=dataset_path, data_filter_fn=data_filter_fn)
     return vqvae
-
 
 def train_vae(variant, return_data=False):
     from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
@@ -214,16 +213,6 @@ def format_flat_dataset(dataset):
     dataset['env'] = np.repeat(dataset['env'], traj_len, axis=0)
     return dataset
 
-def process_object_list(object_list, dataset):
-    keep_ind = 0
-    objects_np = np.array(dataset['object'])
-    for o in object_list:
-        keep_ind += (objects_np == o)
-
-    keep_ind = np.where(keep_ind == 1)
-    dataset['env'] = dataset['env'][keep_ind]
-    dataset['observations'] = dataset['observations'][keep_ind]
-
 def generate_vae_dataset(variant):
     print(variant)
     from tqdm import tqdm
@@ -240,6 +229,8 @@ def generate_vae_dataset(variant):
     init_camera = variant.get('init_camera', None)
     dataset_path = variant.get('dataset_path', None)
     augment_data = variant.get('augment_data', False)
+    data_filter_fn = variant.get('data_filter_fn', lambda x: x)
+    delete_after_loading = variant.get('delete_after_loading', False)
     oracle_dataset_using_set_to_goal = variant.get('oracle_dataset_using_set_to_goal', False)
     random_rollout_data = variant.get('random_rollout_data', False)
     random_rollout_data_set_to_goal = variant.get('random_rollout_data_set_to_goal', True)
@@ -259,10 +250,6 @@ def generate_vae_dataset(variant):
     save_trajectories = save_trajectories or use_linear_dynamics or conditional_vae_dataset
     tag = variant.get('tag', '')
 
-    ### CCVQVAE SPECIFIC ###
-    object_list = variant.get('object_list', None)
-    ### CCVQVAE SPECIFIC ###
-
     assert N % n_random_steps == 0, "Fix N/horizon or dataset generation will fail"
 
     from multiworld.core.image_env import ImageEnv, unormalize_image
@@ -277,7 +264,7 @@ def generate_vae_dataset(variant):
     use_test_dataset = False
     if dataset_path is not None:
         if type(dataset_path) == str:
-            dataset = load_local_or_remote_file(dataset_path)
+            dataset = load_local_or_remote_file(dataset_path, delete_after_loading=delete_after_loading)
             dataset = dataset.item()
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
@@ -288,19 +275,16 @@ def generate_vae_dataset(variant):
         if isinstance(dataset_path, dict):
             
             if type(dataset_path['train']) == str:
-                dataset = load_local_or_remote_file(dataset_path['train'])
+                dataset = load_local_or_remote_file(dataset_path['train'], delete_after_loading=delete_after_loading)
                 dataset = dataset.item()
             elif isinstance(dataset_path['train'], list):
                 dataset = concatenate_datasets(dataset_path['train'])
 
             if type(dataset_path['test']) == str:
-                test_dataset = load_local_or_remote_file(dataset_path['test'])
+                test_dataset = load_local_or_remote_file(dataset_path['test'], delete_after_loading=delete_after_loading)
                 test_dataset = test_dataset.item()
             elif isinstance(dataset_path['test'], list):
                 test_dataset = concatenate_datasets(dataset_path['test'])
-
-            if object_list is not None:
-                process_object_list(object_list, dataset)
             
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
@@ -321,7 +305,7 @@ def generate_vae_dataset(variant):
             tag,
         )
         if use_cached and osp.isfile(filename):
-            dataset = load_local_or_remote_file(filename)
+            dataset = load_local_or_remote_file(filename, delete_after_loading=delete_after_loading)
             if conditional_vae_dataset:
                 dataset = dataset.item()
             print("loaded data from saved file", filename)
@@ -431,6 +415,7 @@ def generate_vae_dataset(variant):
     info['train_labels'] = []
     info['test_labels'] = []
 
+    dataset = data_filter_fn(dataset)
     if use_linear_dynamics and conditional_vae_dataset:
         num_trajectories = N // n_random_steps
         n = int(num_trajectories * test_p)
