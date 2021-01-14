@@ -563,3 +563,4 @@ def number_M_format_func(value, tick_number):
 
 def format_func_epoch(value, tick_number):
     return(str(int(value)) + 'K')
+

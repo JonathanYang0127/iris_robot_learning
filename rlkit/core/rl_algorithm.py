@@ -71,6 +71,9 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         timer.return_global_times = True
         for _ in range(self.num_epochs):
             self._begin_epoch()
+            timer.start_timer('saving')
+            logger.save_itr_params(self.epoch, self._get_snapshot())
+            timer.stop_timer('saving')
             log_dict, _ = self._train()
             logger.record_dict(log_dict)
             logger.dump_tabular(with_prefix=True, with_timestamp=False)
@@ -122,10 +125,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
                    prefix='expl/')
         expl_paths = self.expl_data_collector.get_epoch_paths()
         for fn in self._expl_get_diag_fns:
-            try:
-                append_log(algo_log, fn(expl_paths), prefix='expl/')
-            except KeyError:
-                pass
+            append_log(algo_log, fn(expl_paths), prefix='expl/')
         # Eval
         if self.epoch % self._eval_epoch_freq == 0:
             self._prev_eval_log = OrderedDict()
