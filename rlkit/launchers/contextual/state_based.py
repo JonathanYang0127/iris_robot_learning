@@ -134,7 +134,7 @@ def goal_conditioned_sac_experiment(
     replay_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
         context_keys=[context_key],
-        observation_keys=[observation_key],
+        observation_keys_to_save=[observation_key],
         context_distribution=eval_context_distrib,
         sample_context_from_obs_dict_fn=sample_context_from_obs_dict_fn,
         reward_fn=eval_reward,

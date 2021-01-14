@@ -299,7 +299,7 @@ def image_based_goal_conditioned_sac_experiment(
         env=eval_env,
         context_keys=[img_desired_goal_key, state_desired_goal_key],
         observation_key=img_observation_key,
-        observation_keys=[img_observation_key, state_observation_key],
+        observation_keys_to_save=[img_observation_key, state_observation_key],
         context_distribution=eval_context_distrib,
         sample_context_from_obs_dict_fn=sample_context_from_obs_dict_fn,
         reward_fn=eval_reward,

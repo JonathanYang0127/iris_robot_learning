@@ -39,12 +39,21 @@ class ContextualEnv(gym.Wrapper):
             env: gym.Env,
             context_distribution: DictDistribution,
             reward_fn: ContextualRewardFn,
-            observation_key='observation',
+            observation_key=None,  # for backwards compatibility
+            observation_keys=None,
             update_env_info_fn=None,
             contextual_diagnostics_fns: Union[None, List[ContextualDiagnosticsFn]]=None,
             unbatched_reward_fn=None,
     ):
         super().__init__(env)
+        if observation_key is not None and observation_keys is not None:
+            raise ValueError('Only specify observation_key or observation_keys')
+        if observation_key is None and observation_keys is None:
+            raise ValueError(
+                'Specify either observation_key or observation_keys'
+            )
+        if observation_keys is None:
+            observation_keys = [observation_key]
         if contextual_diagnostics_fns is None:
             contextual_diagnostics_fns = []
         if not isinstance(env.observation_space, gym.spaces.Dict):
@@ -56,7 +65,7 @@ class ContextualEnv(gym.Wrapper):
         self.context_distribution = context_distribution
         self.reward_fn = reward_fn
         self._context_keys = list(context_distribution.spaces.keys())
-        self._observation_key = observation_key
+        self._observation_keys = observation_keys
         self._last_obs = None
         self._rollout_context_batch = None
         self._update_env_info = update_env_info_fn or insert_reward

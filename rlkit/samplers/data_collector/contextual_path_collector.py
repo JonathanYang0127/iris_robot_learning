@@ -12,7 +12,7 @@ class ContextualPathCollector(MdpPathCollector):
             env: ContextualEnv,
             policy: Policy,
             max_num_epoch_paths_saved=None,
-            observation_key='observation',
+            observation_keys=('observation',),
             context_keys_for_policy='context',
             render=False,
             render_kwargs=None,
@@ -21,20 +21,20 @@ class ContextualPathCollector(MdpPathCollector):
         rollout_fn = partial(
             contextual_rollout,
             context_keys_for_policy=context_keys_for_policy,
-            observation_key=observation_key,
+            observation_keys=observation_keys,
         )
         super().__init__(
             env, policy, max_num_epoch_paths_saved, render, render_kwargs,
             rollout_fn=rollout_fn,
             **kwargs
         )
-        self._observation_key = observation_key
+        self._observation_keys = observation_keys
         self._context_keys_for_policy = context_keys_for_policy
 
     def get_snapshot(self):
         snapshot = super().get_snapshot()
         snapshot.update(
-            observation_key=self._observation_key,
+            observation_keys=self._observation_keys,
             context_keys_for_policy=self._context_keys_for_policy,
         )
         return snapshot

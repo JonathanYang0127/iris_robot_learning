@@ -368,7 +368,7 @@ def masking_sac_experiment(
     replay_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
         context_keys=[context_key, mask_key],
-        observation_keys=[observation_key, 'state_achieved_goal'],
+        observation_keys_to_save=[observation_key, 'state_achieved_goal'],
         context_distribution=relabel_context_distrib,
         sample_context_from_obs_dict_fn=context_from_obs_dict_fn,
         reward_fn=eval_reward,

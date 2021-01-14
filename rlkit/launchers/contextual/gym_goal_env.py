@@ -156,7 +156,7 @@ def sac_on_gym_goal_env_experiment(
     replay_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
         context_keys=[context_key],
-        observation_keys=[observation_key, achieved_goal_key],
+        observation_keys_to_save=[observation_key, achieved_goal_key],
         context_distribution=eval_context_distrib,
         sample_context_from_obs_dict_fn=sample_context_from_obs_dict_fn,
         reward_fn=eval_reward,
