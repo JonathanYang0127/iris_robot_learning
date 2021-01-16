@@ -68,7 +68,18 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             True,
         ],
         'pretrain_rl': [
-            # True,
+            True,
+            # False,
+        ],
+        'latent_size': [
+            2,
+            8,
+        ],
+        'use_dummy_encoder': [
+            True,
+            False,
+        ],
+        'networks_ignore_context': [
             False,
         ],
         'algo_params.num_iterations_with_reward_supervision': [
