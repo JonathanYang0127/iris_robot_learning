@@ -68,8 +68,8 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             True,
         ],
         'pretrain_rl': [
-            True,
-            # False,
+            # True,
+            False,
         ],
         'algo_params.num_iterations_with_reward_supervision': [
             # 10,
