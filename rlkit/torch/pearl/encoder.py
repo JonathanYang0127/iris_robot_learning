@@ -16,15 +16,17 @@ class MlpEncoder(ConcatMlp):
 class DummyMlpEncoder(MlpEncoder):
     def forward(self, *args, **kwargs):
         output = super().forward(*args, **kwargs)
-        z_dim = output.shape[-1]
-        num_components = output.shape[-2]
-        # Make it so that after a soft-plus + product of Gaussians, it always
-        # is a unit Gaussian
-        return torch.cat((
-                0 * output[..., :z_dim//2],
-                np.log(np.exp(num_components) - 1) + 0 * output[..., z_dim//2:],
-            ), dim=-1,
-        )
+        return 0 * output
+        # TODO: check if this caused issues
+        # z_dim = output.shape[-1]
+        # num_components = output.shape[-2]
+        # # Make it so that after a soft-plus + product of Gaussians, it always
+        # # is a unit Gaussian
+        # return torch.cat((
+        #         0 * output[..., :z_dim//2],
+        #         np.log(np.exp(num_components) - 1) + 0 * output[..., z_dim//2:],
+        #     ), dim=-1,
+        # )
 
 
 class RecurrentEncoder(ConcatMlp):
