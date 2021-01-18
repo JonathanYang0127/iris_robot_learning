@@ -108,8 +108,25 @@ class OfflineMetaRLAlgorithm(object):
                 stats_with_prefix = add_prefix(
                     self.trainer.eval_statistics, prefix="trainer/")
                 self.trainer.end_epoch(iteration)
-                iteration += 1
                 logger.record_dict(stats_with_prefix)
+
+                # TODO: evaluate during offline RL
+                # eval_stats = self.get_eval_statistics()
+                # eval_stats_with_prefix = add_prefix(eval_stats, prefix="eval/")
+                # logger.record_dict(eval_stats_with_prefix)
+
                 logger.record_tabular('iteration', iteration)
                 logger.record_dict(_get_epoch_timings())
                 logger.dump_tabular(with_prefix=True, with_timestamp=False)
+                iteration += 1
+
+    # def get_eval_statistics(self):
+    #     ### train tasks
+    #     # eval on a subset of train tasks for speed
+    #     stats = OrderedDict()
+    #     indices = np.random.choice(self.train_tasks, len(self.eval_tasks))
+    #     for key, path_collector in self.path_collectors.item():
+    #         paths = path_collector.collect_paths()
+    #         returns = eval_util.get_average_returns(paths)
+    #         stats[key + '/AverageReturns'] = returns
+    #     return stats

@@ -20,5 +20,7 @@
         "embedding_mini_batch_size": 256
     },
     "pretrain_rl": true,
-    "pretrain_buffer_path": "/home/vitchyr/mnt2/log2/21-01-10-cheetah-save-buffer/21-01-10-cheetah-save-buffer_2021_01_11_06_56_34_id003--s245114/extra_data.pkl"
+    "load_buffer_kwargs": {
+        "pretrain_buffer_path": "demos/half_cheetah/buffer_400k/extra_data.pkl"
+    }
 }

@@ -10,6 +10,7 @@ from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
+from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
 from rlkit.torch.pearl.encoder import MlpEncoder, DummyMlpEncoder
@@ -172,8 +173,7 @@ def pearl_awac_launcher_simple(
         pretrain_rl=False,
         pretrain_offline_algo_kwargs=None,
         pretrain_buffer_kwargs=None,
-        pretrain_buffer_path=None,
-        use_mdp_path_loader=True,
+        load_buffer_kwargs=None,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -293,25 +293,11 @@ def pearl_awac_launcher_simple(
         )
 
     if pretrain_rl:
-        if pretrain_buffer_path:
-            data = joblib.load(pretrain_buffer_path)
-            saved_replay_buffer = data['replay_buffer']
-            saved_enc_replay_buffer = data['enc_replay_buffer']
-            for k in algorithm.replay_buffer.task_buffers:
-                algorithm.replay_buffer.task_buffers[k].copy_data(
-                    saved_replay_buffer.task_buffers[k]
-                )
-            for k in algorithm.enc_replay_buffer.task_buffers:
-                algorithm.enc_replay_buffer.task_buffers[k].copy_data(
-                    saved_enc_replay_buffer.task_buffers[k]
-                )
+        if load_buffer_kwargs:
+            load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
         if path_loader_kwargs:
-            # replay_buffer = EnvReplayBuffer(
-            #     env=expl_env, **pretrain_buffer_kwargs)
             replay_buffer = algorithm.replay_buffer.task_buffers[0]
             enc_replay_buffer = algorithm.enc_replay_buffer.task_buffers[0]
-            # demo_train_buffer = EnvReplayBuffer(
-            #     env=expl_env, **pretrain_buffer_kwargs)
             demo_test_buffer = EnvReplayBuffer(
                 env=expl_env, **pretrain_buffer_kwargs)
             path_loader = MDPPathLoader(
@@ -347,3 +333,29 @@ def pearl_awac_launcher_simple(
     algorithm.to(ptu.device)
 
     algorithm.train()
+
+
+def load_buffer_onto_algo(
+        algorithm,
+        pretrain_buffer_path,
+        start_idx=0,
+        end_idx=None,
+):
+    data = load_local_or_remote_file(
+        pretrain_buffer_path,
+        file_type='joblib',
+    )
+    saved_replay_buffer = data['replay_buffer']
+    saved_enc_replay_buffer = data['enc_replay_buffer']
+    for k in algorithm.replay_buffer.task_buffers:
+        algorithm.replay_buffer.task_buffers[k].copy_data(
+            saved_replay_buffer.task_buffers[k],
+            start_idx=start_idx,
+            end_idx=end_idx,
+        )
+    for k in algorithm.enc_replay_buffer.task_buffers:
+        algorithm.enc_replay_buffer.task_buffers[k].copy_data(
+            saved_enc_replay_buffer.task_buffers[k],
+            start_idx=start_idx,
+            end_idx=end_idx,
+        )

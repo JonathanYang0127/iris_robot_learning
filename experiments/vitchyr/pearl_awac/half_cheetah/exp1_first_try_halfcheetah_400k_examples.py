@@ -5,6 +5,7 @@ AWAC PEARL Experiment
 import click
 import json
 import os
+import sys
 
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.pearl import configs
@@ -16,11 +17,10 @@ import rlkit.misc.hyperparameter as hyp
 @click.command()
 @click.option('--config', default='experiments/references/pearl/cheetah-dir-offline-start.json')
 @click.option('--debug', is_flag=True, default=False)
-@click.option('--exp_name', default='dev')
-@click.option('--mode', default='local')
+@click.option('--mode', default='htp')
 @click.option('--gpu', default=False)
 @click.option('--nseeds', default=1)
-def main(config, debug, exp_name, mode, gpu, nseeds):
+def main(config, debug, mode, gpu, nseeds):
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -60,6 +60,10 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
         ignore_duplicate_keys_in_second_dict=True,
     )
 
+    s = "experiments/"
+    n = len(s)
+    exp_name = sys.argv[0][n:-3]
+
     search_space = {
         'algo_params.save_replay_buffer': [
             True,
@@ -81,11 +85,11 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             9999,
         ],
         'trainer_kwargs.beta': [
-            0.2,
-            1,
+            0.5,
             2,
             5,
             10,
+            50,
         ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
