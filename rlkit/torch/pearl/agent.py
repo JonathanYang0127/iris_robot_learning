@@ -174,9 +174,9 @@ class PEARLAgent(nn.Module):
         z_means = torch.stack([p[0] for p in z_params])
         z_vars = torch.stack([p[1] for p in z_params])
         if squeeze:
-            z_means = z_means.squeeze()
-            z_vars = z_vars.squeeze()
-        # This variable is named incorrectly. It's the stddev.
+            z_means = z_means.squeeze(dim=-1)
+            z_vars = z_vars.squeeze(dim=-1)
+        # Note: I think z_vars variable is named incorrectly. It's the stddev.
         # However, I'm keeping it as-is to have the same implementation as in
         # the original PEARL code.
         return torch.distributions.Normal(z_means, z_vars)

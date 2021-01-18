@@ -292,30 +292,30 @@ def pearl_awac_launcher_simple(
             **algo_kwargs
         )
 
-    if pretrain_rl:
-        if load_buffer_kwargs:
-            load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
-        if path_loader_kwargs:
-            replay_buffer = algorithm.replay_buffer.task_buffers[0]
-            enc_replay_buffer = algorithm.enc_replay_buffer.task_buffers[0]
-            demo_test_buffer = EnvReplayBuffer(
-                env=expl_env, **pretrain_buffer_kwargs)
-            path_loader = MDPPathLoader(
-                trainer,
-                replay_buffer=replay_buffer,
-                demo_train_buffer=enc_replay_buffer,
-                demo_test_buffer=demo_test_buffer,
-                **path_loader_kwargs
-            )
-            path_loader.load_demos()
-
-        pretrain_algo = OfflineMetaRLAlgorithm(
-            replay_buffer=algorithm.replay_buffer,
-            task_embedding_replay_buffer=algorithm.enc_replay_buffer,
-            trainer=trainer,
-            train_tasks=list(tasks),
-            **pretrain_offline_algo_kwargs
+    if load_buffer_kwargs:
+        load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
+    if path_loader_kwargs:
+        replay_buffer = algorithm.replay_buffer.task_buffers[0]
+        enc_replay_buffer = algorithm.enc_replay_buffer.task_buffers[0]
+        demo_test_buffer = EnvReplayBuffer(
+            env=expl_env, **pretrain_buffer_kwargs)
+        path_loader = MDPPathLoader(
+            trainer,
+            replay_buffer=replay_buffer,
+            demo_train_buffer=enc_replay_buffer,
+            demo_test_buffer=demo_test_buffer,
+            **path_loader_kwargs
         )
+        path_loader.load_demos()
+
+    pretrain_algo = OfflineMetaRLAlgorithm(
+        replay_buffer=algorithm.replay_buffer,
+        task_embedding_replay_buffer=algorithm.enc_replay_buffer,
+        trainer=trainer,
+        train_tasks=list(tasks),
+        **pretrain_offline_algo_kwargs
+    )
+    if pretrain_rl:
         logger.remove_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True
         )

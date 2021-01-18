@@ -22,5 +22,12 @@
     "pretrain_rl": true,
     "load_buffer_kwargs": {
         "pretrain_buffer_path": "demos/half_cheetah/buffer_400k/extra_data.pkl"
+    },
+    "pretrain_offline_algo_kwargs": {
+        "batch_size": 256,
+        "logging_period": 1000,
+        "meta_batch_size": 4,
+        "num_batches": 50000,
+        "task_embedding_batch_size": 256
     }
 }

@@ -15,12 +15,13 @@ import rlkit.misc.hyperparameter as hyp
 
 
 @click.command()
-@click.option('--config', default='experiments/references/pearl/cheetah-dir-offline-start.json')
+@click.option('--config', default='experiments/references/pearl/ant-normal.json')
 @click.option('--debug', is_flag=True, default=False)
-@click.option('--mode', default='htp')
+@click.option('--exp_name', default=None)
+@click.option('--mode', default=None)
 @click.option('--gpu', default=False)
-@click.option('--nseeds', default=1)
-def main(config, debug, mode, gpu, nseeds):
+@click.option('--nseeds', default=2)
+def main(config, debug, exp_name, mode, gpu, nseeds):
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -62,7 +63,8 @@ def main(config, debug, mode, gpu, nseeds):
 
     s = "experiments/"
     n = len(s)
-    exp_name = sys.argv[0][n:-3]
+    exp_name = exp_name or sys.argv[0][n:-3]
+    mode = mode or 'htp'
 
     search_space = {
         'algo_params.save_replay_buffer': [
@@ -70,27 +72,40 @@ def main(config, debug, mode, gpu, nseeds):
         ],
         'pretrain_rl': [
             True,
-            # False,
+            False,
         ],
         'latent_size': [
-            1,
             2,
-            5,
-            8,
+            # 8,
+        ],
+        'use_dummy_encoder': [
+            True,
+            # False,
         ],
         'networks_ignore_context': [
             False,
         ],
         'algo_params.num_iterations_with_reward_supervision': [
+            # 10,
+            # 20,
+            # 30,
             9999,
         ],
         'trainer_kwargs.beta': [
-            0.5,
+            0.2,
+            1,
             2,
             5,
             10,
-            50,
         ],
+        # 'algo_params.train_reward_pred_in_unsupervised_phase': [
+        #     # True,
+        #     False,
+        # ],
+        # 'algo_params.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase': [
+        #     True,
+        #     # False,
+        # ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
