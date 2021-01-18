@@ -1,7 +1,9 @@
 import numpy as np
 
 from rlkit.data_management.replay_buffer import ReplayBuffer
-# from rlkit.data_management.simple_replay_buffer import SimpleReplayBuffer
+from rlkit.data_management.simple_replay_buffer import (
+    SimpleReplayBuffer as RLKitSimpleReplayBuffer
+)
 from gym.spaces import Box, Discrete, Tuple
 
 
@@ -24,11 +26,14 @@ class MultiTaskReplayBuffer(object):
         self.env = env
         self._ob_space = env.observation_space
         self._action_space = env.action_space
-        self.task_buffers = dict([(idx, SimpleReplayBuffer(
+        env_info_sizes = dict()
+        if sparse_rewards:
+            env_info_sizes['sparse_reward'] = 1
+        self.task_buffers = dict([(idx, RLKitSimpleReplayBuffer(
             max_replay_buffer_size=max_replay_buffer_size,
             observation_dim=get_dim(self._ob_space),
             action_dim=get_dim(self._action_space),
-            # env_info_sizes=dict(),
+            env_info_sizes=env_info_sizes,
         )) for idx in tasks])
 
 
@@ -150,10 +155,12 @@ def get_dim(space):
             raise TypeError("Unknown space: {}".format(space))
 
 
+# WARNING: deprecated
 class SimpleReplayBuffer(ReplayBuffer):
     def __init__(
             self, max_replay_buffer_size, observation_dim, action_dim,
     ):
+        print("WARNING: will deprecate this SimpleReplayBuffer.")
         self._observation_dim = observation_dim
         self._action_dim = action_dim
         self._max_replay_buffer_size = max_replay_buffer_size
@@ -233,3 +240,27 @@ class SimpleReplayBuffer(ReplayBuffer):
 
     def num_steps_can_sample(self):
         return self._size
+
+    def copy_data(self, other_buffer: 'SimpleReplayBuffer'):
+        start_i = self._top
+        end_i = self._top + other_buffer._top
+        if end_i > self._max_replay_buffer_size:
+            raise NotImplementedError()
+        self._observations[start_i:end_i] = (
+            other_buffer._observations[:other_buffer._top].copy()
+        )
+        self._actions[start_i:end_i] = (
+            other_buffer._actions[:other_buffer._top].copy()
+        )
+        self._rewards[start_i:end_i] = (
+            other_buffer._rewards[:other_buffer._top].copy()
+        )
+        self._terminals[start_i:end_i] = (
+            other_buffer._terminals[:other_buffer._top].copy()
+        )
+        self._next_obs[start_i:end_i] = (
+            other_buffer._next_obs[:other_buffer._top].copy()
+        )
+        self._sparse_rewards[start_i:end_i] = (
+            other_buffer._sparse_rewards[:other_buffer._top].copy()
+        )

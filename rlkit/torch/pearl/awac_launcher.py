@@ -293,7 +293,19 @@ def pearl_awac_launcher_simple(
         )
 
     if pretrain_rl:
-        if use_mdp_path_loader:
+        if pretrain_buffer_path:
+            data = joblib.load(pretrain_buffer_path)
+            saved_replay_buffer = data['replay_buffer']
+            saved_enc_replay_buffer = data['enc_replay_buffer']
+            for k in algorithm.replay_buffer.task_buffers:
+                algorithm.replay_buffer.task_buffers[k].copy_data(
+                    saved_replay_buffer.task_buffers[k]
+                )
+            for k in algorithm.enc_replay_buffer.task_buffers:
+                algorithm.enc_replay_buffer.task_buffers[k].copy_data(
+                    saved_enc_replay_buffer.task_buffers[k]
+                )
+        if path_loader_kwargs:
             # replay_buffer = EnvReplayBuffer(
             #     env=expl_env, **pretrain_buffer_kwargs)
             replay_buffer = algorithm.replay_buffer.task_buffers[0]
@@ -310,22 +322,12 @@ def pearl_awac_launcher_simple(
                 **path_loader_kwargs
             )
             path_loader.load_demos()
-        else:
-            data = joblib.load(pretrain_buffer_path)
-            saved_replay_buffer = data['replay_buffer']
-            saved_enc_replay_buffer = data['enc_replay_buffer']
-            for k in algorithm.replay_buffer.task_buffers:
-                algorithm.replay_buffer.task_buffers[k] = saved_replay_buffer[k]
-            for k in algorithm.replay_buffer.task_buffers:
-                algorithm.enc_replay_buffer.task_buffers[k] = (
-                    saved_enc_replay_buffer[k]
-                )
 
         pretrain_algo = OfflineMetaRLAlgorithm(
             replay_buffer=algorithm.replay_buffer,
             task_embedding_replay_buffer=algorithm.enc_replay_buffer,
             trainer=trainer,
-            train_tasks=expl_env.tasks,
+            train_tasks=list(tasks),
             **pretrain_offline_algo_kwargs
         )
         logger.remove_tabular_output(

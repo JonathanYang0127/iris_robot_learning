@@ -99,6 +99,44 @@ class SimpleReplayBuffer(ReplayBuffer):
             ('size', self._size)
         ])
 
+    """saving / copying buffers"""
+    def copy_data(self, other_buffer: 'SimpleReplayBuffer'):
+        start_i = self._top
+        num_new_steps = other_buffer._top
+        end_i = self._top + num_new_steps
+        if end_i > self._max_replay_buffer_size:
+            raise NotImplementedError()
+        self._observations[start_i:end_i] = (
+            other_buffer._observations[:num_new_steps].copy()
+        )
+        self._actions[start_i:end_i] = (
+            other_buffer._actions[:num_new_steps].copy()
+        )
+        self._rewards[start_i:end_i] = (
+            other_buffer._rewards[:num_new_steps].copy()
+        )
+        self._terminals[start_i:end_i] = (
+            other_buffer._terminals[:num_new_steps].copy()
+        )
+        self._next_obs[start_i:end_i] = (
+            other_buffer._next_obs[:num_new_steps].copy()
+        )
+        from rlkit.data_management.multitask_replay_buffer import (
+            SimpleReplayBuffer as OldPearlSimpleReplayBuffer
+        )
+        for key in self._env_info_keys:
+            # TODO: remove this special case
+            if key == 'sparse_reward' and isinstance(other_buffer, OldPearlSimpleReplayBuffer):
+                    self._env_infos['sparse_reward'][start_i:end_i] = (
+                        other_buffer._sparse_rewards[:num_new_steps].copy()
+                    )
+            else:
+                self._env_infos[key][start_i:end_i] = (
+                    other_buffer._env_infos[key][start_i:end_i]
+                )
+        self._top += num_new_steps
+        self._size += num_new_steps
+
     def __getstate__(self):
         # Do not save self.replay_buffer since it's a duplicate and seems to
         # cause joblib recursion issues.
