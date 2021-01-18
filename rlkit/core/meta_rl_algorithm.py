@@ -355,6 +355,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
             num_transitions += n_samples
             self.replay_buffer.add_paths(task_idx, paths)
+            self._n_rollouts_total += len(paths)
             if add_to_enc_buffer:
                 self.enc_replay_buffer.add_paths(task_idx, paths)
             if update_posterior_period != np.inf:

@@ -38,9 +38,8 @@ class PEARLInPlacePathSampler(object):
             **kwargs
     ):
         """
-        Obtains samples in the environment until either we reach either max_samples transitions or
-        num_traj trajectories.
-        The resample argument specifies how often (in trajectories) the agent will resample it's context.
+        Obtains samples in the environment until either we reach either
+        `max_samples` transitions or `max_trajs` trajectories.
         """
         assert max_samples < np.inf or max_trajs < np.inf, "either max_samples or max_trajs must be finite"
         policy = MakePEARLAgentDeterministic(self.policy) if deterministic else self.policy
