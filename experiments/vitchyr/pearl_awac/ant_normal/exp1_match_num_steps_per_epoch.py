@@ -21,7 +21,8 @@ import rlkit.misc.hyperparameter as hyp
 @click.option('--mode', default=None)
 @click.option('--gpu', default=False)
 @click.option('--nseeds', default=2)
-def main(config, debug, exp_name, mode, gpu, nseeds):
+@click.option('--run_id', default=0)
+def main(config, debug, exp_name, mode, gpu, nseeds, run_id):
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -60,10 +61,14 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
         configs.default_awac_trainer_config,
         ignore_duplicate_keys_in_second_dict=True,
     )
+    variant['logger_config'] = dict(
+        run_id=run_id,
+    )
 
     s = "experiments/"
     n = len(s)
     exp_name = exp_name or sys.argv[0][n:-3]
+    # exp_name = 'pearl-awac-ant-normal--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
     mode = mode or 'htp'
 
     search_space = {
@@ -83,7 +88,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             # False,
         ],
         'networks_ignore_context': [
-            False,
+            True,
         ],
         'algo_params.num_iterations_with_reward_supervision': [
             # 10,
@@ -130,6 +135,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
                 variant=variant,
                 time_in_mins=int(2.8 * 24 * 60),  # if you use mode=sss
                 use_gpu=gpu,
+                prepend_date_to_exp_name=False,
             )
     print(exp_name)
 
