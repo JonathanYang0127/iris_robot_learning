@@ -137,7 +137,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds, run_id):
                 use_gpu=gpu,
                 prepend_date_to_exp_name=False,
             )
-    print(exp_name)
+    print('exp_name', exp_name, 'run_id', run_id)
 
 
 if __name__ == "__main__":
