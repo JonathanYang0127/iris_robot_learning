@@ -1,5 +1,6 @@
 # import roboverse
 import rlkit.torch.pytorch_util as ptu
+from rlkit.core import logger
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
@@ -184,6 +185,15 @@ def pearl_experiment(
             use_next_obs_in_context=use_next_obs_in_context,
             **algo_kwargs
         )
+    saved_path = logger.save_extra_data(
+        data=dict(
+            tasks=expl_env.tasks,
+            train_task_indices=list(tasks[:n_train_tasks]),
+            eval_task_indices=list(tasks[-n_eval_tasks:]),
+        ),
+        file_name='tasks',
+    )
+    print('saved tasks to', saved_path)
 
     algorithm.to(ptu.device)
 

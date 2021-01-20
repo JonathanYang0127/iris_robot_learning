@@ -6,6 +6,7 @@ from rlkit.envs.pearl_envs.ant_multitask_base import MultitaskAntEnv
 class AntDirEnv(MultitaskAntEnv):
 
     def __init__(self, task={}, n_tasks=2, forward_backward=False, randomize_tasks=True, **kwargs):
+        self.quick_init(locals())
         self.forward_backward = forward_backward
         super(AntDirEnv, self).__init__(task, n_tasks, **kwargs)
 
