@@ -408,7 +408,7 @@ def split(exps,
                 figsize=figsize,
                 print_final=print_final,
                 print_max=print_max, print_min=print_min,
-                print_plot=print_plot, ax=ax,
+                print_plot=print_plot, ax=ax, default_vary=default_vary,
                 **kwargs)
             if print_plot:
                 ax.set_title(prettify_configuration(c) + " Vary " + " ".join(vary))
