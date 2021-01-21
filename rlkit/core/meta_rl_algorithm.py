@@ -508,6 +508,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         num_trajs = 0
         init_context = None
         while num_transitions < self.num_steps_per_eval:
+            # We follow the PEARL protocol and never update the posterior or resample z within an episode during evaluation.
             loop_paths, num = self.sampler.obtain_samples(
                 deterministic=self.eval_deterministic,
                 max_samples=self.num_steps_per_eval - num_transitions,
@@ -515,6 +516,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 accum_context=True,
                 initial_context=init_context,
                 task_idx=idx,
+                resample_latent_period=0,  # following PEARL protocol
+                update_posterior_period=0,  # following PEARL protocol
             )
             paths += loop_paths
             num_transitions += num
@@ -523,6 +526,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 # init_context = np.concatenate([
                 #     path['context'] for path in paths
                 # ], axis=0)
+                # This will cause the posterior to be updated at the start of the next iteration.
+                # TODO: make this more clean
                 init_context = paths[-1]['context']
                 # import ipdb; ipdb.set_trace()
                 # self.agent.infer_posterior(self.agent.context)
@@ -574,6 +579,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     max_samples=self.max_path_length * 20,
                     accum_context=False,
                     resample_latent_period=1,
+                    update_posterior_period=0,
             )
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
         ### train tasks
@@ -599,6 +605,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     accum_context=False,
                     max_trajs=1,
                     resample_latent_period=0,
+                    update_posterior_period=0,
                     initial_context=init_context,
                     task_idx=idx,
                 )

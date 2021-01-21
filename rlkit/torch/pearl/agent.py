@@ -176,11 +176,7 @@ class PEARLAgent(nn.Module):
         if squeeze:
             z_means = z_means.squeeze(dim=0)
             z_vars = z_vars.squeeze(dim=0)
-        # Note: I think z_vars variable is named incorrectly. It's the stddev.
-        # However, I'm keeping it as-is to have the same implementation as in
-        # the original PEARL code.
-        return torch.distributions.Normal(z_means, z_vars)
-        # return MultivariateDiagonalNormal(z_means, z_vars)
+        return torch.distributions.Normal(z_means, torch.sqrt(z_vars))
 
     def get_action(self, obs, z, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''

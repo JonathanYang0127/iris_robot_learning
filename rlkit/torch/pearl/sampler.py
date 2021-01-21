@@ -73,8 +73,8 @@ def rollout(
         animated=False,
         save_frames=False,
         use_predicted_reward=False,
-        resample_latent_period=1,
-        update_posterior_period=1,
+        resample_latent_period=0,
+        update_posterior_period=0,
         initial_context=None,
     ):
     """
@@ -99,9 +99,9 @@ def rollout(
     :param accum_context: if True, accumulate the collected context
     :param animated:
     :param save_frames: if True, save video of rollout
-    :param resample_latent_period: How often to resample from the latent posterior.
+    :param resample_latent_period: How often to resample from the latent posterior, in units of env steps.
         If zero, never resample.
-    :param update_posterior_period: How often to update the latent posterior.
+    :param update_posterior_period: How often to update the latent posterior, in units of env steps.
         If zero, never update.
     :return:
     """
@@ -128,7 +128,7 @@ def rollout(
 
     z = ptu.get_numpy(z_dist.sample())
     for path_length in range(max_path_length):
-        if resample_latent_period and path_length % resample_latent_period == 0:
+        if resample_latent_period != 0 and path_length % resample_latent_period == 0:
             z = ptu.get_numpy(z_dist.rsample())
         a, agent_info = agent.get_action(o, z)
         next_o, r, d, env_info = env.step(a)
@@ -140,7 +140,7 @@ def rollout(
                 context,
                 [o, a, r, next_o, d, env_info],
             )
-        if update_posterior_period and path_length % update_posterior_period == 0 and len(context) > 0:
+        if update_posterior_period != 0 and path_length % update_posterior_period == 0 and len(context) > 0:
             z_dist = agent.latent_posterior(context, squeeze=True)
         zs.append(z)
         observations.append(o)
