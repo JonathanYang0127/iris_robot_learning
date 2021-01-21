@@ -58,6 +58,7 @@ class PEARLAgent(nn.Module):
                  reward_predictor,
                  use_next_obs_in_context=False,
                  _debug_ignore_context=False,
+                 _debug_do_not_sqrt=False,
                  ):
         super().__init__()
         self.latent_dim = latent_dim
@@ -96,6 +97,8 @@ class PEARLAgent(nn.Module):
             ptu.zeros(self.latent_dim),
             ptu.ones(self.latent_dim)
         )
+
+        self._debug_do_not_sqrt = _debug_do_not_sqrt
 
     def clear_z(self, num_tasks=1):
         '''
@@ -176,7 +179,10 @@ class PEARLAgent(nn.Module):
         if squeeze:
             z_means = z_means.squeeze(dim=0)
             z_vars = z_vars.squeeze(dim=0)
-        return torch.distributions.Normal(z_means, torch.sqrt(z_vars))
+        if self._debug_do_not_sqrt:
+            return torch.distributions.Normal(z_means, z_vars)
+        else:
+            return torch.distributions.Normal(z_means, torch.sqrt(z_vars))
 
     def get_action(self, obs, z, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''

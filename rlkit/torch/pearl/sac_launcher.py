@@ -57,6 +57,7 @@ def pearl_experiment(
         load_env_dataset_demos=False,
         save_initial_buffers=False,
         save_pretrained_algorithm=False,
+        _debug_do_not_sqrt=False,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -142,6 +143,7 @@ def pearl_experiment(
         policy,
         reward_predictor,
         use_next_obs_in_context=use_next_obs_in_context,
+        _debug_do_not_sqrt=_debug_do_not_sqrt,
     )
     trainer = PEARLSoftActorCriticTrainer(
         latent_dim=latent_dim,
