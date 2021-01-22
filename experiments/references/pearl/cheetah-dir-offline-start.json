@@ -21,8 +21,9 @@
     },
     "pretrain_rl": true,
     "load_buffer_kwargs": {
-        "pretrain_buffer_path": "demos/half_cheetah/buffer_400k/extra_data.pkl"
+        "pretrain_buffer_path": "demos/half_cheetah/buffer_1M/extra_snapshot_itr100.pkl"
     },
+    "saved_tasks_path": "demos/half_cheetah/buffer_1M/tasks.pkl",
     "pretrain_offline_algo_kwargs": {
         "batch_size": 256,
         "logging_period": 1000,

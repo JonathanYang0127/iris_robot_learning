@@ -15,7 +15,7 @@ import rlkit.misc.hyperparameter as hyp
 
 
 @click.command()
-@click.option('--config', default='experiments/references/pearl/ant-dir-offline-start.json')
+@click.option('--config', default='experiments/references/pearl/cheetah-dir-offline-start.json')
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--exp_name', default=None)
 @click.option('--mode', default='htp')
@@ -55,6 +55,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             "task_embedding_batch_size": 3
         }
         exp_name = 'dev'
+        mode = 'local'
         # exp_params["net_size"] = 3
     variant = ppp.merge_recursive_dicts(
         exp_params,
@@ -62,10 +63,10 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
         ignore_duplicate_keys_in_second_dict=True,
     )
 
-    s = "experiments/"
-    n = len(s)
+    # s = "experiments/"
+    # n = len(s)
     # exp_name = exp_name or sys.argv[0][n:-3]
-    exp_name = 'pearl-awac-ant--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
+    exp_name = 'pearl-awac-hc--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
 
     search_space = {
         'algo_params.save_replay_buffer': [
