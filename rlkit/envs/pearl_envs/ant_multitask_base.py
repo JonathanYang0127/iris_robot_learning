@@ -31,6 +31,9 @@ class MultitaskAntEnv(AntEnv):
         return range(len(self.tasks))
 
     def reset_task(self, idx):
-        self._task = self.tasks[idx]
+        try:
+            self._task = self.tasks[idx]
+        except IndexError as e:
+            import ipdb; ipdb.set_trace()
         self._goal = self._task['goal'] # assume parameterization of task by single vector
         self.reset()

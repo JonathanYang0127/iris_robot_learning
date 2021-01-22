@@ -15,7 +15,7 @@ import rlkit.misc.hyperparameter as hyp
 
 
 @click.command()
-@click.option('--config', default='experiments/references/pearl/cheetah-dir-offline-start.json')
+@click.option('--config', default='experiments/references/pearl/ant-dir-offline-start.json')
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--exp_name', default=None)
 @click.option('--mode', default='htp')
@@ -76,10 +76,10 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             # False,
         ],
         'latent_size': [
-            1,
+            # 1,
             2,
-            5,
-            8,
+            # 5,
+            # 8,
         ],
         'networks_ignore_context': [
             False,
@@ -89,10 +89,10 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
         ],
         'trainer_kwargs.beta': [
             0.5,
-            2,
-            5,
-            10,
-            50,
+            # 2,
+            # 5,
+            # 10,
+            # 50,
         ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(

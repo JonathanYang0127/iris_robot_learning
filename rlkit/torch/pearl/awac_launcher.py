@@ -188,7 +188,22 @@ def pearl_awac_launcher_simple(
     context_encoder_kwargs = context_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
     path_loader_kwargs = path_loader_kwargs or {}
-    expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
+
+    base_env = ENVS[env_name](**env_params)
+    if saved_tasks_path:
+        task_data = load_local_or_remote_file(
+            saved_tasks_path, file_type='joblib')
+        tasks = task_data['tasks']
+        train_task_idxs = task_data['train_task_indices']
+        eval_task_idxs = task_data['eval_task_indices']
+        base_env.tasks = tasks
+        task_indices = base_env.get_all_task_idx()
+    else:
+        task_indices = base_env.get_all_task_idx()
+        train_task_idxs = list(task_indices[:n_train_tasks])
+        eval_task_idxs = list(task_indices[-n_eval_tasks:])
+    expl_env = NormalizedBoxEnv(base_env)
+
     reward_dim = 1
 
     if debug:
@@ -261,11 +276,6 @@ def pearl_awac_launcher_simple(
         _debug_ignore_context=networks_ignore_context,
         **trainer_kwargs
     )
-    if saved_tasks_path:
-        tasks = joblib.load(saved_tasks_path)
-        expl_env.tasks = tasks
-    else:
-        tasks = expl_env.get_all_task_idx()
     if use_data_collectors:
         eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
         raise NotImplementedError()
@@ -291,8 +301,8 @@ def pearl_awac_launcher_simple(
             # evaluation_env=eval_env,
             # exploration_data_collector=expl_path_collector,
             # evaluation_data_collector=eval_path_collector,
-            train_tasks=list(tasks[:n_train_tasks]),
-            eval_tasks=list(tasks[-n_eval_tasks:]),
+            train_tasks=train_task_idxs,
+            eval_tasks=eval_task_idxs,
             # nets=[agent, qf1, qf2, vf],
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
@@ -319,7 +329,7 @@ def pearl_awac_launcher_simple(
         replay_buffer=algorithm.replay_buffer,
         task_embedding_replay_buffer=algorithm.enc_replay_buffer,
         trainer=trainer,
-        train_tasks=list(tasks),
+        train_tasks=train_task_idxs,
         **pretrain_offline_algo_kwargs
     )
     if pretrain_rl:
@@ -345,7 +355,6 @@ def pearl_awac_launcher_simple(
 def load_buffer_onto_algo(
         algorithm,
         pretrain_buffer_path,
-        tasks_path,
         start_idx=0,
         end_idx=None,
 ):
