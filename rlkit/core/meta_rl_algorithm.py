@@ -56,6 +56,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             num_iterations_with_reward_supervision=np.inf,
             freeze_encoder_buffer_in_unsupervised_phase=True,
             save_extra_manual_epoch_list=(),
+            save_extra_every_epoch=False,
     ):
         """
         :param env: training env
@@ -65,6 +66,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self._save_extra_every_epoch = save_extra_every_epoch
         self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
         self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = False
         self.env = env
@@ -314,7 +316,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
             # eval
             self._try_to_eval(it_)
-            gt.stamp('eval')
+            # gt.stamp('eval')
 
             self._end_epoch(it_)
 
@@ -373,17 +375,21 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         gt.stamp('sample')
 
     def _try_to_eval(self, epoch):
-        logger.save_extra_data(self.get_extra_data_to_save(epoch))
         if epoch in self.save_extra_manual_epoch_list:
             logger.save_extra_data(
                 self.get_extra_data_to_save(epoch),
                 file_name='extra_snapshot_itr{}'.format(epoch)
             )
+        if self._save_extra_every_epoch:
+            logger.save_extra_data(self.get_extra_data_to_save(epoch))
+        gt.stamp('save-extra')
         if self._can_evaluate():
             self.evaluate(epoch)
+            gt.stamp('eval')
 
             params = self.get_epoch_snapshot(epoch)
             logger.save_itr_params(epoch, params)
+            gt.stamp('save-snapshot')
             table_keys = logger.get_table_key_set()
             if self._old_table_keys is not None:
                 assert table_keys == self._old_table_keys, (
@@ -412,8 +418,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             times_itrs = gt.get_times().stamps.itrs
             train_time = times_itrs['train'][-1]
             sample_time = times_itrs['sample'][-1]
+            save_extra_time = times_itrs['save-extra'][-1]
+            save_snapshot_time = times_itrs['save-snapshot'][-1]
             eval_time = times_itrs['eval'][-1] if epoch > 0 else 0
-            epoch_time = train_time + sample_time + eval_time
+            epoch_time = train_time + sample_time + save_extra_time + eval_time
             total_time = gt.get_times().total
 
             logger.record_tabular('in_unsupervised_model',
@@ -421,6 +429,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             logger.record_tabular('Train Time (s)', train_time)
             logger.record_tabular('(Previous) Eval Time (s)', eval_time)
             logger.record_tabular('Sample Time (s)', sample_time)
+            logger.record_tabular('Save Extra Time (s)', save_extra_time)
+            logger.record_tabular('Save Snapshot Time (s)', save_snapshot_time)
             logger.record_tabular('Epoch Time (s)', epoch_time)
             logger.record_tabular('Total Train Time (s)', total_time)
 
