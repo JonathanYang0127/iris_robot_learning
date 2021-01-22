@@ -71,7 +71,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             500,
         ],
         '_debug_do_not_sqrt': [
-            True,
+            False,
         ],
         'algo_params.num_iterations_with_reward_supervision': [
             # 10,
