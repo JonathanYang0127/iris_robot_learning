@@ -327,7 +327,8 @@ def awac_rig_experiment(
                 model,
             )
         elif goal_sampling_mode == "presample_latents":
-            diagnostics = state_env.get_contextual_diagnostics
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
+            #diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
                 desired_goal_key,

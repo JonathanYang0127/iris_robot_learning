@@ -14,7 +14,7 @@ from rlkit.torch.grill.common import train_vqvae
 
 demo_paths=[
             # dict(path='sasha/affordances/combined/combined_obj_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/drawer_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path='sasha/affordances/combined/drawer_demos_0.pkl', obs_dict=True, is_demo=True, data_split=0.1),
             # dict(path='sasha/affordances/combined/drawer_demos_1.pkl', obs_dict=True, is_demo=True),
             # dict(path='sasha/affordances/combined/pnp_demos_0.pkl', obs_dict=True, is_demo=True),
             # dict(path='sasha/affordances/combined/tray_demos_0.pkl', obs_dict=True, is_demo=True),
@@ -44,7 +44,7 @@ pnp_goals = 'sasha/presampled_goals/affordances/combined/pnp_goals.pkl'
 top_drawer_goals = 'sasha/presampled_goals/affordances/combined/top_drawer_goals.pkl'
 bottom_drawer_goals = 'sasha/presampled_goals/affordances/combined/bottom_drawer_goals.pkl'
 
-#vqvae = 'sasha/affordances/combined/best_vqvae.pt'
+vqvae = 'sasha/affordances/combined/best_vqvae.pt'
 
 if __name__ == "__main__":
     variant = dict(
@@ -127,10 +127,11 @@ if __name__ == "__main__":
         reset_keys_map=dict(
             image_observation="initial_latent_state"
         ),
-        #pretrained_vae_path=vqvae,
+        pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
+            delete_after_loading=True,
             recompute_reward=True,
             demo_paths=demo_paths,
         ),
@@ -178,6 +179,7 @@ if __name__ == "__main__":
                 oracle_dataset=False,
                 oracle_dataset_using_set_to_goal=False,
                 non_presampled_goal_img_is_garbage=False,
+                delete_after_loading=True,
                 random_rollout_data=True,
                 random_rollout_data_set_to_goal=True,
                 conditional_vae_dataset=True,
