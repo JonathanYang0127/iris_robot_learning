@@ -507,6 +507,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         num_transitions = 0
         num_trajs = 0
         init_context = None
+        infer_posterior_at_start = False
         while num_transitions < self.num_steps_per_eval:
             # We follow the PEARL protocol and never update the posterior or resample z within an episode during evaluation.
             loop_paths, num = self.sampler.obtain_samples(
@@ -518,19 +519,15 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 task_idx=idx,
                 resample_latent_period=0,  # following PEARL protocol
                 update_posterior_period=0,  # following PEARL protocol
+                infer_posterior_at_start=infer_posterior_at_start,
             )
             paths += loop_paths
             num_transitions += num
             num_trajs += 1
+            # accumulated contexts across rollouts
+            init_context = paths[-1]['context']  # TODO clean hack
             if num_trajs >= self.num_exp_traj_eval:
-                # init_context = np.concatenate([
-                #     path['context'] for path in paths
-                # ], axis=0)
-                # This will cause the posterior to be updated at the start of the next iteration.
-                # TODO: make this more clean
-                init_context = paths[-1]['context']
-                # import ipdb; ipdb.set_trace()
-                # self.agent.infer_posterior(self.agent.context)
+                infer_posterior_at_start = True
 
         if self.sparse_rewards:
             for p in paths:

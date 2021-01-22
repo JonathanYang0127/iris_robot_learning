@@ -76,6 +76,7 @@ def rollout(
         resample_latent_period=0,
         update_posterior_period=0,
         initial_context=None,
+        infer_posterior_at_start=True,
     ):
     """
     The following value for the following keys will be a 2D array, with the
@@ -91,6 +92,8 @@ def rollout(
      - agent_infos
      - env_infos
 
+    :param initial_context:
+    :param infer_posterior_at_start: If True, infer the posterior from `initial_context` if possible.
     :param env:
     :param agent:
     :task_idx: the task index
@@ -118,12 +121,14 @@ def rollout(
 
     if animated:
         env.render()
+    if initial_context is not None and len(initial_context) == 0:
+        initial_context = None
 
-    if initial_context is not None and len(initial_context):
-        context = initial_context
+    context = initial_context
+
+    if infer_posterior_at_start and initial_context is not None:
         z_dist = agent.latent_posterior(context, squeeze=True)
     else:
-        context = None
         z_dist = agent.latent_prior
 
     z = ptu.get_numpy(z_dist.sample())
