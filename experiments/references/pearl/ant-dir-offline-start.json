@@ -1,0 +1,35 @@
+{
+    "env_name": "ant-dir",
+    "n_train_tasks": 2,
+    "n_eval_tasks": 2,
+    "env_params": {
+        "n_tasks": 2
+    }
+    ,
+    "algo_params": {
+        "meta_batch": 4,
+        "num_initial_steps": 2000,
+        "num_steps_prior": 400,
+        "num_steps_posterior": 0,
+        "num_extra_rl_steps_posterior": 600,
+        "num_train_steps_per_itr": 4000,
+        "num_evals": 4,
+        "num_steps_per_eval": 600,
+        "num_exp_traj_eval": 2,
+        "embedding_batch_size": 256,
+        "embedding_mini_batch_size": 256
+    }
+    ,
+    "pretrain_rl": true,
+    "load_buffer_kwargs": {
+        "pretrain_buffer_path": "demos/ant_dir/buffer_500k/extra_snapshot_itr100.pkl"
+    },
+    "saved_tasks_path": "demos/ant_dir/buffer_500k/tasks.pkl",
+    "pretrain_offline_algo_kwargs": {
+        "batch_size": 256,
+        "logging_period": 1000,
+        "meta_batch_size": 4,
+        "num_batches": 50000,
+        "task_embedding_batch_size": 256
+    }
+}

@@ -174,6 +174,7 @@ def pearl_awac_launcher_simple(
         pretrain_offline_algo_kwargs=None,
         pretrain_buffer_kwargs=None,
         load_buffer_kwargs=None,
+        saved_tasks_path=None,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -188,7 +189,6 @@ def pearl_awac_launcher_simple(
     trainer_kwargs = trainer_kwargs or {}
     path_loader_kwargs = path_loader_kwargs or {}
     expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
-    eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     reward_dim = 1
 
     if debug:
@@ -201,7 +201,7 @@ def pearl_awac_launcher_simple(
         algo_kwargs['min_num_steps_before_training'] = 100
 
     obs_dim = expl_env.observation_space.low.size
-    action_dim = eval_env.action_space.low.size
+    action_dim = expl_env.action_space.low.size
 
     if use_next_obs_in_context:
         context_encoder_input_dim = 2 * obs_dim + action_dim + reward_dim
@@ -261,8 +261,15 @@ def pearl_awac_launcher_simple(
         _debug_ignore_context=networks_ignore_context,
         **trainer_kwargs
     )
-    tasks = expl_env.get_all_task_idx()
+    if saved_tasks_path:
+        tasks = joblib.load(saved_tasks_path)
+        expl_env.tasks = tasks
+    else:
+        tasks = expl_env.get_all_task_idx()
     if use_data_collectors:
+        eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
+        raise NotImplementedError()
+        eval_env.tasks = expl_env.tasks  # does this work?
         eval_policy = MakeDeterministic(policy)
         eval_path_collector = PearlPathCollector(eval_env, eval_policy)
         expl_policy = policy
@@ -338,6 +345,7 @@ def pearl_awac_launcher_simple(
 def load_buffer_onto_algo(
         algorithm,
         pretrain_buffer_path,
+        tasks_path,
         start_idx=0,
         end_idx=None,
 ):

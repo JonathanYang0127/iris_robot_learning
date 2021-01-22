@@ -316,7 +316,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
             # eval
             self._try_to_eval(it_)
-            # gt.stamp('eval')
 
             self._end_epoch(it_)
 
