@@ -40,6 +40,9 @@ def train_pixelcnn(
     model_kwargs=None,
     data_filter_fn=lambda x: x,
     debug=False,
+    data_size=float('inf'),
+    num_train_batches_per_epoch=100,
+    num_test_batches_per_epoch=10,
 ):
     trainer_kwargs = {} if trainer_kwargs is None else trainer_kwargs
     model_kwargs = {} if model_kwargs is None else model_kwargs
@@ -75,9 +78,9 @@ def train_pixelcnn(
         data = load_local_or_remote_file(path)
         data = data.item()
         data = data_filter_fn(data)
-        
+
         all_data = []
-        n = data["observations"].shape[0]
+        n = min(data["observations"].shape[0], data_size)
 
         for i in tqdm(range(n)):
             obs = ptu.from_numpy(data["observations"][i] / 255.0)
@@ -90,7 +93,7 @@ def train_pixelcnn(
     if cached_dataset_path:
         train_data, test_data = prep_sample_data(cached_dataset_path)
     else:
-        train_data = encode_dataset(dataset_path['train'], object_list)
+        train_data = encode_dataset(dataset_path['train'], None) # object_list)
         test_data = encode_dataset(dataset_path['test'], None)
     dataset = {'train': train_data, 'test': test_data}
     np.save(new_path, dataset)
@@ -121,8 +124,8 @@ def train_pixelcnn(
     BEST_LOSS = 999
     for epoch in range(num_epochs):
         should_save = (epoch % save_period == 0) and (epoch > 0)
-        trainer.train_epoch(epoch, train_loader)
-        trainer.test_epoch(epoch, test_loader)
+        trainer.train_epoch(epoch, train_loader, num_train_batches_per_epoch)
+        trainer.test_epoch(epoch, test_loader, num_test_batches_per_epoch)
 
         trainer.dump_samples(epoch, test_data, test=True)
         trainer.dump_samples(epoch, train_data, test=False)

@@ -79,7 +79,13 @@ def train_vqvae(variant):
     vqvae = train_vae(variant)
     dataset_path = variant['generate_vae_dataset_kwargs']['dataset_path']
     data_filter_fn = variant['generate_vae_dataset_kwargs'].get('data_filter_fn', lambda x: x)
-    vqvae = train_pixelcnn(vqvae=vqvae, dataset_path=dataset_path, data_filter_fn=data_filter_fn)
+    train_pixelcnn_kwargs = variant.get('train_pixelcnn_kwargs', {})
+    vqvae = train_pixelcnn(
+        vqvae=vqvae,
+        dataset_path=dataset_path,
+        data_filter_fn=data_filter_fn,
+        **train_pixelcnn_kwargs
+    )
     return vqvae
 
 def train_vae(variant, return_data=False):
@@ -273,7 +279,7 @@ def generate_vae_dataset(variant):
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
         if isinstance(dataset_path, dict):
-            
+
             if type(dataset_path['train']) == str:
                 dataset = load_local_or_remote_file(dataset_path['train'], delete_after_loading=delete_after_loading)
                 dataset = dataset.item()
@@ -285,7 +291,7 @@ def generate_vae_dataset(variant):
                 test_dataset = test_dataset.item()
             elif isinstance(dataset_path['test'], list):
                 test_dataset = concatenate_datasets(dataset_path['test'])
-            
+
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
             use_test_dataset = True

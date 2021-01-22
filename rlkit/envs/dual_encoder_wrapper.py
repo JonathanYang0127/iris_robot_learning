@@ -5,6 +5,8 @@ from gym.spaces import Box, Dict
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
 from rlkit.envs.wrappers import ProxyEnv
 
+from rlkit.envs.encoder_wrappers import Encoder
+
 class DualEncoderWrappedEnv(ProxyEnv):
     def __init__(self,
         wrapped_env,
@@ -42,7 +44,7 @@ class DualEncoderWrappedEnv(ProxyEnv):
             spaces[value] = latent_space
         for value in self.reset_keys_map.values():
             spaces[value] = latent_space
-            
+
         spaces['input_latent'] = input_latent_space
         self.observation_space = Dict(spaces)
         self.reset_obs = {}
@@ -59,12 +61,12 @@ class DualEncoderWrappedEnv(ProxyEnv):
             value = self.step_keys_map[key]
             obs[value] = self.model.encode_one_np(obs[key])
         obs = {**obs, **self.reset_obs}
-        
+
         if self.conditional_input_model:
             obs['input_latent'] = self.input_model.encode_one_np(obs['image_observation'], self._initial_img)
         else:
             obs['input_latent'] = self.input_model.encode_one_np(obs['image_observation'])
-        
+
         return obs
 
     def reset(self):

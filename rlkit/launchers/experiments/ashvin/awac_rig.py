@@ -82,7 +82,7 @@ from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector
 )
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv, ConditionalEncoderWrappedEnv
-from rlkit.envs.encoder_wrappers import DuelEncoderWrappedEnv
+from rlkit.envs.dual_encoder_wrapper import DualEncoderWrappedEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
 from rlkit.misc.eval_util import create_stats_ordered_dict
 from collections import OrderedDict
@@ -151,16 +151,28 @@ def resume(variant):
 def process_args(variant):
     if variant.get("debug", False):
         variant['max_path_length'] = 50
-        variant['batch_size'] = 5
-        variant['num_epochs'] = 5
-        variant['num_eval_steps_per_epoch'] = 100
-        variant['num_expl_steps_per_train_loop'] = 100
-        variant['num_trains_per_train_loop'] = 10
-        variant['min_num_steps_before_training'] = 100
-        variant['min_num_steps_before_training'] = 100
+        variant['num_presample'] = 100
+        variant.get('algo_kwargs', {}).update(dict(
+            batch_size=5,
+            num_epochs=5,
+            num_eval_steps_per_epoch=100,
+            num_expl_steps_per_train_loop=100,
+            num_trains_per_train_loop=10,
+            min_num_steps_before_training=100,
+        ))
         variant['trainer_kwargs']['bc_num_pretrain_steps'] = min(10, variant['trainer_kwargs'].get('bc_num_pretrain_steps', 0))
         variant['trainer_kwargs']['q_num_pretrain1_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain1_steps', 0))
         variant['trainer_kwargs']['q_num_pretrain2_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain2_steps', 0))
+        variant.get('train_vae_kwargs', {}).update(dict(
+            num_epochs=1,
+            train_pixelcnn_kwargs=dict(
+                num_epochs=1,
+                data_size=10,
+                num_train_batches_per_epoch=2,
+                num_test_batches_per_epoch=2,
+            ),
+        ))
+        # import ipdb; ipdb.set_trace()
 
 def awac_rig_experiment(
         max_path_length,
@@ -480,7 +492,7 @@ def awac_rig_experiment(
     eval_path_collector = ContextualPathCollector(
         eval_env,
         MakeDeterministic(policy),
-        observation_key=observation_key,
+        observation_keys=[observation_key, ],
         context_keys_for_policy=[context_key, ],
     )
     exploration_policy = create_exploration_policy(
@@ -488,7 +500,7 @@ def awac_rig_experiment(
     expl_path_collector = ContextualPathCollector(
         expl_env,
         exploration_policy,
-        observation_key=observation_key,
+        observation_keys=[observation_key, ],
         context_keys_for_policy=[context_key, ],
     )
 
