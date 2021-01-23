@@ -127,7 +127,7 @@ if __name__ == "__main__":
         reset_keys_map=dict(
             image_observation="initial_latent_state"
         ),
-        pretrained_vae_path=vqvae,
+        # pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
