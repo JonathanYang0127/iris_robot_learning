@@ -1665,7 +1665,6 @@ class VAE(nn.Module):
         self.embedding_dim = embedding_dim
         self.input_channels = input_channels
         self.imlength = imsize * imsize * input_channels
-        self.softmax = nn.Softmax2d()
         
         self._encoder = Encoder(input_channels, num_hiddens,
                                 num_residual_layers,

@@ -16,12 +16,6 @@ from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.data_management.online_conditional_vae_replay_buffer import \
         OnlineConditionalVaeRelabelingBuffer
 
-x_var = 0.2
-x_low = -x_var
-x_high = x_var
-y_low = 0.5
-y_high = 0.7
-t = 0.05
 
 if __name__ == "__main__":
     variant = dict(
@@ -30,28 +24,7 @@ if __name__ == "__main__":
         imsize=48,
         init_camera=sawyer_init_camera_zoomed_in,
         env_class=SawyerMultiobjectEnv,
-        env_kwargs=dict(
-            num_objects=1,
-            object_meshes=None,
-            fixed_start=True,
-            preload_obj_dict=
-            [{'color1': [1, 1, 1],
-            'color2': [1, 1, 1]}],
-            num_scene_objects=[1],
-            maxlen=0.1,
-            action_repeat=1,
-            puck_goal_low=(x_low + 0.01, y_low + 0.01),
-            puck_goal_high=(x_high - 0.01, y_high - 0.01),
-            hand_goal_low=(x_low + 3*t, y_low + t),
-            hand_goal_high=(x_high - 3*t, y_high -t),
-            mocap_low=(x_low + 2*t, y_low , 0.0),
-            mocap_high=(x_high - 2*t, y_high, 0.5),
-            object_low=(x_low + 0.01, y_low + 0.01, 0.02),
-            object_high=(x_high - 0.01, y_high - 0.01, 0.02),
-            #use_textures=True,
-            init_camera=sawyer_init_camera_zoomed_in,
-            cylinder_radius=0.05,
-        ),
+        env_kwargs=dict(),
 
         grill_variant=dict(
             save_video=True,

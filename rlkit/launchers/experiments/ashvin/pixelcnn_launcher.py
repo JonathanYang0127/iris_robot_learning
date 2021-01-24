@@ -3,7 +3,6 @@ import torch.nn as nn
 from torchvision import datasets, transforms
 from rlkit.torch import pytorch_util as ptu
 from os import path as osp
-from sklearn import neighbors
 import numpy as np
 from torchvision.utils import save_image
 import time
@@ -28,26 +27,31 @@ data loaders
 """
 
 def train_pixelcnn(
-    vqvae_path,
-    num_epochs,
+    vqvae=None,
+    vqvae_path=None,
+    num_epochs=100,
     batch_size=32,
     n_layers=15,
-    train_data_kwargs=None,
-    test_data_kwargs=None,
+    dataset_path=None,
     save=True,
     save_period=10,
     cached_dataset_path=False,
     trainer_kwargs=None,
     model_kwargs=None,
+    data_filter_fn=lambda x: x,
     debug=False,
+    data_size=float('inf'),
+    num_train_batches_per_epoch=100,
+    num_test_batches_per_epoch=10,
 ):
     trainer_kwargs = {} if trainer_kwargs is None else trainer_kwargs
     model_kwargs = {} if model_kwargs is None else model_kwargs
 
     # Load VQVAE + Define Args
-    vqvae = load_local_or_remote_file(vqvae_path)
-    vqvae.to(ptu.device)
-    vqvae.eval()
+    if vqvae is None:
+        vqvae = load_local_or_remote_file(vqvae_path)
+        vqvae.to(ptu.device)
+        vqvae.eval()
 
     root_len = vqvae.root_len
     num_embeddings = vqvae.num_embeddings
@@ -66,43 +70,39 @@ def train_pixelcnn(
 
     def prep_sample_data(cached_path):
         data = load_local_or_remote_file(cached_path).item()
-        train_data = data['train']#.reshape(-1, discrete_size)
-        test_data = data['test']#.reshape(-1, discrete_size)
+        train_data = data['train']
+        test_data = data['test']
         return train_data, test_data
 
-    def encode_dataset(path, max_traj=None):
+    def encode_dataset(path, object_list):
         data = load_local_or_remote_file(path)
         data = data.item()
-
-        data["observations"] = data["observations"]
+        data = data_filter_fn(data)
 
         all_data = []
+        n = min(data["observations"].shape[0], data_size)
 
-        n = data["observations"].shape[0]
-        N = min(max_traj or n, n)
-
-        # vqvae.to('cpu') # 3X faster on a GPU
         for i in tqdm(range(n)):
-            obs = ptu.from_numpy(data["observations"][i] / 255.0 )
+            obs = ptu.from_numpy(data["observations"][i] / 255.0)
             latent = vqvae.encode(obs, cont=False)
             all_data.append(latent)
 
-        encodings = ptu.get_numpy(torch.cat(all_data, dim=0))
+        encodings = ptu.get_numpy(torch.stack(all_data, dim=0))
         return encodings
 
     if cached_dataset_path:
         train_data, test_data = prep_sample_data(cached_dataset_path)
     else:
-        train_data = encode_dataset(**train_data_kwargs)
-        test_data = encode_dataset(**test_data_kwargs)
+        train_data = encode_dataset(dataset_path['train'], None) # object_list)
+        test_data = encode_dataset(dataset_path['test'], None)
     dataset = {'train': train_data, 'test': test_data}
-    np.save(new_path, dataset) # TODO: can we use directly instead of read/writing
+    np.save(new_path, dataset)
 
     _, _, train_loader, test_loader, _ = \
         rlkit.torch.vae.pixelcnn_utils.load_data_and_data_loaders(new_path, 'COND_LATENT_BLOCK', batch_size)
 
-    train_dataset = InfiniteBatchLoader(train_loader)
-    test_dataset = InfiniteBatchLoader(test_loader)
+    #train_dataset = InfiniteBatchLoader(train_loader)
+    #test_dataset = InfiniteBatchLoader(test_loader)
 
     print("Finished loading data")
 
@@ -122,15 +122,15 @@ def train_pixelcnn(
     print("Starting training")
 
     BEST_LOSS = 999
-    LAST_SAVED = -1
     for epoch in range(num_epochs):
-        should_save = (epoch % save_period == 0)
-        trainer.train_epoch(epoch, train_dataset)
-        trainer.test_epoch(epoch, test_dataset)
+        should_save = (epoch % save_period == 0) and (epoch > 0)
+        trainer.train_epoch(epoch, train_loader, num_train_batches_per_epoch)
+        trainer.test_epoch(epoch, test_loader, num_test_batches_per_epoch)
+
+        trainer.dump_samples(epoch, test_data, test=True)
+        trainer.dump_samples(epoch, train_data, test=False)
 
         if should_save:
-            trainer.dump_samples(epoch, test_data, test=True, batch_size=batch_size)
-            trainer.dump_samples(epoch, train_data, test=False, batch_size=batch_size)
             logger.save_itr_params(epoch, model)
 
         stats = trainer.get_diagnostics()
@@ -139,10 +139,13 @@ def train_pixelcnn(
         if cur_loss < BEST_LOSS:
             BEST_LOSS = cur_loss
             vqvae.set_pixel_cnn(model)
-            logger.save_extra_data(model, 'best_pixelcnn', mode='torch')
             logger.save_extra_data(vqvae, 'best_vqvae', mode='torch')
+        else:
+            return vqvae
 
         for k, v in stats.items():
             logger.record_tabular(k, v)
         logger.dump_tabular()
         trainer.end_epoch(epoch)
+
+    return vqvae

@@ -52,17 +52,19 @@ class DictToMDPPathLoader:
             env_info_key=None,
             obs_key=None,
             load_terminals=True,
-
+            delete_after_loading=False,
+            data_filter_fn=lambda x: True, # Return true to add path, false to ignore it
             **kwargs
     ):
         self.trainer = trainer
-
+        self.delete_after_loading = delete_after_loading
         self.add_demos_to_replay_buffer = add_demos_to_replay_buffer
         self.demo_train_split = demo_train_split
         self.demo_data_split = demo_data_split
         self.replay_buffer = replay_buffer
         self.demo_train_buffer = demo_train_buffer
         self.demo_test_buffer = demo_test_buffer
+        self.data_filter_fn = data_filter_fn
 
         self.demo_paths = [] if demo_paths is None else demo_paths
 
@@ -80,6 +82,9 @@ class DictToMDPPathLoader:
         self.trainer.demo_test_buffer = self.demo_test_buffer
 
     def load_path(self, path, replay_buffer, obs_dict=None):
+        # Filter data #
+        if not self.data_filter_fn(path): return
+
         rewards = []
         path_builder = PathBuilder()
 
@@ -145,7 +150,7 @@ class DictToMDPPathLoader:
         data = []
 
         for filename in paths:
-            data.extend(list(load_local_or_remote_file(filename)))
+            data.extend(list(load_local_or_remote_file(filename, delete_after_loading=self.delete_after_loading)))
 
         # if not is_demo:
             # data = [data]
@@ -174,170 +179,4 @@ class DictToMDPPathLoader:
     def get_batch_from_buffer(self, replay_buffer):
         batch = replay_buffer.random_batch(self.bc_batch_size)
         batch = np_to_pytorch_batch(batch)
-        # obs = batch['observations']
-        # next_obs = batch['next_observations']
-        # goals = batch['resampled_goals']
-        # import ipdb; ipdb.set_trace()
-        # batch['observations'] = torch.cat((
-        #     obs,
-        #     goals
-        # ), dim=1)
-        # batch['next_observations'] = torch.cat((
-        #     next_obs,
-        #     goals
-        # ), dim=1)
         return batch
-
-class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
-
-    def __init__(
-            self,
-            trainer,
-            replay_buffer,
-            demo_train_buffer,
-            demo_test_buffer,
-            model_path=None,
-            reward_fn=None,
-            env=None,
-            demo_paths=[], # list of dicts
-            normalize=False,
-            demo_train_split=0.9,
-            demo_data_split=1,
-            add_demos_to_replay_buffer=True,
-            bc_num_pretrain_steps=0,
-            bc_batch_size=64,
-            bc_weight=1.0,
-            rl_weight=1.0,
-            q_num_pretrain_steps=0,
-            weight_decay=0,
-            eval_policy=None,
-            recompute_reward=False,
-            env_info_key=None,
-            obs_key=None,
-            load_terminals=True,
-            do_preprocess=True,
-            **kwargs
-    ):
-        super().__init__(trainer,
-            replay_buffer,
-            demo_train_buffer,
-            demo_test_buffer,
-            demo_paths,
-            demo_train_split,
-            demo_data_split,
-            add_demos_to_replay_buffer,
-            bc_num_pretrain_steps,
-            bc_batch_size,
-            bc_weight,
-            rl_weight,
-            q_num_pretrain_steps,
-            weight_decay,
-            eval_policy,
-            recompute_reward,
-            env_info_key,
-            obs_key,
-            load_terminals,
-            **kwargs)
-        self.model = load_local_or_remote_file(model_path)
-        self.reward_fn = reward_fn
-
-        self.normalize = normalize
-        self.env = env
-        self.do_preprocess = do_preprocess
-
-        print("ZEROING OUT GOALS")
-
-    def preprocess(self, observation):
-        if not self.do_preprocess:
-            for i in range(len(observation)):
-                observation[i]["no_goal"] = np.zeros((0, ))
-            return observation
-        observation = copy.deepcopy(observation)
-        images = np.stack([observation[i]['image_observation'] for i in range(len(observation))])
-        goals = np.stack([np.zeros_like(observation[i]['image_observation']) for i in range(len(observation))])
-        #images = np.stack([self.resize_img(observation[i]['image_observation']) for i in range(len(observation))])
-
-        # latents = self.model.encode(ptu.from_numpy(images))
-        # recon = ptu.get_numpy(self.model.decode(latents))
-
-        # from torch.nn import functional as F
-
-        # print(F.mse_loss(ptu.from_numpy(recon), ptu.from_numpy(images.reshape(50, 3, 48, 48))))
-        # import ipdb; ipdb.set_trace()
-
-        if self.normalize:
-            images = images / 255.0
-
-        latents = ptu.get_numpy(self.model.encode(ptu.from_numpy(images)))
-        goals = ptu.get_numpy(self.model.encode(ptu.from_numpy(goals)))
-
-        for i in range(len(observation)):
-            observation[i]["latent_observation"] = latents[i]
-            observation[i]["latent_achieved_goal"] = latents[i]
-            observation[i]["latent_desired_goal"] = goals[-1]
-            #observation[i]["latent_desired_goal"] = latents[-1]
-            del observation[i]['image_observation']
-
-        return observation
-
-    def preprocess_array_obs(self, observation):
-        new_observations = []
-        for i in range(len(observation)):
-            new_observations.append(dict(observation=observation[i]))
-            # observation[i]["no_goal"] = np.zeros((0, ))
-        return new_observations
-
-    def encode(self, obs):
-        if self.normalize:
-            return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
-        return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs)))
-
-
-    def load_path(self, path, replay_buffer, obs_dict=None):
-        rewards = []
-        path_builder = PathBuilder()
-        H = min(len(path["observations"]), len(path["actions"]))
-
-        if obs_dict:
-            traj_obs = self.preprocess(path["observations"])
-            next_traj_obs = self.preprocess(path["next_observations"])
-        else:
-            traj_obs = self.preprocess_array_obs(path["observations"])
-            next_traj_obs = self.preprocess_array_obs(path["observations"])
-
-        for i in range(H):
-            ob = traj_obs[i]
-            next_ob = next_traj_obs[i]
-            action = path["actions"][i]
-
-            reward = path["rewards"][i]
-            terminal = path["terminals"][i]
-            if not self.load_terminals:
-                terminal = np.zeros(terminal.shape)
-            agent_info = path["agent_infos"][i]
-            env_info = path["env_infos"][i]
-            if self.recompute_reward:
-                reward = self.reward_fn(ob, action, next_ob, next_ob)
-
-            reward = np.array([reward]).flatten()
-            rewards.append(reward)
-            terminal = np.array([terminal]).reshape((1, ))
-            path_builder.add_all(
-                observations=ob,
-                actions=action,
-                rewards=reward,
-                next_observations=next_ob,
-                terminals=terminal,
-                agent_infos=agent_info,
-                env_infos=env_info,
-            )
-        self.demo_trajectory_rewards.append(rewards)
-        path = path_builder.get_all_stacked()
-        replay_buffer.add_path(path)
-        print("rewards", np.min(rewards), np.max(rewards))
-        print("loading path, length", len(path["observations"]), len(path["actions"]))
-        print("actions", np.min(path["actions"]), np.max(path["actions"]))
-        print("path sum rewards", sum(rewards), len(rewards))
-
-
-

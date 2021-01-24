@@ -3,7 +3,6 @@ import torch.nn as nn
 from torchvision import datasets, transforms
 from rlkit.torch import pytorch_util as ptu
 from os import path as osp
-from sklearn import neighbors
 import numpy as np
 from torchvision.utils import save_image
 import time
@@ -24,7 +23,7 @@ class PixelCNNTrainer(LossFunction):
             self,
             model,
             vqvae, # TODO: make more general
-            batch_size=128,
+            batch_size=32,
             lr=3e-4,
     ):
         self.model = model
@@ -44,16 +43,20 @@ class PixelCNNTrainer(LossFunction):
     def log_dir(self):
         return logger.get_snapshot_dir()
 
-    def train_epoch(self, epoch, dataset, batches=100):
+    def train_epoch(self, epoch, data_loader, batches=100):
         start_time = time.time()
-        for b in range(batches):
-            self.train_batch(epoch, dataset.random_batch(self.batch_size))
+        for _, batch in enumerate(data_loader):
+            self.train_batch(epoch, batch.to(ptu.device))
+        # for b in range(batches):
+        #     self.train_batch(epoch, dataset.random_batch(self.batch_size))
         self.eval_statistics["train/epoch_duration"].append(time.time() - start_time)
 
-    def test_epoch(self, epoch, dataset, batches=10):
+    def test_epoch(self, epoch, data_loader, batches=10):
         start_time = time.time()
-        for b in range(batches):
-            self.test_batch(epoch, dataset.random_batch(self.batch_size))
+        for _, batch in enumerate(data_loader):
+            self.test_batch(epoch, batch.to(ptu.device))
+        # for b in range(batches):
+        #     self.test_batch(epoch, dataset.random_batch(self.batch_size))
         self.eval_statistics["test/epoch_duration"].append(time.time() - start_time)
 
     def compute_loss(self, batch, epoch=-1, test=False):
@@ -85,7 +88,6 @@ class PixelCNNTrainer(LossFunction):
         self.num_batches += 1
         self.model.train()
         self.optimizer.zero_grad()
-
         loss = self.compute_loss(batch, epoch, False)
         loss.backward()
 
@@ -109,12 +111,11 @@ class PixelCNNTrainer(LossFunction):
             stats[k] = np.mean(self.eval_statistics[k])
         return stats
 
-    def dump_samples(self, epoch, data, test=True, batch_size=64):
+    def dump_samples(self, epoch, data, test=True):
         suffix = 'test' if test else 'train'
 
         rand_indices = np.random.choice(data.shape[0], size=(8,))
         data_points = ptu.from_numpy(data[rand_indices, 0]).long().cuda()
-        # data_points = dataset.random_batch(batch_size)
 
         root_len = self.vqvae.root_len
         input_channels = self.vqvae.input_channels
@@ -135,6 +136,6 @@ class PixelCNNTrainer(LossFunction):
         samples = torch.cat(samples, dim=0)
         filename = osp.join(self.log_dir, "cond_sample_{0}_{1}.png".format(suffix, epoch))
         save_image(
-            samples.data.view(batch_size, input_channels, imsize, imsize).transpose(2, 3),
+            samples.data.view(-1, input_channels, imsize, imsize).transpose(2, 3),
             filename
         )
