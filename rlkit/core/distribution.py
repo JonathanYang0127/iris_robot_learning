@@ -13,9 +13,13 @@ class DictDistribution(object, metaclass=abc.ABCMeta):
     def spaces(self) -> Dict[str, Space]:
         pass
 
+    def __call__(self, *args, **kwargs):
+        """For backward compatibility with DictDistributionGenerator"""
+        return self
 
-class DictDistributionGenerator(object, metaclass=abc.ABCMeta):
-    def __call__(self, *input, **kwarg) -> DictDistribution:
+
+class DictDistributionGenerator(DictDistribution, metaclass=abc.ABCMeta):
+    def __call__(self, *args, **kwargs) -> DictDistribution:
         raise NotImplementedError
 
 

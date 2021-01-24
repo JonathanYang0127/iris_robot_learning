@@ -161,8 +161,8 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
                 k: next_obs_dict[k][num_rollout_contexts:num_rollout_contexts + num_distrib_contexts]
                 for k in self.observation_keys
             }
-            sampled_contexts = self._context_distribution.sample(
-                num_distrib_contexts, context=curr_obs)
+            sampled_contexts = self._context_distribution(
+                context=curr_obs).sample(num_distrib_contexts, )
             sampled_contexts = {
                 k: sampled_contexts[k] for k in self._context_keys}
             contexts.append(sampled_contexts)

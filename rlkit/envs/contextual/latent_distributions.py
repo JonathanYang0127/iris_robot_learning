@@ -1,9 +1,8 @@
 import numpy as np
 from gym.spaces import Box, Dict
-from rlkit.core.distribution import DictDistribution
+from rlkit.core.distribution import DictDistribution, DictDistributionGenerator
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch import pytorch_util as ptu
-
 
 
 class AddLatentDistribution(DictDistribution):
@@ -27,7 +26,7 @@ class AddLatentDistribution(DictDistribution):
         )
         self._spaces[output_key] = latent_space
 
-    def sample(self, batch_size: int, context=None):
+    def sample(self, batch_size: int):
         s = self.dist.sample(batch_size)
         s[self.output_key] = self.model.encode_np(s[self.input_key])
         return s
@@ -59,7 +58,7 @@ class AddConditionalLatentDistribution(DictDistribution):
         )
         self._spaces[output_key] = latent_space
 
-    def sample(self, batch_size: int, context=None):
+    def sample(self, batch_size: int):
         s = self.dist.sample(batch_size)
         s[self.output_key] = self.model.encode_np(s[self.input_key], s[self.context_key])
         return s
@@ -87,7 +86,7 @@ class PriorDistribution(DictDistribution):
         )
         self._spaces[key] = latent_space
 
-    def sample(self, batch_size: int, context=None):
+    def sample(self, batch_size: int):
         s = self.dist.sample(batch_size) if self.dist else {}
         mu, sigma = 0, 1 # sample from prior
         n = np.random.randn(batch_size, self.representation_size)
@@ -119,7 +118,7 @@ class PresampledPriorDistribution(DictDistribution):
         self._spaces[key] = latent_space
 
 
-    def sample(self, batch_size: int, context=None):
+    def sample(self, batch_size: int):
         s = self.dist.sample(batch_size) if self.dist else {}
         idx = np.random.randint(0, self._num_presampled_goals, batch_size)
         s[self.key] = self._presampled_goals[idx, :]
@@ -166,7 +165,7 @@ class PresamplePriorDistribution(DictDistribution):
             dataset.append(sampled_z)
         return np.concatenate(dataset, axis=0)
 
-    def sample(self, batch_size: int, context=None):
+    def sample(self, batch_size: int):
         s = self.dist.sample(batch_size) if self.dist else {}
         idx = np.random.randint(0, self._num_presampled_goals, batch_size)
         s[self.key] = self._presampled_goals[idx, :]
@@ -176,7 +175,8 @@ class PresamplePriorDistribution(DictDistribution):
     def spaces(self):
         return self._spaces
 
-class ConditionalPriorDistribution(DictDistribution):
+
+class ConditionalPriorDistribution(DictDistributionGenerator):
     def __init__(
             self,
             model,
@@ -195,12 +195,15 @@ class ConditionalPriorDistribution(DictDistribution):
         )
         self._spaces[key] = latent_space
 
-    def sample(self, batch_size, context=None):
+    def sample(self, batch_size):
         s = self.dist.sample(batch_size) if self.dist else {}
-        z_0 = context['initial_latent_state'].reshape(-1, self.representation_size)
+        z_0 = self.context['initial_latent_state'].reshape(-1, self.representation_size)
         s[self.key] = self.model.sample_prior(batch_size, cond=z_0, image_cond=False)
-
         return s
+
+    def __call__(self, context):
+        self.context = context
+        return self
 
     @property
     def spaces(self):
@@ -229,12 +232,12 @@ class AmortizedPriorDistribution(DictDistribution):
         self.presampled_z = self.model.sample_prior(num_presample)
         self.z_index = 0
 
-    def sample(self, batch_size: int, context=None):
+    def sample(self, batch_size: int):
         s = self.dist.sample(batch_size) if self.dist else {}
         if batch_size + self.z_index >= self.num_presample:
             self.presampled_z = self.model.sample_prior(self.num_presample)
             self.z_index = 0
-        
+
         s[self.key] = self.presampled_z[self.z_index:self.z_index + batch_size]
         self.z_index += batch_size
         return s
@@ -243,7 +246,7 @@ class AmortizedPriorDistribution(DictDistribution):
     def spaces(self):
         return self._spaces
 
-class AmortizedConditionalPriorDistribution(DictDistribution):
+class AmortizedConditionalPriorDistribution(DictDistributionGenerator):
     def __init__(
             self,
             model,
@@ -267,21 +270,25 @@ class AmortizedConditionalPriorDistribution(DictDistribution):
         self.z_index = self.num_presample # We need to wait for x_0 to sample goals
         self.presampled_z = None
 
-    def sample(self, batch_size, context=None):
+    def sample(self, batch_size):
         s = self.dist.sample(batch_size) if self.dist else {}
-        x_0 = context['initial_latent_state'].reshape(-1, self.representation_size)
-        
+        x_0 = self.context['initial_latent_state'].reshape(-1, self.representation_size)
+
         if batch_size + self.z_index >= self.num_presample:
             self.presampled_z = self.model.sample_prior(
                 self.num_presample,
                 cond=x_0[0].reshape(-1, self.representation_size)
             )
             self.z_index = 0
-        
+
         s[self.key] = self.presampled_z[self.z_index:self.z_index + batch_size]
         self.z_index += batch_size
-    
+
         return s
+
+    def __call__(self, context):
+        self.context = context
+        return self
 
     @property
     def spaces(self):
