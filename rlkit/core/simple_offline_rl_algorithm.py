@@ -96,6 +96,7 @@ class OfflineMetaRLAlgorithm(object):
             next_obs = train_data['next_observations']
             train_data['observations'] = obs
             train_data['next_observations'] = next_obs
+            import ipdb; ipdb.set_trace()
             train_data['context'] = (
                 self.task_embedding_replay_buffer.sample_context(
                     task_indices,

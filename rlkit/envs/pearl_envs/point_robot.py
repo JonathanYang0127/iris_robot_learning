@@ -36,6 +36,14 @@ class PointEnv(Env):
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
         self.action_space = spaces.Box(low=-0.1, high=0.1, shape=(2,))
 
+    @property
+    def tasks(self):
+        return self.goals
+
+    @tasks.setter
+    def tasks(self, value):
+        self.goals =value
+
     def reset_task(self, idx):
         ''' reset goal AND reset the agent '''
         self._goal = self.goals[idx]

@@ -15,6 +15,7 @@ class MultiTaskReplayBuffer(object):
             tasks,
             use_next_obs_in_context,
             sparse_rewards,
+            use_ground_truth_context=False,
     ):
         """
         :param max_replay_buffer_size:
@@ -26,6 +27,8 @@ class MultiTaskReplayBuffer(object):
         self.env = env
         self._ob_space = env.observation_space
         self._action_space = env.action_space
+        self.use_ground_truth_context = use_ground_truth_context
+        self.tasks = tasks
         env_info_sizes = dict()
         if sparse_rewards:
             env_info_sizes['sparse_reward'] = 1
@@ -110,6 +113,8 @@ class MultiTaskReplayBuffer(object):
                 sequence=False)
             for idx in indices
         ]
+        if self.use_ground_truth_context:
+            import ipdb; ipdb.set_trace()
         context = [self.unpack_batch(batch) for batch in batches]
         # group like elements together
         context = [[x[i] for x in context] for i in range(len(context[0]))]

@@ -169,6 +169,7 @@ def pearl_awac_launcher_simple(
         debug=False,
         use_dummy_encoder=False,
         networks_ignore_context=False,
+        use_ground_truth_context=False,
         # Pre-train params
         pretrain_rl=False,
         pretrain_offline_algo_kwargs=None,
@@ -306,6 +307,7 @@ def pearl_awac_launcher_simple(
             # nets=[agent, qf1, qf2, vf],
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
+            use_ground_truth_context=use_ground_truth_context,
             **algo_kwargs
         )
 

@@ -57,6 +57,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             freeze_encoder_buffer_in_unsupervised_phase=True,
             save_extra_manual_epoch_list=(),
             save_extra_every_epoch=False,
+            use_ground_truth_context=False,
     ):
         """
         :param env: training env
@@ -134,6 +135,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self.train_tasks,
             use_next_obs_in_context=use_next_obs_in_context,
             sparse_rewards=sparse_rewards,
+            use_ground_truth_context=use_ground_truth_context,
         )
 
         self._n_env_steps_total = 0

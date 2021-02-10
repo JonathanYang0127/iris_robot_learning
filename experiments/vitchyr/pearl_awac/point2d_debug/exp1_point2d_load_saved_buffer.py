@@ -1,27 +1,27 @@
 """
-PEARL Experiment
+AWAC PEARL Experiment
 """
 
 import click
 import json
 import os
+import sys
 
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.pearl import configs
 import rlkit.pythonplusplus as ppp
-from rlkit.torch.pearl.sac_launcher import pearl_experiment
+from rlkit.torch.pearl.awac_launcher import pearl_awac_launcher_simple
 import rlkit.misc.hyperparameter as hyp
 
 
 @click.command()
-@click.argument('config', default=None)
+@click.option('--config', default='experiments/references/pearl/point-robot-offline-start.json')
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--exp_name', default=None)
-@click.option('--mode', default='local')
+@click.option('--mode', default='htp')
 @click.option('--gpu', default=False)
-@click.option('--gpu_id', default=0)
 @click.option('--nseeds', default=1)
-def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
+def main(config, debug, exp_name, mode, gpu, nseeds):
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -45,56 +45,55 @@ def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
             "embedding_mini_batch_size": 256,
             "num_train_steps_per_itr": 20,
             "max_path_length": 2,
+            "save_replay_buffer": True,
         }
-        exp_params["net_size"] = 3
+        exp_params['pretrain_offline_algo_kwargs'] = {
+            "batch_size": 128,
+            "logging_period": 5,
+            "meta_batch_size": 2,
+            "num_batches": 50,
+            "task_embedding_batch_size": 3
+        }
+        exp_name = 'dev'
+        # exp_params["net_size"] = 3
     variant = ppp.merge_recursive_dicts(
         exp_params,
-        configs.default_trainer_config,
+        configs.default_awac_trainer_config,
         ignore_duplicate_keys_in_second_dict=True,
     )
 
-    mode = mode or 'local'
-    exp_name = exp_name or 'dev'
+    s = "experiments/"
+    n = len(s)
+    # exp_name = exp_name or sys.argv[0][n:-3]
+    exp_name = 'pearl-awac-ant--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
 
     search_space = {
         'algo_params.save_replay_buffer': [
             True,
         ],
-        'algo_params.save_extra_every_epoch': [
-            False,
+        'pretrain_rl': [
+            True,
+            # False,
         ],
-        'algo_params.save_extra_manual_epoch_list': [
-            [0, 1, 49, 100, 200, 300, 400, 500],
+        'latent_size': [
+            # 1,
+            2,
+            # 5,
+            # 8,
         ],
-        'algo_params.num_iterations': [
-            # 10,
-            # 20,
-            # 30,
-            # 40,
-            50,
-            # 500,
-        ],
-        '_debug_do_not_sqrt': [
+        'networks_ignore_context': [
             False,
         ],
         'algo_params.num_iterations_with_reward_supervision': [
-            # 10,
-            # 20,
-            # 30,
             9999,
         ],
-        # 'algo_params.freeze_encoder_buffer_in_unsupervised_phase': [
-        #     True,
-        #     # False,
-        # ],
-        # 'algo_params.train_reward_pred_in_unsupervised_phase': [
-        #     # True,
-        #     False,
-        # ],
-        # 'algo_params.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase': [
-        #     True,
-        #     # False,
-        # ],
+        'trainer_kwargs.beta': [
+            # 0.5,
+            2,
+            # 5,
+            # 10,
+            # 50,
+        ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -102,27 +101,23 @@ def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
     for exp_id, variant in enumerate(sweeper.iterate_hyperparameters()):
         variant['algo_kwargs'] = variant.pop('algo_params')
         variant['latent_dim'] = variant.pop('latent_size')
-        net_size = variant.pop('net_size')
-        variant['qf_kwargs'] = dict(
-            hidden_sizes=[net_size, net_size, net_size],
-        )
-        variant['vf_kwargs'] = dict(
-            hidden_sizes=[net_size, net_size, net_size],
-        )
-        variant['policy_kwargs'] = dict(
-            hidden_sizes=[net_size, net_size, net_size],
-        )
+        # net_size = variant.pop('net_size')
+        # variant['qf_kwargs'] = dict(
+        #     hidden_sizes=[net_size, net_size, net_size],
+        # )
+        # variant['policy_kwargs'] = dict(
+        #     hidden_sizes=[net_size, net_size, net_size],
+        # )
         for _ in range(nseeds):
             variant['exp_id'] = exp_id
             run_experiment(
-                pearl_experiment,
+                pearl_awac_launcher_simple,
                 unpack_variant=True,
                 exp_name=exp_name,
                 mode=mode,
                 variant=variant,
                 time_in_mins=int(2.8 * 24 * 60),  # if you use mode=sss
                 use_gpu=gpu,
-                gpu_id=gpu_id,
             )
     print(exp_name)
 
