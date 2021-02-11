@@ -65,7 +65,7 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
     s = "experiments/"
     n = len(s)
     # exp_name = exp_name or sys.argv[0][n:-3]
-    exp_name = 'pearl-awac-ant--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
+    exp_name = 'pearl-awac-ant--' + __file__.split('/')[-1].split('.')[0].replace('_', '-') + '-gpu-take2'
 
     search_space = {
         'algo_params.save_replay_buffer': [
@@ -76,10 +76,10 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             # False,
         ],
         'latent_size': [
-            1,
+            # 1,
             2,
-            5,
-            8,
+            # 5,
+            # 8,
         ],
         'networks_ignore_context': [
             False,
