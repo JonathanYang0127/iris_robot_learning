@@ -204,8 +204,12 @@ def pearl_awac_launcher_simple(
         task_indices = base_env.get_all_task_idx()
         train_task_idxs = list(task_indices[:n_train_tasks])
         eval_task_idxs = list(task_indices[-n_eval_tasks:])
-    train_tasks = [tasks[i] for i in train_task_idxs]
-    eval_tasks = [tasks[i] for i in eval_task_idxs]
+    if hasattr(base_env, 'task_to_vec'):
+        train_tasks = [base_env.task_to_vec(tasks[i]) for i in train_task_idxs]
+        eval_tasks = [base_env.task_to_vec(tasks[i]) for i in eval_task_idxs]
+    else:
+        train_tasks = [tasks[i] for i in train_task_idxs]
+        eval_tasks = [tasks[i] for i in eval_task_idxs]
     if use_ground_truth_context:
         latent_dim = len(train_tasks[0])
     expl_env = NormalizedBoxEnv(base_env)
