@@ -59,6 +59,7 @@ class PEARLAgent(nn.Module):
                  use_next_obs_in_context=False,
                  _debug_ignore_context=False,
                  _debug_do_not_sqrt=False,
+                 _debug_use_ground_truth_context=False
                  ):
         super().__init__()
         self.latent_dim = latent_dim
@@ -68,6 +69,7 @@ class PEARLAgent(nn.Module):
         self.reward_predictor = reward_predictor
         self.deterministic_policy = MakeDeterministic(self.policy)
         self._debug_ignore_context = _debug_ignore_context
+        self._debug_use_ground_truth_context = _debug_use_ground_truth_context
 
         # self.recurrent = kwargs['recurrent']
         # self.use_ib = kwargs['use_information_bottleneck']
@@ -135,6 +137,8 @@ class PEARLAgent(nn.Module):
 
     def update_context(self, context, inputs):
         ''' append single transition to the current context '''
+        if self._debug_use_ground_truth_context:
+            return context
         o, a, r, no, d, info = inputs
         o = ptu.from_numpy(o[None, None, ...])
         a = ptu.from_numpy(a[None, None, ...])

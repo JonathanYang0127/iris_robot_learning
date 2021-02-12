@@ -12,15 +12,16 @@ class MultiTaskReplayBuffer(object):
             self,
             max_replay_buffer_size,
             env,
-            tasks,
+            task_indices,
             use_next_obs_in_context,
             sparse_rewards,
             use_ground_truth_context=False,
+            ground_truth_tasks=None,
     ):
         """
         :param max_replay_buffer_size:
         :param env:
-        :param tasks: for multi-task setting
+        :param task_indices: for multi-task setting
         """
         self.use_next_obs_in_context = use_next_obs_in_context
         self.sparse_rewards = sparse_rewards
@@ -28,7 +29,8 @@ class MultiTaskReplayBuffer(object):
         self._ob_space = env.observation_space
         self._action_space = env.action_space
         self.use_ground_truth_context = use_ground_truth_context
-        self.tasks = tasks
+        self.task_indices = task_indices
+        self.ground_truth_tasks = ground_truth_tasks
         env_info_sizes = dict()
         if sparse_rewards:
             env_info_sizes['sparse_reward'] = 1
@@ -37,7 +39,7 @@ class MultiTaskReplayBuffer(object):
             observation_dim=get_dim(self._ob_space),
             action_dim=get_dim(self._action_space),
             env_info_sizes=env_info_sizes,
-        )) for idx in tasks])
+        )) for idx in task_indices])
 
 
     def add_sample(self, task, observation, action, reward, terminal,

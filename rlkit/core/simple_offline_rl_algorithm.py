@@ -120,11 +120,13 @@ class OfflineMetaRLAlgorithm(object):
                 logger.dump_tabular(with_prefix=True, with_timestamp=False)
                 iteration += 1
 
+    def to(self, device):
+        self.trainer.to(device)
     # def get_eval_statistics(self):
     #     ### train tasks
     #     # eval on a subset of train tasks for speed
     #     stats = OrderedDict()
-    #     indices = np.random.choice(self.train_tasks, len(self.eval_tasks))
+    #     indices = np.random.choice(self.train_task_indices, len(self.eval_task_indices))
     #     for key, path_collector in self.path_collectors.item():
     #         paths = path_collector.collect_paths()
     #         returns = eval_util.get_average_returns(paths)

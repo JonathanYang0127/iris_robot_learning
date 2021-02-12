@@ -200,9 +200,12 @@ def pearl_awac_launcher_simple(
         base_env.tasks = tasks
         task_indices = base_env.get_all_task_idx()
     else:
+        tasks = base_env.tasks
         task_indices = base_env.get_all_task_idx()
         train_task_idxs = list(task_indices[:n_train_tasks])
         eval_task_idxs = list(task_indices[-n_eval_tasks:])
+    train_tasks = [tasks[i] for i in train_task_idxs]
+    eval_tasks = [tasks[i] for i in eval_task_idxs]
     expl_env = NormalizedBoxEnv(base_env)
 
     reward_dim = 1
@@ -279,18 +282,23 @@ def pearl_awac_launcher_simple(
     )
     if use_data_collectors:
         eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
-        raise NotImplementedError()
+        # raise NotImplementedError()
         eval_env.tasks = expl_env.tasks  # does this work?
         eval_policy = MakeDeterministic(policy)
         eval_path_collector = PearlPathCollector(eval_env, eval_policy)
         expl_policy = policy
         expl_path_collector = PearlPathCollector(expl_env, expl_policy)
+        algo_kwargs.pop('save_replay_buffer')
+        algo_kwargs.pop('num_iterations_with_reward_supervision')
         algorithm = TorchBatchRLAlgorithm(
             trainer=trainer,
             exploration_env=expl_env,
             evaluation_env=eval_env,
             exploration_data_collector=expl_path_collector,
             evaluation_data_collector=eval_path_collector,
+            num_eval_steps_per_epoch=100,
+            num_expl_steps_per_train_loop=100,
+            num_trains_per_train_loop=100,
             **algo_kwargs
         )
     else:
@@ -302,8 +310,10 @@ def pearl_awac_launcher_simple(
             # evaluation_env=eval_env,
             # exploration_data_collector=expl_path_collector,
             # evaluation_data_collector=eval_path_collector,
-            train_tasks=train_task_idxs,
-            eval_tasks=eval_task_idxs,
+            train_task_indices=train_task_idxs,
+            eval_task_indices=eval_task_idxs,
+            train_tasks=train_tasks,
+            eval_tasks=eval_tasks,
             # nets=[agent, qf1, qf2, vf],
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
@@ -334,6 +344,7 @@ def pearl_awac_launcher_simple(
         train_tasks=train_task_idxs,
         **pretrain_offline_algo_kwargs
     )
+    pretrain_algo.to(ptu.device)
     if pretrain_rl:
         logger.remove_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True
@@ -348,7 +359,6 @@ def pearl_awac_launcher_simple(
         logger.add_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True,
         )
-
     algorithm.to(ptu.device)
 
     algorithm.train()

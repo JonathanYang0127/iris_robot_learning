@@ -198,7 +198,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
-                # task_idx = np.random.randint(len(self.train_tasks))
+                # task_idx = np.random.randint(len(self.train_task_indices))
                 idx = np.random.randint(len(self.train_tasks))
                 if not self.in_unsupervised_phase:
                     # Just keep the latest version if not in supervised phase
@@ -660,7 +660,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         # logger.log(train_online_returns)
 
         ### test tasks
-        # logger.log('evaluating on {} test tasks'.format(len(self.eval_tasks)))
+        # logger.log('evaluating on {} test tasks'.format(len(self.eval_task_indices)))
         test_final_returns, test_online_returns = self._do_eval(self.eval_tasks, epoch)
         # logger.log('test online returns')
         # logger.log(test_online_returns)

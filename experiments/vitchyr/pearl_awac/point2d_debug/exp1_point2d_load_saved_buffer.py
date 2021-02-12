@@ -75,6 +75,9 @@ def main(config, debug, exp_name, mode, gpu, nseeds):
             True,
             # False,
         ],
+        'use_ground_truth_context': [
+            True,
+        ],
         'latent_size': [
             # 1,
             2,

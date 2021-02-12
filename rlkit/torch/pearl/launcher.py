@@ -74,8 +74,8 @@ def pearl_experiment(variant):
     )
     algorithm = PEARLSoftActorCritic(
         env=env,
-        train_tasks=list(tasks[:variant['n_train_tasks']]),
-        eval_tasks=list(tasks[-variant['n_eval_tasks']:]),
+        train_task_indices=list(tasks[:variant['n_train_tasks']]),
+        eval_task_indices=list(tasks[-variant['n_eval_tasks']:]),
         nets=[agent, qf1, qf2, vf],
         latent_dim=latent_dim,
         **variant['algo_params']

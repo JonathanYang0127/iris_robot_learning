@@ -22,6 +22,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             env,
             agent,
             trainer,
+            train_task_indices,
+            eval_task_indices,
             train_tasks,
             eval_tasks,
             meta_batch=64,
@@ -58,12 +60,13 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             save_extra_manual_epoch_list=(),
             save_extra_every_epoch=False,
             use_ground_truth_context=False,
+            expl_data_collector=None,
     ):
         """
         :param env: training env
         :param agent: agent that is conditioned on a latent variable z that rl_algorithm is responsible for feeding in
-        :param train_tasks: list of tasks used for training
-        :param eval_tasks: list of tasks used for eval
+        :param train_task_indices: list of tasks used for training
+        :param eval_task_indices: list of tasks used for eval
 
         see default experiment config file for descriptions of the rest of the arguments
         """
@@ -74,6 +77,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.agent = agent
         self.trainer = trainer
         self.exploration_agent = agent # Can potentially use a different policy purely for exploration rather than also solving tasks, currently not being used
+        self.train_task_indices = train_task_indices
+        self.eval_task_indices = eval_task_indices
         self.train_tasks = train_tasks
         self.eval_tasks = eval_tasks
         self.meta_batch = meta_batch
@@ -106,6 +111,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.freeze_encoder_buffer_in_unsupervised_phase = (
             freeze_encoder_buffer_in_unsupervised_phase
         )
+        self.expl_data_collector = expl_data_collector
 
         self.eval_statistics = None
         self.render_eval_paths = render_eval_paths
@@ -124,7 +130,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.replay_buffer = MultiTaskReplayBuffer(
             self.replay_buffer_size,
             env,
-            self.train_tasks,
+            self.train_task_indices,
             use_next_obs_in_context=use_next_obs_in_context,
             sparse_rewards=sparse_rewards,
         )
@@ -132,7 +138,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.enc_replay_buffer = MultiTaskReplayBuffer(
             self.replay_buffer_size,
             env,
-            self.train_tasks,
+            self.train_task_indices,
             use_next_obs_in_context=use_next_obs_in_context,
             sparse_rewards=sparse_rewards,
             use_ground_truth_context=use_ground_truth_context,
@@ -154,9 +160,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         sample task randomly
         '''
         if is_eval:
-            idx = np.random.randint(len(self.eval_tasks))
+            idx = np.random.randint(len(self.eval_task_indices))
         else:
-            idx = np.random.randint(len(self.train_tasks))
+            idx = np.random.randint(len(self.train_task_indices))
         return idx
 
     def train(self):
@@ -180,22 +186,20 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             if it_ == 0:
                 print('collecting initial pool of data for train and eval')
                 # temp for evaluating
-                for idx in self.train_tasks:
-                    # self.task_idx = idx
-                    # self.env.reset_task(idx)
-                    self.collect_exploration_data(
-                        self.num_initial_steps, 1, np.inf, idx)
-                    # TODO(vitchyr): replace with sampler
-                    # task_idx = idx
-                    # init_expl_paths = self.expl_data_collector.collect_new_paths(
-                        # task_idx,
-                        # self.max_path_length,
-                        # self.min_num_steps_before_training,
-                        # discard_incomplete_paths=False,
-                    # )
-                    # self.replay_buffer.add_paths(task_idx, init_expl_paths)
-                    # self.enc_replay_buffer.add_paths(task_idx, init_expl_paths)
-                    # self.expl_data_collector.end_epoch(-1)
+                for task_idx in self.train_task_indices:
+                    if self.expl_data_collector:
+                        init_expl_paths = self.expl_data_collector.collect_new_paths(
+                            task_idx,
+                            self.max_path_length,
+                            self.min_num_steps_before_training,
+                            discard_incomplete_paths=False,
+                        )
+                        self.replay_buffer.add_paths(task_idx, init_expl_paths)
+                        self.enc_replay_buffer.add_paths(task_idx, init_expl_paths)
+                        self.expl_data_collector.end_epoch(-1)
+                    else:
+                        self.collect_exploration_data(
+                            self.num_initial_steps, 1, np.inf, task_idx)
             self.in_unsupervised_phase = (it_ >= self.num_iterations_with_reward_supervision)
             self.agent.use_context_encoder_snapshot_for_reward_pred = (
                     self.in_unsupervised_phase
@@ -208,83 +212,89 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
-                # task_idx = np.random.randint(len(self.train_tasks))
-                idx = np.random.randint(len(self.train_tasks))
+                # task_idx = np.random.randint(len(self.train_task_indices))
+                idx = np.random.randint(len(self.train_task_indices))
                 if not self.in_unsupervised_phase:
                     # Just keep the latest version if not in supervised phase
                     self.enc_replay_buffer.task_buffers[idx].clear()
                 # collect some trajectories with z ~ prior
                 # task_idx = idx
                 if self.num_steps_prior > 0:
-                    self.collect_exploration_data(
-                        num_samples=self.num_steps_prior,
-                        resample_z_rate=1,
-                        update_posterior_period=np.inf,
-                        add_to_enc_buffer=not freeze_buffer,
-                        use_predicted_reward=self.in_unsupervised_phase,
-                        task_idx=idx,
-                    )
-                    # TODO(vitchyr): replace with sampler
-                    # new_expl_paths = self.expl_data_collector.collect_new_paths(
-                        # task_idx=task_idx,
-                        # max_path_length=self.max_path_length,
-                        # resample_z_rate=1,
-                        # update_posterior_period=np.inf,
-                        # num_steps=self.num_steps_prior,
-                        # use_predicted_rewards=self.in_unsupervised_phase,
-                        # discard_incomplete_paths=False,
-                    # )
-                    # self.replay_buffer.add_paths(new_expl_paths)
-                    # if not freeze_buffer:
-                        # self.env_replay_buffer.add_paths(new_expl_paths)
+                    if self.expl_data_collector:
+                        # TODO: implement
+                        new_expl_paths = self.expl_data_collector.collect_new_paths(
+                            task_idx=task_idx,
+                            max_path_length=self.max_path_length,
+                            resample_z_rate=1,
+                            update_posterior_period=np.inf,
+                            num_steps=self.num_steps_prior,
+                            use_predicted_rewards=self.in_unsupervised_phase,
+                            discard_incomplete_paths=False,
+                        )
+                        self.replay_buffer.add_paths(new_expl_paths)
+                        if not freeze_buffer:
+                            self.env_replay_buffer.add_paths(new_expl_paths)
+                    else:
+                        self.collect_exploration_data(
+                            num_samples=self.num_steps_prior,
+                            resample_z_rate=1,
+                            update_posterior_period=np.inf,
+                            add_to_enc_buffer=not freeze_buffer,
+                            use_predicted_reward=self.in_unsupervised_phase,
+                            task_idx=idx,
+                        )
                 # collect some trajectories with z ~ posterior
                 if self.num_steps_posterior > 0:
-                    # TODO(vitchyr): replace with sampler
-                    self.collect_exploration_data(
-                        num_samples=self.num_steps_posterior,
-                        resample_z_rate=1,
-                        update_posterior_period=self.update_post_train,
-                        add_to_enc_buffer=not freeze_buffer,
-                        use_predicted_reward=self.in_unsupervised_phase,
-                        task_idx=idx,
-                    )
-                    # new_expl_paths = self.expl_data_collector.collect_new_paths(
-                        # task_idx=task_idx,
-                        # max_path_length=self.max_path_length,
-                        # resample_z_rate=1,
-                        # update_posterior_period=self.update_post_train,
-                        # num_steps=self.num_steps_posterior,
-                        # use_predicted_rewards=self.in_unsupervised_phase,
-                        # discard_incomplete_paths=False,
-                    # )
-                    # self.replay_buffer.add_paths(new_expl_paths)
-                    # if not freeze_buffer:
-                        # self.env_replay_buffer.add_paths(new_expl_paths)
+                    if self.expl_data_collector:
+                        # TODO: implement
+                        new_expl_paths = self.expl_data_collector.collect_new_paths(
+                            task_idx=task_idx,
+                            max_path_length=self.max_path_length,
+                            resample_z_rate=1,
+                            update_posterior_period=self.update_post_train,
+                            num_steps=self.num_steps_posterior,
+                            use_predicted_rewards=self.in_unsupervised_phase,
+                            discard_incomplete_paths=False,
+                        )
+                        self.replay_buffer.add_paths(new_expl_paths)
+                        if not freeze_buffer:
+                            self.env_replay_buffer.add_paths(new_expl_paths)
+                    else:
+                        self.collect_exploration_data(
+                            num_samples=self.num_steps_posterior,
+                            resample_z_rate=1,
+                            update_posterior_period=self.update_post_train,
+                            add_to_enc_buffer=not freeze_buffer,
+                            use_predicted_reward=self.in_unsupervised_phase,
+                            task_idx=idx,
+                        )
                 # even if encoder is trained only on samples from the prior, the policy needs to learn to handle z ~ posterior
                 if self.num_extra_rl_steps_posterior > 0:
-                    # TODO(vitchyr): replace with sampler
-                    self.collect_exploration_data(
-                        num_samples=self.num_extra_rl_steps_posterior,
-                        resample_z_rate=1,
-                        update_posterior_period=self.update_post_train,
-                        add_to_enc_buffer=False,
-                        use_predicted_reward=self.in_unsupervised_phase,
-                        task_idx=idx,
-                    )
-                    # new_expl_paths = self.expl_data_collector.collect_new_paths(
-                        # task_idx=task_idx,
-                        # max_path_length=self.max_path_length,
-                        # resample_z_rate=1,
-                        # update_posterior_period=self.update_post_train,
-                        # num_steps=self.num_extra_rl_steps_posterior,
-                        # use_predicted_rewards=self.in_unsupervised_phase,
-                        # discard_incomplete_paths=False,
-                    # )
-                    # self.replay_buffer.add_paths(new_expl_paths)
+                    # TODO: implement
+                    if self.expl_data_collector:
+                        new_expl_paths = self.expl_data_collector.collect_new_paths(
+                            task_idx=task_idx,
+                            max_path_length=self.max_path_length,
+                            resample_z_rate=1,
+                            update_posterior_period=self.update_post_train,
+                            num_steps=self.num_extra_rl_steps_posterior,
+                            use_predicted_rewards=self.in_unsupervised_phase,
+                            discard_incomplete_paths=False,
+                        )
+                        self.replay_buffer.add_paths(new_expl_paths)
+                    else:
+                        self.collect_exploration_data(
+                            num_samples=self.num_extra_rl_steps_posterior,
+                            resample_z_rate=1,
+                            update_posterior_period=self.update_post_train,
+                            add_to_enc_buffer=False,
+                            use_predicted_reward=self.in_unsupervised_phase,
+                            task_idx=idx,
+                        )
 
             # Sample train tasks and compute gradient updates on parameters.
             for train_step in range(self.num_train_steps_per_itr):
-                indices = np.random.choice(self.train_tasks, self.meta_batch)
+                indices = np.random.choice(self.train_task_indices, self.meta_batch)
 
                 mb_size = self.embedding_mini_batch_size
                 num_updates = self.embedding_batch_size // mb_size
@@ -346,6 +356,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         num_transitions = 0
         init_context = None
         while num_transitions < num_samples:
+            # TODO: replace with sampler
             paths, n_samples = self.sampler.obtain_samples(
                 max_samples=num_samples - num_transitions,
                 max_trajs=update_posterior_period,
@@ -456,7 +467,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         return True
 
     def _can_train(self):
-        return all([self.replay_buffer.num_steps_can_sample(idx) >= self.batch_size for idx in self.train_tasks])
+        return all([self.replay_buffer.num_steps_can_sample(idx) >= self.batch_size for idx in self.train_task_indices])
 
     def _get_action_and_info(self, agent, observation):
         """
@@ -483,13 +494,14 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
     ##### Snapshotting utils #####
     def get_epoch_snapshot(self, epoch):
-        data_to_save = dict(
-            epoch=epoch,
-            # exploration_policy=self.exploration_policy,
-        )
-        # if self.save_environment:
-        #     data_to_save['env'] = self.training_env
-        return data_to_save
+        snapshot = {'epoch': epoch}
+        for k, v in self.trainer.get_snapshot().items():
+            snapshot['trainer/' + k] = v
+        snapshot['env'] = self.env
+        snapshot['env_sampler'] = self.sampler
+        snapshot['agent'] = self.agent
+        snapshot['exploration_agent'] = self.exploration_agent
+        return snapshot
 
     def get_extra_data_to_save(self, epoch):
         """
@@ -592,7 +604,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
         ### train tasks
         # eval on a subset of train tasks for speed
-        indices = np.random.choice(self.train_tasks, len(self.eval_tasks))
+        indices = np.random.choice(self.train_task_indices, len(self.eval_task_indices))
         # logger.log('evaluating on {} train tasks'.format(len(indices)))
         ### eval train tasks with posterior sampled from the training replay buffer
         train_returns = []
@@ -606,6 +618,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     self.embedding_batch_size
                 )
                 init_context = ptu.from_numpy(init_context)
+                # TODO: replace with sampler
                 # self.agent.infer_posterior(context)
                 p, _ = self.sampler.obtain_samples(
                     deterministic=self.eval_deterministic,
@@ -632,8 +645,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         # logger.log(train_online_returns)
 
         ### test tasks
-        # logger.log('evaluating on {} test tasks'.format(len(self.eval_tasks)))
-        test_final_returns, test_online_returns = self._do_eval(self.eval_tasks, epoch)
+        # logger.log('evaluating on {} test tasks'.format(len(self.eval_task_indices)))
+        test_final_returns, test_online_returns = self._do_eval(self.eval_task_indices, epoch)
         # logger.log('test online returns')
         # logger.log(test_online_returns)
 
