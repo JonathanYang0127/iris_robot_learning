@@ -163,12 +163,27 @@ def pearl_experiment(
         eval_path_collector = PearlPathCollector(eval_env, eval_policy)
         expl_policy = policy
         expl_path_collector = PearlPathCollector(expl_env, expl_policy)
-        algorithm = TorchBatchRLAlgorithm(
+        # algorithm = TorchBatchRLAlgorithm(
+        #     trainer=trainer,
+        #     exploration_env=expl_env,
+        #     evaluation_env=eval_env,
+        #     exploration_data_collector=expl_path_collector,
+        #     evaluation_data_collector=eval_path_collector,
+        #     **algo_kwargs
+        # )
+        algorithm = MetaRLAlgorithm(
+            agent=agent,
+            env=expl_env,
             trainer=trainer,
-            exploration_env=expl_env,
-            evaluation_env=eval_env,
+            # exploration_env=expl_env,
+            # evaluation_env=eval_env,
             exploration_data_collector=expl_path_collector,
             evaluation_data_collector=eval_path_collector,
+            train_task_indices=list(tasks[:n_train_tasks]),
+            eval_task_indices=list(tasks[-n_eval_tasks:]),
+            # nets=[agent, qf1, qf2, vf],
+            # latent_dim=latent_dim,
+            use_next_obs_in_context=use_next_obs_in_context,
             **algo_kwargs
         )
     else:

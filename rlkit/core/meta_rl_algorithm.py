@@ -60,7 +60,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             save_extra_manual_epoch_list=(),
             save_extra_every_epoch=False,
             use_ground_truth_context=False,
-            expl_data_collector=None,
+            exploration_data_collector=None,
+            evaluation_data_collector=None,
     ):
         """
         :param env: training env
@@ -111,7 +112,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.freeze_encoder_buffer_in_unsupervised_phase = (
             freeze_encoder_buffer_in_unsupervised_phase
         )
-        self.expl_data_collector = expl_data_collector
+        self.expl_data_collector = exploration_data_collector
+        self.eval_data_collector = evaluation_data_collector
 
         self.eval_statistics = None
         self.render_eval_paths = render_eval_paths
@@ -622,20 +624,25 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     idx,
                     self.embedding_batch_size
                 )
-                init_context = ptu.from_numpy(init_context)
-                # TODO: replace with sampler
-                # self.agent.infer_posterior(context)
-                p, _ = self.sampler.obtain_samples(
-                    deterministic=self.eval_deterministic,
-                    max_samples=self.max_path_length,
-                    accum_context=False,
-                    max_trajs=1,
-                    resample_latent_period=0,
-                    update_posterior_period=0,
-                    initial_context=init_context,
-                    task_idx=idx,
-                )
-                paths += p
+                if self.eval_data_collector:
+                    self.eval_data_collector.collect_new_paths(
+                        idx,
+                    )
+                else:
+                    init_context = ptu.from_numpy(init_context)
+                    # TODO: replace with sampler
+                    # self.agent.infer_posterior(context)
+                    p, _ = self.sampler.obtain_samples(
+                        deterministic=self.eval_deterministic,
+                        max_samples=self.max_path_length,
+                        accum_context=False,
+                        max_trajs=1,
+                        resample_latent_period=0,
+                        update_posterior_period=0,
+                        initial_context=init_context,
+                        task_idx=idx,
+                    )
+                    paths += p
 
             if self.sparse_rewards:
                 for p in paths:

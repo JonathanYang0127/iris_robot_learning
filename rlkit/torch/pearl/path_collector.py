@@ -20,7 +20,7 @@ class PearlPathCollector(MdpPathCollector):
             **kwargs
         )
 
-    def collect_new_steps(
+    def collect_new_paths(
             self,
             task_idx,
             *args,
