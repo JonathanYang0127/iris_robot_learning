@@ -116,7 +116,7 @@ class MultiTaskReplayBuffer(object):
             for idx in indices
         ]
         if self.use_ground_truth_context:
-            import ipdb; ipdb.set_trace()
+            return np.array([self.ground_truth_tasks[i] for i in indices])
         context = [self.unpack_batch(batch) for batch in batches]
         # group like elements together
         context = [[x[i] for x in context] for i in range(len(context[0]))]

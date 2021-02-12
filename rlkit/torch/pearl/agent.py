@@ -9,7 +9,10 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.core.util import Wrapper
 from rlkit.policies.base import ExplorationPolicy, Policy
 from rlkit.torch.core import np_ify
-from rlkit.torch.distributions import TanhNormal, MultivariateDiagonalNormal
+from rlkit.torch.distributions import (
+    TanhNormal, MultivariateDiagonalNormal,
+    Delta,
+)
 from rlkit.torch.networks import Mlp
 from rlkit.torch.networks.stochastic.distribution_generator import \
     DistributionGenerator
@@ -173,6 +176,10 @@ class PEARLAgent(nn.Module):
         ''' compute q(z|c) as a function of input context and sample new z from it'''
         if isinstance(context, np.ndarray):
             context = ptu.from_numpy(context)
+        if self._debug_use_ground_truth_context:
+            if squeeze:
+                context = context.squeeze(dim=0)
+            return Delta(context)
         params = self.context_encoder(context)
         params = params.view(context.size(0), -1, self.context_encoder.output_size)
         mu = params[..., :self.latent_dim]

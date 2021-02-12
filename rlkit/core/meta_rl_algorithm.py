@@ -142,6 +142,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             use_next_obs_in_context=use_next_obs_in_context,
             sparse_rewards=sparse_rewards,
             use_ground_truth_context=use_ground_truth_context,
+            ground_truth_tasks=train_tasks,
         )
 
         self._n_env_steps_total = 0
@@ -154,6 +155,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self._current_path_builder = PathBuilder()
         self._exploration_paths = []
         self.in_unsupervised_phase = False
+        self._debug_use_ground_truth_context = use_ground_truth_context
 
     def sample_task(self, is_eval=False):
         '''
@@ -311,7 +313,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
                 # do this in a loop so we can truncate backprop in the recurrent encoder
                 for i in range(num_updates):
-                    context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
+                    if self._debug_use_ground_truth_context:
+                        context = context_batch
+                    else:
+                        context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
                     # batch = self.sample_batch(indices)
                     batch = self.replay_buffer.sample_batch(indices, self.batch_size)
                     batch['context'] = context

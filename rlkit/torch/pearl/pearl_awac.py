@@ -116,6 +116,7 @@ class PearlAwacTrainer(TorchTrainer):
 
             # for debugging
             _debug_ignore_context=False,
+            _debug_use_ground_truth_context=False,
     ):
         super().__init__()
 
@@ -293,6 +294,7 @@ class PearlAwacTrainer(TorchTrainer):
         self.buffer_policy_reset_period = buffer_policy_reset_period
         self.num_buffer_policy_train_steps_on_reset = num_buffer_policy_train_steps_on_reset
         self.advantage_weighted_buffer_loss = advantage_weighted_buffer_loss
+        self._debug_use_ground_truth_context = _debug_use_ground_truth_context
 
     ##### Training #####
     def train_from_torch(self, batch):
@@ -359,9 +361,12 @@ class PearlAwacTrainer(TorchTrainer):
         """
         Information Bottleneck Loss
         """
-        kl_div = kl_divergence(p_z, self.agent.latent_prior).mean(dim=0).sum()
-        kl_loss = self.kl_lambda * kl_div
-        kl_loss.backward(retain_graph=True)
+        if self._debug_use_ground_truth_context:
+            kl_div = kl_loss = ptu.zeros(0)
+        else:
+            kl_div = kl_divergence(p_z, self.agent.latent_prior).mean(dim=0).sum()
+            kl_loss = self.kl_lambda * kl_div
+            kl_loss.backward(retain_graph=True)
 
         """
         Policy Loss

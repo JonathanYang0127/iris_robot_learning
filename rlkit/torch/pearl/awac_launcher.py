@@ -206,6 +206,8 @@ def pearl_awac_launcher_simple(
         eval_task_idxs = list(task_indices[-n_eval_tasks:])
     train_tasks = [tasks[i] for i in train_task_idxs]
     eval_tasks = [tasks[i] for i in eval_task_idxs]
+    if use_ground_truth_context:
+        latent_dim = len(train_tasks[0])
     expl_env = NormalizedBoxEnv(base_env)
 
     reward_dim = 1
@@ -252,6 +254,7 @@ def pearl_awac_launcher_simple(
         input_size=context_encoder_input_dim,
         output_size=context_encoder_output_dim,
         hidden_sizes=[200, 200, 200],
+        use_ground_truth_context=use_ground_truth_context,
         **context_encoder_kwargs
     )
     reward_predictor = ConcatMlp(
@@ -266,6 +269,7 @@ def pearl_awac_launcher_simple(
         reward_predictor,
         use_next_obs_in_context=use_next_obs_in_context,
         _debug_ignore_context=networks_ignore_context,
+        _debug_use_ground_truth_context=use_ground_truth_context,
     )
     trainer = PearlAwacTrainer(
         agent=agent,
@@ -278,6 +282,7 @@ def pearl_awac_launcher_simple(
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
         _debug_ignore_context=networks_ignore_context,
+        _debug_use_ground_truth_context=use_ground_truth_context,
         **trainer_kwargs
     )
     if use_data_collectors:

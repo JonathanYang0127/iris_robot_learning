@@ -9,6 +9,16 @@ class MlpEncoder(ConcatMlp):
     '''
     encode context via MLP
     '''
+    def __init__(self, *args, use_ground_truth_context=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.use_ground_truth_context = use_ground_truth_context
+
+    def forward(self, context):
+        if self.use_ground_truth_context:
+            return context
+        else:
+            return super().forward(context)
+
     def reset(self, num_tasks=1):
         pass
 

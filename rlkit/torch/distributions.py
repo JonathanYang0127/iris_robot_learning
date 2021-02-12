@@ -116,6 +116,9 @@ class Delta(Distribution):
     def entropy(self):
         return 0
 
+    def __repr__(self):
+        return 'Delta({})'.format(self.value)
+
 
 class Bernoulli(Distribution, TorchBernoulli):
     def get_diagnostics(self):
