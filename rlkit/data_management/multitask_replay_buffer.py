@@ -58,6 +58,7 @@ class MultiTaskReplayBuffer(object):
         if sequence:
             batch = self.task_buffers[task].random_sequence(batch_size)
         else:
+            import ipdb; ipdb.set_trace()
             batch = self.task_buffers[task].random_batch(batch_size)
         return batch
 

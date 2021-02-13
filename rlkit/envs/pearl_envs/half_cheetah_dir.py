@@ -51,7 +51,7 @@ class HalfCheetahDirEnv(HalfCheetahEnv):
         return tasks
 
     def get_all_task_idx(self):
-        return range(len(self.tasks))
+        return list(range(len(self.tasks)))
 
     def reset_task(self, idx):
         self._task = self.tasks[idx]

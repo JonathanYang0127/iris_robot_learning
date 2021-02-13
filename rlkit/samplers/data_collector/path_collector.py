@@ -15,20 +15,15 @@ class MdpPathCollector(PathCollector):
             env,
             policy,
             max_num_epoch_paths_saved=None,
-            render=False,
-            render_kwargs=None,
             rollout_fn=rollout,
             save_env_in_snapshot=True,
+            **kwargs
     ):
-        if render_kwargs is None:
-            render_kwargs = {}
         self._env = env
         self._policy = policy
         self._max_num_epoch_paths_saved = max_num_epoch_paths_saved
         self._epoch_paths = deque(maxlen=self._max_num_epoch_paths_saved)
-        self._render = render
-        self._render_kwargs = render_kwargs
-        self._rollout_fn = rollout_fn
+        self._rollout_fn = partial(rollout_fn, **kwargs)
 
         self._num_steps_total = 0
         self._num_paths_total = 0
@@ -52,8 +47,6 @@ class MdpPathCollector(PathCollector):
                 self._env,
                 self._policy,
                 max_path_length=max_path_length_this_loop,
-                render=self._render,
-                render_kwargs=self._render_kwargs,
             )
             path_len = len(path['actions'])
             if (
