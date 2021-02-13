@@ -32,12 +32,30 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
                 update_posterior_period=0,
                 use_predicted_reward=False,
             ),
+            posterior=dict(
+                accum_context=False,
+                resample_latent_period=1,
+                update_posterior_period=0,
+                use_predicted_reward=False,
+            ),
         ),
         name_to_eval_path_collector_kwargs=dict(
             prior=dict(
                 accum_context=False,
                 resample_latent_period=1,
                 update_posterior_period=0,
+                use_predicted_reward=False,
+            ),
+            posterior=dict(
+                accum_context=False,
+                resample_latent_period=1,
+                update_posterior_period=0,
+                use_predicted_reward=False,
+            ),
+            posterior_live_update=dict(
+                accum_context=False,
+                resample_latent_period=1,
+                update_posterior_period=1,
                 use_predicted_reward=False,
             ),
         ),
@@ -103,7 +121,7 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
        variant["net_size"] = 3
 
     mode = mode or 'local'
-    exp_name = exp_name or 'dev'
+    exp_name = 'new-pearl--' + (exp_name or 'dev')
 
     search_space = {
         # 'algo_kwargs.save_replay_buffer': [

@@ -145,7 +145,8 @@ def rollout(
                 context,
                 [o, a, r, next_o, d, env_info],
             )
-        if update_posterior_period != 0 and path_length % update_posterior_period == 0 and len(context) > 0:
+        # TODO: remove "context is not None" check after fixing first-loop hack
+        if update_posterior_period != 0 and path_length % update_posterior_period == 0 and context is not None and len(context) > 0:
             z_dist = agent.latent_posterior(context, squeeze=True)
         zs.append(z)
         observations.append(o)

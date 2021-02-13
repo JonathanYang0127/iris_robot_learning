@@ -51,3 +51,6 @@ class PearlReplayBuffer(ReplayBuffer):
         batch['context'] = context_batch
         batch['task_indices'] = indices
         return batch
+
+    def sample_context(self, task_idx):
+        return self.encoder_replay_buffer.sample_context(task_idx, self.embedding_batch_size)

@@ -169,19 +169,12 @@ def pearl_experiment(
     task_indices = expl_env.get_all_task_idx()
     task = expl_env.tasks
     train_task_indices = task_indices[:n_train_tasks]
+    test_task_indices = task_indices[-n_eval_tasks:]
+    if n_train_tasks + n_eval_tasks > len(task_indices):
+        print("WARNING: your test and train overlap!")
     eval_policy = MakePEARLAgentDeterministic(agent)
     expl_policy = agent
 
-    eval_path_collector = JointPathCollector({
-        name: PearlPathCollector(
-            eval_env, eval_policy, train_task_indices, **kwargs)
-        for name, kwargs in name_to_eval_path_collector_kwargs.items()
-    })
-    expl_path_collector = JointPathCollector({
-        name: PearlPathCollector(
-            expl_env, expl_policy, train_task_indices, **kwargs)
-        for name, kwargs in name_to_expl_path_collector_kwargs.items()
-    })
     replay_buffer = MultiTaskReplayBuffer(
         env=expl_env,
         task_indices=train_task_indices,
@@ -199,6 +192,27 @@ def pearl_experiment(
         **pearl_buffer_kwargs
     )
 
+    eval_path_collectors = {
+        'train/' + name: PearlPathCollector(
+            eval_env, eval_policy, train_task_indices, pearl_replay_buffer, **kwargs)
+        for name, kwargs in name_to_eval_path_collector_kwargs.items()
+    }
+    eval_path_collectors.update({
+        'test/' + name: PearlPathCollector(
+            eval_env, eval_policy, test_task_indices,
+            pearl_replay_buffer,
+            **kwargs)
+        for name, kwargs in name_to_eval_path_collector_kwargs.items()
+    })
+    eval_path_collector = JointPathCollector(eval_path_collectors)
+    expl_path_collector = JointPathCollector({
+        name: PearlPathCollector(
+            expl_env, expl_policy, train_task_indices,
+            pearl_replay_buffer,
+            **kwargs)
+        for name, kwargs in name_to_expl_path_collector_kwargs.items()
+    })
+
     diagnostic_fns = get_diagnostics(base_env)
     algorithm = PearlAlgorithm(
         trainer=trainer,
@@ -208,6 +222,7 @@ def pearl_experiment(
         evaluation_data_collector=eval_path_collector,
         replay_buffer=pearl_replay_buffer,
         train_task_indices=train_task_indices,
+        test_task_indices=test_task_indices,
         evaluation_get_diagnostic_functions=diagnostic_fns,
         exploration_get_diagnostic_functions=diagnostic_fns,
         **algo_kwargs

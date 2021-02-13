@@ -14,13 +14,19 @@ class JointPathCollector(PathCollector):
         self.path_collectors = sorted_collectors
 
     def collect_new_paths(self, max_path_length, num_steps,
-                          discard_incomplete_paths, **kwargs):
+                          discard_incomplete_paths,
+                          initial_context=None,
+                          **kwargs):
         paths = []
-        for collector in self.path_collectors.values():
+        for name, collector in self.path_collectors.items():
+            # TODO: fix hack. should probably have PearlJointPathCollector
+            if name == 'prior':
+                initial_context = None
             paths += collector.collect_new_paths(
                 max_path_length=max_path_length,
                 num_steps=num_steps,
                 discard_incomplete_paths=discard_incomplete_paths,
+                initial_context=initial_context,
                 **kwargs
             )
         return paths
@@ -31,10 +37,17 @@ class JointPathCollector(PathCollector):
 
     def get_diagnostics(self):
         diagnostics = OrderedDict()
+        num_steps = 0
+        num_paths = 0
         for name, collector in self.path_collectors.items():
+            stats = collector.get_diagnostics()
+            num_steps += stats['num steps total']
+            num_paths += stats['num paths total']
             diagnostics.update(
-                add_prefix(collector.get_diagnostics(), name, divider='/'),
+                add_prefix(stats, name, divider='/'),
             )
+        diagnostics['num steps total'] = num_steps
+        diagnostics['num paths total'] = num_paths
         return diagnostics
 
     def get_snapshot(self):

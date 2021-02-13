@@ -35,6 +35,7 @@ class MdpPathCollector(PathCollector):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
+            **kwargs
     ):
         paths = []
         num_steps_collected = 0
@@ -47,6 +48,7 @@ class MdpPathCollector(PathCollector):
                 self._env,
                 self._policy,
                 max_path_length=max_path_length_this_loop,
+                **kwargs
             )
             path_len = len(path['actions'])
             if (
