@@ -12,8 +12,10 @@ from rlkit.samplers.data_collector.joint_path_collector import \
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent, MakePEARLAgentDeterministic
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
+from rlkit.torch.pearl.diagnostics import get_diagnostics
 from rlkit.torch.pearl.encoder import MlpEncoder
 from rlkit.torch.pearl.path_collector import PearlPathCollector
+from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
 from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.torch_rl_algorithm import (
@@ -82,9 +84,8 @@ def pearl_experiment(
     replay_buffer_kwargs = replay_buffer_kwargs or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
-    # expl_env = make(env_id, env_class, env_kwargs, normalize_env)
-    # eval_env = make(env_id, env_class, env_kwargs, normalize_env)
-    expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
+    base_env = ENVS[env_name](**env_params)
+    expl_env = NormalizedBoxEnv(base_env)
     eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     reward_dim = 1
 
@@ -197,13 +198,18 @@ def pearl_experiment(
         train_task_indices=train_task_indices,
         **pearl_buffer_kwargs
     )
-    algorithm = TorchBatchRLAlgorithm(
+
+    diagnostic_fns = get_diagnostics(base_env)
+    algorithm = PearlAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
         evaluation_env=eval_env,
         exploration_data_collector=expl_path_collector,
         evaluation_data_collector=eval_path_collector,
         replay_buffer=pearl_replay_buffer,
+        train_task_indices=train_task_indices,
+        evaluation_get_diagnostic_functions=diagnostic_fns,
+        exploration_get_diagnostic_functions=diagnostic_fns,
         **algo_kwargs
     )
 

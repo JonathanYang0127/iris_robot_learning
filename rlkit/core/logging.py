@@ -34,9 +34,10 @@ def add_prefix(log_dict: OrderedDict, prefix: str, divider=''):
     return with_prefix
 
 
-def append_log(log_dict, to_add_dict, prefix=None):
+def append_log(log_dict, to_add_dict, prefix=None, divider=''):
     if prefix is not None:
-        to_add_dict = add_prefix(to_add_dict, prefix=prefix)
+        to_add_dict = add_prefix(
+            to_add_dict, prefix=prefix, divider=divider)
     return log_dict.update(to_add_dict)
 
 

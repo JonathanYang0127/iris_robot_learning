@@ -36,6 +36,10 @@ class PearlReplayBuffer(ReplayBuffer):
         raise NotImplementedError()
         pass
 
+    def add_paths(self, paths, task_idx):
+        self.replay_buffer.add_paths(task_idx, paths)
+        self.encoder_replay_buffer.add_paths(task_idx, paths)
+
     def random_batch(self, batch_size):
         indices = np.random.choice(self.train_task_indices, self.meta_batch_size)
 

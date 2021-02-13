@@ -1,5 +1,7 @@
 from collections import OrderedDict
 
+import numpy as np
+
 from rlkit.core.timer import timer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 
@@ -12,6 +14,14 @@ class PearlAlgorithm(TorchBatchRLAlgorithm):
             **kwargs
     ):
         super().__init__(*args, **kwargs)
+        # self._eval_get_diag_fns = [
+        #     make_named_path_compatible(fn) for fn in
+        #     self._eval_get_diag_fns
+        # ]
+        # self._expl_get_diag_fns = [
+        #     make_named_path_compatible(fn) for fn in
+        #     self._expl_get_diag_fns
+        # ]
         self.train_task_indices = train_task_indices
 
     def _train(self):
@@ -22,23 +32,13 @@ class PearlAlgorithm(TorchBatchRLAlgorithm):
         if self.epoch == 0:
             for task_idx in self.train_task_indices:
                 init_expl_paths = self.expl_data_collector.collect_new_paths(
-                    task_idx,
-                    self.max_path_length,
-                    self.min_num_steps_before_training,
+                    max_path_length=self.max_path_length,
+                    num_steps=self.min_num_steps_before_training,
                     discard_incomplete_paths=False,
+                    task_idx=task_idx,
                 )
-                self.replay_buffer.add_paths(task_idx, init_expl_paths)
-                self.enc_replay_buffer.add_paths(task_idx, init_expl_paths)
+                self.replay_buffer.add_paths(init_expl_paths, task_idx)
                 self.expl_data_collector.end_epoch(-1)
-
-        if self.epoch == 0 and self.min_num_steps_before_training > 0:
-            init_expl_paths = self.expl_data_collector.collect_new_paths(
-                self.max_path_length,
-                self.min_num_steps_before_training,
-                discard_incomplete_paths=False,
-            )
-            self.replay_buffer.add_paths(init_expl_paths)
-            self.expl_data_collector.end_epoch(-1)
 
         timer.start_timer('evaluation sampling')
         if self.epoch % self._eval_epoch_freq == 0:
@@ -52,15 +52,17 @@ class PearlAlgorithm(TorchBatchRLAlgorithm):
         if not self._eval_only:
             for _ in range(self.num_train_loops_per_epoch):
                 timer.start_timer('exploration sampling', unique=False)
+                task_idx = np.random.choice(self.train_task_indices)
                 new_expl_paths = self.expl_data_collector.collect_new_paths(
                     self.max_path_length,
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
+                    task_idx=task_idx,
                 )
                 timer.stop_timer('exploration sampling')
 
                 timer.start_timer('replay buffer data storing', unique=False)
-                self.replay_buffer.add_paths(new_expl_paths)
+                self.replay_buffer.add_paths(new_expl_paths, task_idx)
                 timer.stop_timer('replay buffer data storing')
 
                 timer.start_timer('training', unique=False)

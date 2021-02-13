@@ -14,13 +14,14 @@ class JointPathCollector(PathCollector):
         self.path_collectors = sorted_collectors
 
     def collect_new_paths(self, max_path_length, num_steps,
-                          discard_incomplete_paths):
+                          discard_incomplete_paths, **kwargs):
         paths = []
         for collector in self.path_collectors.values():
-            collector.collect_new_paths(
+            paths += collector.collect_new_paths(
                 max_path_length=max_path_length,
                 num_steps=num_steps,
                 discard_incomplete_paths=discard_incomplete_paths,
+                **kwargs
             )
         return paths
 
