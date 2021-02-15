@@ -36,6 +36,7 @@ def pearl_awac_experiment(
         trainer_kwargs=None,
         algo_kwargs=None,
         context_encoder_kwargs=None,
+        reward_encoder_kwargs=None,
         policy_class="TanhGaussianPolicy",
         policy_kwargs=None,
         policy_path=None,
@@ -96,20 +97,34 @@ def pearl_awac_experiment(
     exploration_kwargs = exploration_kwargs or {}
     replay_buffer_kwargs = replay_buffer_kwargs or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
+    reward_encoder_kwargs = reward_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
-    base_env = ENVS[env_name](**env_params)
-    expl_env = NormalizedBoxEnv(base_env)
-    eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
-    reward_dim = 1
+    base_expl_env = ENVS[env_name](**env_params)
+    expl_env = NormalizedBoxEnv(base_expl_env)
+    base_eval_env = ENVS[env_name](**env_params)
+    eval_env = NormalizedBoxEnv(base_eval_env)
+
+    if saved_tasks_path:
+        task_data = load_local_or_remote_file(
+            saved_tasks_path, file_type='joblib')
+        tasks = task_data['tasks']
+        train_task_indices = task_data['train_task_indices']
+        test_task_indices = task_data['eval_task_indices']
+        base_expl_env.tasks = tasks
+        base_eval_env.tasks = tasks
+        task_indices = list(base_expl_env.get_all_task_idx())
+    else:
+        tasks = base_expl_env.tasks
+        base_eval_env.tasks = tasks
+        task_indices = list(base_expl_env.get_all_task_idx())
+        train_task_indices = list(task_indices[:n_train_tasks])
+        test_task_indices = list(task_indices[-n_eval_tasks:])
+        if n_train_tasks + n_eval_tasks > len(task_indices):
+            print("WARNING: your test and train overlap!")
 
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
-
-    if use_next_obs_in_context:
-        context_encoder_input_dim = 2 * obs_dim + action_dim + reward_dim
-    else:
-        context_encoder_input_dim = obs_dim + action_dim + reward_dim
-    context_encoder_output_dim = latent_dim * 2
+    reward_dim = 1
 
     def create_qf():
         return ConcatMlp(
@@ -134,16 +149,23 @@ def pearl_awac_experiment(
             **policy_kwargs)
     policy = create_policy()
 
-    context_encoder = MlpEncoder(
-        input_size=context_encoder_input_dim,
-        output_size=context_encoder_output_dim,
-        hidden_sizes=[200, 200, 200],
-        **context_encoder_kwargs
-    )
+    def create_context_encoder():
+        if use_next_obs_in_context:
+            context_encoder_input_dim = 2 * obs_dim + action_dim + reward_dim
+        else:
+            context_encoder_input_dim = obs_dim + action_dim + reward_dim
+        context_encoder_output_dim = latent_dim * 2
+        return MlpEncoder(
+            input_size=context_encoder_input_dim,
+            output_size=context_encoder_output_dim,
+            **context_encoder_kwargs
+        )
+    context_encoder = create_context_encoder()
+
     reward_predictor = ConcatMlp(
         input_size=obs_dim + action_dim + latent_dim,
-        output_size=1,
-        hidden_sizes=[200, 200, 200],
+        output_size=reward_dim,
+        **reward_encoder_kwargs
     )
     agent = PEARLAgent(
         latent_dim,
@@ -155,24 +177,6 @@ def pearl_awac_experiment(
     )
     eval_policy = MakePEARLAgentDeterministic(agent)
     expl_policy = agent
-
-    if saved_tasks_path:
-        task_data = load_local_or_remote_file(
-            saved_tasks_path, file_type='joblib')
-        tasks = task_data['tasks']
-        train_task_indices = task_data['train_task_indices']
-        test_task_indices = task_data['eval_task_indices']
-        base_env.tasks = tasks
-        # task_indices = base_env.get_all_task_idx()
-    else:
-        tasks = base_env.tasks
-        task_indices = base_env.get_all_task_idx()
-        train_task_indices = list(task_indices[:n_train_tasks])
-        test_task_indices = list(task_indices[-n_eval_tasks:])
-        if n_train_tasks + n_eval_tasks > len(task_indices):
-            print("WARNING: your test and train overlap!")
-    # train_tasks = [tasks[i] for i in train_task_indices]
-    # eval_tasks = [tasks[i] for i in test_task_indices]
 
     trainer = PearlAwacTrainer(
         agent=agent,
@@ -188,15 +192,14 @@ def pearl_awac_experiment(
         _debug_use_ground_truth_context=use_ground_truth_context,
         **trainer_kwargs
     )
-
     replay_buffer = MultiTaskReplayBuffer(
         env=expl_env,
-        task_indices=train_task_indices,
+        task_indices=task_indices,
         **replay_buffer_kwargs
     )
     enc_replay_buffer = MultiTaskReplayBuffer(
         env=expl_env,
-        task_indices=train_task_indices,
+        task_indices=task_indices,
         **replay_buffer_kwargs
     )
     pearl_replay_buffer = PearlReplayBuffer(
@@ -206,28 +209,34 @@ def pearl_awac_experiment(
         **pearl_buffer_kwargs
     )
 
-    eval_path_collectors = {
-        'train/' + name: PearlPathCollector(
-            eval_env, eval_policy, train_task_indices, pearl_replay_buffer, **kwargs)
-        for name, kwargs in name_to_eval_path_collector_kwargs.items()
-    }
-    eval_path_collectors.update({
-        'test/' + name: PearlPathCollector(
-            eval_env, eval_policy, test_task_indices,
-            pearl_replay_buffer,
-            **kwargs)
-        for name, kwargs in name_to_eval_path_collector_kwargs.items()
-    })
-    eval_path_collector = JointPathCollector(eval_path_collectors)
-    expl_path_collector = JointPathCollector({
-        name: PearlPathCollector(
-            expl_env, expl_policy, train_task_indices,
-            pearl_replay_buffer,
-            **kwargs)
-        for name, kwargs in name_to_expl_path_collector_kwargs.items()
-    })
+    def create_eval_path_collector():
+        eval_path_collectors = {
+            'train/' + name: PearlPathCollector(
+                eval_env, eval_policy, train_task_indices, pearl_replay_buffer, **kwargs)
+            for name, kwargs in name_to_eval_path_collector_kwargs.items()
+        }
+        eval_path_collectors.update({
+            'test/' + name: PearlPathCollector(
+                eval_env, eval_policy, test_task_indices,
+                pearl_replay_buffer,
+                **kwargs)
+            for name, kwargs in name_to_eval_path_collector_kwargs.items()
+        })
+        return JointPathCollector(eval_path_collectors)
 
-    diagnostic_fns = get_diagnostics(base_env)
+    eval_path_collector = create_eval_path_collector()
+
+    def create_expl_path_collector():
+        return JointPathCollector({
+            name: PearlPathCollector(
+                expl_env, expl_policy, train_task_indices,
+                pearl_replay_buffer,
+                **kwargs)
+            for name, kwargs in name_to_expl_path_collector_kwargs.items()
+        })
+    expl_path_collector = create_expl_path_collector()
+
+    diagnostic_fns = get_diagnostics(base_expl_env)
     algorithm = PearlAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
@@ -241,14 +250,16 @@ def pearl_awac_experiment(
         exploration_get_diagnostic_functions=diagnostic_fns,
         **algo_kwargs
     )
+    if load_buffer_kwargs:
+        load_buffer_onto_algo(
+            replay_buffer,
+            enc_replay_buffer,
+            **load_buffer_kwargs
+        )
 
-    def pretrain_if_needed():
-        if load_buffer_kwargs:
-            load_buffer_onto_algo(
-                replay_buffer,
-                enc_replay_buffer,
-                **load_buffer_kwargs)
-
+    def pretrain():
+        # TODO: add offline eval path collector
+        # offline_eval_path_collector = create_eval_path_collector()
         pretrain_algo = OfflineMetaRLAlgorithm(
             replay_buffer=replay_buffer,
             task_embedding_replay_buffer=enc_replay_buffer,
@@ -257,21 +268,21 @@ def pearl_awac_experiment(
             **pretrain_offline_algo_kwargs
         )
         pretrain_algo.to(ptu.device)
-        if pretrain_rl:
-            logger.remove_tabular_output(
-                'progress.csv', relative_to_snapshot_dir=True
-            )
-            logger.add_tabular_output(
-                'pretrain.csv', relative_to_snapshot_dir=True
-            )
-            pretrain_algo.train()
-            logger.remove_tabular_output(
-                'pretrain.csv', relative_to_snapshot_dir=True
-            )
-            logger.add_tabular_output(
-                'progress.csv', relative_to_snapshot_dir=True,
-            )
-    pretrain_if_needed()
+        logger.remove_tabular_output(
+            'progress.csv', relative_to_snapshot_dir=True
+        )
+        logger.add_tabular_output(
+            'pretrain.csv', relative_to_snapshot_dir=True
+        )
+        pretrain_algo.train()
+        logger.remove_tabular_output(
+            'pretrain.csv', relative_to_snapshot_dir=True
+        )
+        logger.add_tabular_output(
+            'progress.csv', relative_to_snapshot_dir=True,
+        )
+    if pretrain_rl:
+        pretrain()
 
     algorithm.to(ptu.device)
 

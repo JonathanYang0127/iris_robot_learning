@@ -66,6 +66,12 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
             min_log_std=-6,
             std_architecture="values",
         ),
+        context_encoder_kwargs=dict(
+            hidden_sizes=[200, 200, 200],
+        ),
+        reward_encoder_kwargs=dict(
+            hidden_sizes=[200, 200, 200],
+        ),
         policy_class='GaussianPolicy',
         pretrain_rl=True,
         pearl_buffer_kwargs=dict(
@@ -76,13 +82,13 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
             "pretrain_buffer_path": "demos/ant_dir/buffer_500k/extra_snapshot_itr100.pkl"
         },
         saved_tasks_path="demos/ant_dir/buffer_500k/tasks.pkl",
-        pretrain_offline_algo_kwargs={
-            "batch_size": 128,
-            "logging_period": 1000,
-            "meta_batch_size": 4,
-            "num_batches": 50000,
-            "task_embedding_batch_size": 64
-        },
+        pretrain_offline_algo_kwargs=dict(
+            batch_size=128,
+            logging_period=1000,
+            meta_batch_size=4,
+            num_batches=50000,
+            task_embedding_batch_size=64,
+        ),
         env_name='ant-dir',
         n_train_tasks=2,
         n_eval_tasks=2,
@@ -118,6 +124,15 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
             # num_exp_traj_eval=2, # how many exploration trajs to collect before beginning posterior sampling at test time
             # dump_eval_paths=False, # whether to save evaluation trajectories
             # num_iterations_with_reward_supervision=999999,
+            save_algorithm=True,
+            save_extra_manual_epoch_list=(
+                0, 50,
+                100, 150,
+                200, 250,
+                300, 350,
+                400, 450,
+                499, 500,
+            ),
         ),
     )
     if debug:
@@ -129,6 +144,9 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
            batch_size=13,
            num_epochs=2,
            min_num_steps_before_training=20,
+       ))
+       variant['pretrain_offline_algo_kwargs'].update(dict(
+           num_batches=17,
        ))
 
     mode = mode or 'local'

@@ -145,12 +145,18 @@ def load_buffer_onto_algo(
     saved_replay_buffer = data['replay_buffer']
     saved_enc_replay_buffer = data['enc_replay_buffer']
     for k in rl_replay_buffer.task_buffers:
+        if k not in saved_replay_buffer.task_buffers:
+            print("No saved buffer for task {}. Skipping.".format(k))
+            continue
         rl_replay_buffer.task_buffers[k].copy_data(
             saved_replay_buffer.task_buffers[k],
             start_idx=start_idx,
             end_idx=end_idx,
         )
     for k in encoder_replay_buffer.task_buffers:
+        if k not in saved_enc_replay_buffer.task_buffers:
+            print("No saved buffer for task {}. Skipping.".format(k))
+            continue
         encoder_replay_buffer.task_buffers[k].copy_data(
             saved_enc_replay_buffer.task_buffers[k],
             start_idx=start_idx,

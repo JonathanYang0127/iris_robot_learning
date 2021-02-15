@@ -16,7 +16,6 @@ import torch
 from collections import OrderedDict
 from contextlib import contextmanager
 from enum import Enum
-from pathlib import Path
 
 import dateutil.tz
 import dateutil.tz
@@ -36,8 +35,7 @@ def add_prefix(log_dict: OrderedDict, prefix: str, divider=''):
 
 def append_log(log_dict, to_add_dict, prefix=None, divider=''):
     if prefix is not None:
-        to_add_dict = add_prefix(
-            to_add_dict, prefix=prefix, divider=divider)
+        to_add_dict = add_prefix(to_add_dict, prefix=prefix, divider=divider)
     return log_dict.update(to_add_dict)
 
 
@@ -320,14 +318,20 @@ class Logger(object):
         del self._prefixes[-1]
         self._prefix_str = ''.join(self._prefixes)
 
-    def _save_params_to_file(self, params, file_path, mode):
-        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+    def _save_params_to_file(self, params, file_name, mode):
         if mode == 'joblib':
-            joblib.dump(params, file_path + ".pkl", compress=3)
+            joblib.dump(params, file_name + ".pkl", compress=3)
         elif mode == 'pickle':
-            pickle.dump(params, open(file_path + ".pkl", "wb"))
+            pickle.dump(params, open(file_name + ".pkl", "wb"))
+        elif mode == 'cloudpickle':
+            import cloudpickle
+            cloudpickle.dump(params, open(file_name + ".cpkl", "wb"))
+            print(file_name + ".cpkl", "wb")
         elif mode == 'torch':
-            torch.save(params, file_path + ".pt")
+            torch.save(params, file_name + ".pt")
+        elif mode == 'txt':
+            with open(file_name + ".txt", "w") as f:
+                f.write(params)
         else:
             raise ValueError("Invalid mode: {}".format(mode))
 

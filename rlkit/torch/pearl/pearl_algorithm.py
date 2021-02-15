@@ -17,14 +17,6 @@ class PearlAlgorithm(TorchBatchRLAlgorithm):
             **kwargs
     ):
         super().__init__(*args, replay_buffer=replay_buffer, **kwargs)
-        # self._eval_get_diag_fns = [
-        #     make_named_path_compatible(fn) for fn in
-        #     self._eval_get_diag_fns
-        # ]
-        # self._expl_get_diag_fns = [
-        #     make_named_path_compatible(fn) for fn in
-        #     self._expl_get_diag_fns
-        # ]
         self.train_task_indices = train_task_indices
         self.test_task_indices = test_task_indices
 
