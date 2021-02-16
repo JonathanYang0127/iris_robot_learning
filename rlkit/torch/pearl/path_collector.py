@@ -24,6 +24,7 @@ class PearlPathCollector(MdpPathCollector):
         )
         self.replay_buffer = replay_buffer
         self.task_indices = task_indices
+        self._rollout_kwargs = kwargs
 
     def collect_new_paths(
             self,
@@ -42,3 +43,11 @@ class PearlPathCollector(MdpPathCollector):
                 pass
         self._env.reset_task(task_idx)
         return super().collect_new_paths(*args, initial_context=initial_context, **kwargs)
+
+    def get_snapshot(self):
+        snapshot = super().get_snapshot()
+        snapshot.update(
+            rollout_kwargs=self._rollout_kwargs,
+            task_indices=self.task_indices,
+        )
+        return snapshot

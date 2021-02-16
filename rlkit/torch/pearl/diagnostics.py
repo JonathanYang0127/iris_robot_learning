@@ -1,7 +1,14 @@
+import typing
 from collections import OrderedDict, defaultdict
 
+import gym
+
 from rlkit.core.logging import append_log
+from rlkit.envs.images import InsertImagesEnv
+from rlkit.envs.images.env_renderer import EnvRenderer
+from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
 from rlkit.envs.pearl_envs import HalfCheetahDirEnv
+from rlkit.envs.wrappers.flat_to_dict import FlatToDictPolicy
 from rlkit.misc import eval_util
 from rlkit.misc.eval_util import create_stats_ordered_dict
 
@@ -86,3 +93,65 @@ def half_cheetah_dir_diagnostics(paths):
             exclude_max_min=True,
         ))
     return statistics
+
+
+def format_task(idx, task):
+    lines = ['task_idx = {}'.format(idx)]
+    if isinstance(task, dict):
+        lines.append('task')
+        for k, v in task.items():
+            lines.append('{}: {}'.format(k, v))
+    else:
+        lines.append('task: {}'.format(task))
+    return '\n'.join(lines)
+
+
+class DebugInsertImagesEnv(InsertImagesEnv):
+    def __init__(
+            self,
+            wrapped_env: gym.Env,
+            renderers: typing.Dict[str, EnvRenderer],
+    ):
+        super().__init__(wrapped_env, renderers)
+        self._last_reward = None
+
+    def reset_task(self, idx):
+        self.wrapped_env.reset_task(idx)
+        task = self.wrapped_env.tasks[idx]
+        for renderer in self.renderers.values():
+            if isinstance(renderer, TextRenderer):
+                renderer.set_text(format_task(idx, task))
+
+    def reset(self):
+        self._last_reward = None
+        for renderer in self.renderers.values():
+            if isinstance(renderer, ScrollingPlotRenderer):
+                renderer.reset()
+        return super().reset()
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        self._last_reward = reward
+        self._update_obs(obs)
+        return obs, reward, done, info
+
+    def _update_obs(self, obs):
+        for image_key, renderer in self.renderers.items():
+            if isinstance(renderer, ScrollingPlotRenderer):
+                obs[image_key] = renderer(self._last_reward)
+            else:
+                obs[image_key] = renderer(self.env)
+
+
+class FlatToDictPearlPolicy(FlatToDictPolicy):
+    def update_context(self, context, inputs):
+        o, a, r, no, d, info = inputs
+        new_inputs = (
+            o[self.observation_key],
+            a,
+            r,
+            no[self.observation_key],
+            d,
+            info,
+        )
+        return self._inner.update_context(context, new_inputs)

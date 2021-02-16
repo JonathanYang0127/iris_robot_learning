@@ -27,3 +27,17 @@ class Wrapper(object):
         except:
             # ...and defer to the inner dataset if it's not here
             return getattr(self.inner, attr)
+
+
+class SimpleWrapper(object):
+    """
+    Mixin for deferring attributes to a wrapped, inner object.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def __getattr__(self, attr):
+        if attr == '_inner':
+            raise AttributeError()
+        return getattr(self._inner, attr)

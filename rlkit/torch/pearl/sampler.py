@@ -169,14 +169,15 @@ def rollout(
     if len(actions.shape) == 1:
         actions = np.expand_dims(actions, 1)
     observations = np.array(observations)
-    if len(observations.shape) == 1:
+    if len(observations.shape) == 1 and not isinstance(observations[0], dict):
         observations = np.expand_dims(observations, 1)
         next_o = np.array([next_o])
-    next_observations = np.vstack(
+    next_observations = np.concatenate(
         (
-            observations[1:, :],
+            observations[1:, ...],
             np.expand_dims(next_o, 0)
-        )
+        ),
+        axis=0,
     )
     return dict(
         observations=observations,
