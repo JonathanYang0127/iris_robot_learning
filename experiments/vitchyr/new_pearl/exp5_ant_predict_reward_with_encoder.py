@@ -11,7 +11,8 @@ import rlkit.misc.hyperparameter as hyp
 
 @click.command()
 @click.option('--debug', is_flag=True, default=False)
-def main(debug):
+@click.option('--take', default=None)
+def main(debug, take):
     variant = dict(
         replay_buffer_kwargs=dict(
             max_replay_buffer_size=1000000,
@@ -136,6 +137,8 @@ def main(debug):
     n_seeds = 3
     mode = 'sss'
     exp_name = 'new-pearl--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
+    if take is not None:
+        exp_name += '--take2'
 
     if debug:
         exp_name = 'dev--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
@@ -172,7 +175,7 @@ def main(debug):
                 mode=mode,
                 variant=variant,
                 time_in_mins=3*24*60-1,
-                use_gpu=(mode=='sss'),
+                use_gpu=True,
             )
     print(exp_name)
 

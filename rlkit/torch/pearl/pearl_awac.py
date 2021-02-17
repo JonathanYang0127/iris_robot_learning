@@ -165,15 +165,7 @@ class PearlAwacTrainer(TorchTrainer):
             self.policy.parameters(),
             lr=policy_lr,
         )
-        self.qf1_optimizer = optimizer_class(
-            self.qf1.parameters(),
-            lr=qf_lr,
-        )
-        self.qf2_optimizer = optimizer_class(
-            self.qf2.parameters(),
-            lr=qf_lr,
-        )
-        if self.context_decoder:
+        if train_context_decoder:
             self.context_optimizer = optimizer_class(
                 chain(
                     self.context_encoder.parameters(),
@@ -181,15 +173,33 @@ class PearlAwacTrainer(TorchTrainer):
                 ),
                 lr=context_lr,
             )
+            self.qf1_optimizer = optimizer_class(
+                self.qf1.parameters(),
+                lr=qf_lr,
+            )
+            self.qf2_optimizer = optimizer_class(
+                self.qf2.parameters(),
+                lr=qf_lr,
+            )
         else:
             self.context_optimizer = optimizer_class(
                 self.context_encoder.parameters(),
                 lr=context_lr,
             )
-        self.reward_predictor_optimizer = optimizer_class(
-            self.reward_predictor.parameters(),
-            lr=context_lr,
-        )
+            self.qf1_optimizer = optimizer_class(
+                chain(
+                    self.qf1.parameters(),
+                    self.context_encoder.parameters(),
+                ),
+                lr=qf_lr,
+            )
+            self.qf2_optimizer = optimizer_class(
+                chain(
+                    self.qf2.parameters(),
+                    self.context_encoder.parameters(),
+                ),
+                lr=qf_lr,
+            )
 
         self.eval_statistics = None
         self._need_to_update_eval_statistics = True
@@ -380,7 +390,6 @@ class PearlAwacTrainer(TorchTrainer):
         else:
             kl_div = kl_divergence(p_z, self.agent.latent_prior).mean(dim=0).sum()
             kl_loss = self.kl_lambda * kl_div
-            kl_loss.backward(retain_graph=True)
 
         if self.train_context_decoder:
             # TODO: change to use a distribution
@@ -483,6 +492,11 @@ class PearlAwacTrainer(TorchTrainer):
         Update networks
         """
         if self._n_train_steps_total % self.q_update_period == 0:
+            if self.train_context_decoder:
+                self.context_optimizer.zero_grad()
+                context_loss.backward(retain_graph=True)
+                self.context_optimizer.step()
+
             self.qf1_optimizer.zero_grad()
             # retain graph because the encoder is trained by both QF losses
             qf1_loss.backward(retain_graph=True)
@@ -496,11 +510,6 @@ class PearlAwacTrainer(TorchTrainer):
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
-
-        if self.train_context_decoder:
-            self.context_optimizer.zero_grad()
-            context_loss.backward(retain_graph=True)
-            self.context_optimizer.step()
 
         """
         Soft Updates
@@ -612,6 +621,7 @@ class PearlAwacTrainer(TorchTrainer):
             self.target_qf1,
             self.target_qf2,
             self.context_encoder,
+            self.context_decoder,
             self.reward_predictor,
         ]
 

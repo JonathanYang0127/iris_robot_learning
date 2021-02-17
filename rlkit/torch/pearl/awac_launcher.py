@@ -11,7 +11,7 @@ from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
-from rlkit.torch.pearl.encoder import MlpEncoder, DummyMlpEncoder
+from rlkit.torch.pearl.networks import MlpEncoder, DummyMlpEncoder, MlpDecoder
 from rlkit.torch.pearl.launcher_util import (
     policy_class_from_str,
     load_buffer_onto_algo,
@@ -30,6 +30,7 @@ def pearl_awac_launcher_simple(
         qf_kwargs=None,
         policy_kwargs=None,
         context_encoder_kwargs=None,
+        context_decoder_kwargs=None,
         env_name=None,
         env_params=None,
         path_loader_kwargs=None,
@@ -53,6 +54,7 @@ def pearl_awac_launcher_simple(
         use_next_obs_in_context=False,
 ):
     pretrain_buffer_kwargs = pretrain_buffer_kwargs or {}
+    context_decoder_kwargs = context_decoder_kwargs or {}
     pretrain_offline_algo_kwargs = pretrain_offline_algo_kwargs or {}
     register_pearl_envs()
     env_params = env_params or {}
@@ -127,6 +129,11 @@ def pearl_awac_launcher_simple(
         use_ground_truth_context=use_ground_truth_context,
         **context_encoder_kwargs
     )
+    context_decoder = MlpDecoder(
+        input_size=obs_dim + action_dim + latent_dim,
+        output_size=1,
+        **context_decoder_kwargs
+    )
     reward_predictor = ConcatMlp(
         input_size=obs_dim + action_dim + latent_dim,
         output_size=1,
@@ -151,6 +158,7 @@ def pearl_awac_launcher_simple(
         target_qf2=target_qf2,
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
+        context_decoder=context_decoder,
         _debug_ignore_context=networks_ignore_context,
         _debug_use_ground_truth_context=use_ground_truth_context,
         **trainer_kwargs
