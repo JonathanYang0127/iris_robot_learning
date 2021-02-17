@@ -124,9 +124,9 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
     exp_name = 'new-pearl--' + (exp_name or 'dev')
 
     search_space = {
-        # 'algo_kwargs.save_replay_buffer': [
-        #     True,
-        # ],
+        'algo_kwargs.save_replay_buffer': [
+            True,
+        ],
         # 'algo_kwargs.save_extra_every_epoch': [
         #     False,
         # ],

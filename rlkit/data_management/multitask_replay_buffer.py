@@ -31,6 +31,8 @@ class MultiTaskReplayBuffer(object):
         self.use_ground_truth_context = use_ground_truth_context
         self.task_indices = task_indices
         self.ground_truth_tasks = ground_truth_tasks
+        if use_ground_truth_context:
+            assert ground_truth_tasks is not None
         env_info_sizes = dict()
         if sparse_rewards:
             env_info_sizes['sparse_reward'] = 1

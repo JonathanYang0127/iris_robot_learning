@@ -1,5 +1,7 @@
 import typing
+import numpy as np
 from collections import OrderedDict, defaultdict
+from numbers import Number
 
 import gym
 
@@ -95,12 +97,24 @@ def half_cheetah_dir_diagnostics(paths):
     return statistics
 
 
+def task_str(task):
+    if isinstance(task, tuple):
+        return tuple(task_str(t) for t in task)
+    if isinstance(task, str):
+        return task
+    if isinstance(task, np.ndarray):
+        return '{:.2g}'.format(float(task))
+    if isinstance(task, Number):
+        return '{:.2g}'.format(task)
+
+
 def format_task(idx, task):
     lines = ['task_idx = {}'.format(idx)]
     if isinstance(task, dict):
         lines.append('task')
         for k, v in task.items():
-            lines.append('{}: {}'.format(k, v))
+            # v = (np.cos(v), np.sin(v))
+            lines.append('{}: {}'.format(k, task_str(v)))
     else:
         lines.append('task: {}'.format(task))
     return '\n'.join(lines)
