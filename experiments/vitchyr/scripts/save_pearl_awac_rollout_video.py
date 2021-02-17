@@ -49,19 +49,21 @@ def simulate_policy(args):
                 pearl_replay_buffer = buffer_data['replay_buffer']
         variant_path = Path(snapshot_path).parent / 'variant.json'
         variant = json.load(open(variant_path, 'rb'))
-        load_buffer_kwargs = variant['load_buffer_kwargs']
-        saved_tasks_path = variant['saved_tasks_path']
-        task_data = load_local_or_remote_file(
+        if 'load_buffer_kwargs' in variant:
+            load_buffer_kwargs = variant['load_buffer_kwargs']
+            saved_tasks_path = variant['saved_tasks_path']
+            task_data = load_local_or_remote_file(
             saved_tasks_path, file_type='joblib')
-        tasks = task_data['tasks']
-        env.wrapped_env.tasks = tasks
+            tasks = task_data['tasks']
+            env.wrapped_env.tasks = tasks
+        else:
+            load_buffer_kwargs = None
     else:  # old-style trainer
         policy = data['agent']
         env = data['env']
 
         variant_path = Path(snapshot_path).parent / 'variant.json'
         variant = json.load(open(variant_path, 'rb'))
-        import ipdb; ipdb.set_trace()
         load_buffer_kwargs = variant['load_buffer_kwargs']
         saved_tasks_path = variant['saved_tasks_path']
         use_ground_truth_context = variant.get('use_ground_truth_context', False)
@@ -103,11 +105,12 @@ def simulate_policy(args):
             train_task_indices=train_task_indices,
             **pearl_buffer_kwargs
         )
-    load_buffer_onto_algo(
-        pearl_replay_buffer.replay_buffer,
-        pearl_replay_buffer.encoder_replay_buffer,
-        **load_buffer_kwargs
-    )
+    if load_buffer_kwargs:
+        load_buffer_onto_algo(
+            pearl_replay_buffer.replay_buffer,
+            pearl_replay_buffer.encoder_replay_buffer,
+            **load_buffer_kwargs
+        )
 
     obs_key = 'tmp'
     policy = FlatToDictPearlPolicy(policy, obs_key)
