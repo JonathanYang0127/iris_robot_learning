@@ -23,6 +23,13 @@ class MlpEncoder(ConcatMlp):
         pass
 
 
+class MlpDecoder(ConcatMlp):
+    '''
+    decoder context via MLP
+    '''
+    pass
+
+
 class DummyMlpEncoder(MlpEncoder):
     def forward(self, *args, **kwargs):
         output = super().forward(*args, **kwargs)

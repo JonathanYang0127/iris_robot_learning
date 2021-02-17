@@ -6,6 +6,7 @@ from rlkit.core import logger
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
+from rlkit.envs.contextual import ContextualEnv
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
@@ -19,7 +20,8 @@ from rlkit.torch.pearl.launcher_util import (
 )
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
 from rlkit.torch.pearl.diagnostics import get_diagnostics
-from rlkit.torch.pearl.encoder import MlpEncoder
+
+from rlkit.torch.pearl import networks
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
@@ -32,71 +34,42 @@ from rlkit.torch.torch_rl_algorithm import (
 
 def pearl_awac_experiment(
         qf_kwargs=None,
-        vf_kwargs=None,
         trainer_kwargs=None,
         algo_kwargs=None,
         context_encoder_kwargs=None,
+        context_decoder_kwargs=None,
         reward_encoder_kwargs=None,
         policy_class="TanhGaussianPolicy",
         policy_kwargs=None,
-        policy_path=None,
-        normalize_env=True,
         env_name=None,
-        env_id=None,
-        env_class=None,
         env_kwargs=None,
         env_params=None,
-        add_env_demos=False,
         path_loader_kwargs=None,
-        env_demo_path=None,
-        env_offpolicy_data_path=None,
-        add_env_offpolicy_data=False,
         exploration_kwargs=None,
-        expl_path_collector_kwargs=None,
         pearl_buffer_kwargs=None,
         name_to_eval_path_collector_kwargs=None,
         name_to_expl_path_collector_kwargs=None,
-        replay_buffer_class=EnvReplayBuffer,
         replay_buffer_kwargs=None,
-        use_validation_buffer=False,
-        pretrain_policy=False,
-        train_rl=False,
-        path_loader_class=MDPPathLoader,
         latent_dim=None,
         # video/debug
-        save_video=False,
-        presampled_goals=None,
-        renderer_kwargs=None,
-        image_env_kwargs=None,
-        save_paths=False,
-        load_demos=False,
-        load_env_dataset_demos=False,
-        save_initial_buffers=False,
-        save_pretrained_algorithm=False,
         _debug_do_not_sqrt=False,
         networks_ignore_context=False,
         use_ground_truth_context=False,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
-        path_to_weights=None,
-        util_params=None,
-        use_data_collectors=False,
         use_next_obs_in_context=False,
         # Pre-train params
         pretrain_rl=False,
         pretrain_offline_algo_kwargs=None,
-        pretrain_buffer_kwargs=None,
         load_buffer_kwargs=None,
         saved_tasks_path=None,
 ):
     register_pearl_envs()
-    env_kwargs = env_kwargs or {}
     env_params = env_params or {}
-    path_loader_kwargs = path_loader_kwargs or {}
-    exploration_kwargs = exploration_kwargs or {}
     replay_buffer_kwargs = replay_buffer_kwargs or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
+    context_decoder_kwargs = context_decoder_kwargs or {}
     reward_encoder_kwargs = reward_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
     base_expl_env = ENVS[env_name](**env_params)
@@ -155,12 +128,21 @@ def pearl_awac_experiment(
         else:
             context_encoder_input_dim = obs_dim + action_dim + reward_dim
         context_encoder_output_dim = latent_dim * 2
-        return MlpEncoder(
+
+        encoder = networks.MlpEncoder(
             input_size=context_encoder_input_dim,
             output_size=context_encoder_output_dim,
             **context_encoder_kwargs
         )
+        return encoder
     context_encoder = create_context_encoder()
+    def create_context_decoder():
+        return networks.MlpDecoder(
+            input_size=obs_dim + action_dim + latent_dim,
+            output_size=1,
+            **context_decoder_kwargs
+        )
+    context_decoder = create_context_decoder()
 
     reward_predictor = ConcatMlp(
         input_size=obs_dim + action_dim + latent_dim,
@@ -188,6 +170,7 @@ def pearl_awac_experiment(
         target_qf2=target_qf2,
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
+        context_decoder=context_decoder,
         _debug_ignore_context=networks_ignore_context,
         _debug_use_ground_truth_context=use_ground_truth_context,
         **trainer_kwargs
