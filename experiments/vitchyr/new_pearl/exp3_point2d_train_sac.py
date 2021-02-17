@@ -1,7 +1,5 @@
-"""
-PEARL Experiment
-"""
 import click
+import json
 
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.pearl.new_sac_launcher import pearl_sac_experiment
@@ -16,6 +14,9 @@ import rlkit.misc.hyperparameter as hyp
 @click.option('--gpu_id', default=0)
 @click.option('--nseeds', default=1)
 def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
+    env_config_path = '/home/vitchyr/git/railrl/experiments/vitchyr/new_pearl/configs/point2d.json'
+    offline_config_path = '/home/vitchyr/git/railrl/experiments/vitchyr/new_pearl/configs/point2d_offline.json'
+    # trainer_config_path = '/home/vitchyr/git/railrl/experiments/vitchyr/new_pearl/configs/trainer.json'
     variant = dict(
         replay_buffer_kwargs=dict(
             max_replay_buffer_size=1000000,
@@ -84,41 +85,26 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
             discount=0.99, # RL discount factor
             reward_scale=5., # scale rewards before constructing Bellman update, effectively controls weight on the entropy of the policy
         ),
-        algo_kwargs=dict(
-            num_epochs=500, # number of data sampling / training iterates
-            # num_initial_steps=2000, # number of transitions collected per task before training
-            # num_tasks_sample=5, # number of randomly sampled tasks to collect data for each iteration
-            # num_steps_prior=1000, # number of transitions to collect per task with z ~ prior
-            # num_steps_posterior=0, # number of transitions to collect per task with z ~ posterior
-            # num_extra_rl_steps_posterior=1000, # number of additional transitions to collect per task with z ~ posterior that are only used to train the policy and NOT the encoder
-            # num_train_steps_per_itr=2000, # number of meta-gradient steps taken per iteration
-            num_trains_per_train_loop=2000,
-            num_eval_steps_per_epoch=4*200,
-            num_expl_steps_per_train_loop=1000,
-            num_train_loops_per_epoch=1,
-            batch_size=256, # number of transitions in the RL batch
-            max_path_length=200, # max path length for this environment
-            min_num_steps_before_training=1000,
-            # update_post_train=1, # how often to resample the context when collecting data during training (in trajectories)
-            # num_exp_traj_eval=2, # how many exploration trajs to collect before beginning posterior sampling at test time
-            # dump_eval_paths=False, # whether to save evaluation trajectories
-            # num_iterations_with_reward_supervision=999999,
-        ),
     )
+    for config_path in [
+        env_config_path,
+        offline_config_path,
+    ]:
+        new_variant = json.load(open(config_path, 'rb'))
+        variant.update(new_variant)
     if debug:
-       variant['algo_kwargs'].update(dict(
-           num_trains_per_train_loop=20,
-           num_eval_steps_per_epoch=4*2,
-           num_expl_steps_per_train_loop=10,
-           max_path_length=2,
-           batch_size=13,
-           num_epochs=2,
-           min_num_steps_before_training=20,
-       ))
-       variant["net_size"] = 3
+        variant['algo_kwargs'].update(dict(
+            num_trains_per_train_loop=20,
+            num_eval_steps_per_epoch=4*2,
+            num_expl_steps_per_train_loop=10,
+            max_path_length=2,
+            batch_size=13,
+            num_epochs=2,
+            min_num_steps_before_training=20,
+        ))
+        variant["net_size"] = 3
 
-    mode = mode or 'local'
-    exp_name = 'new-pearl--' + (exp_name or 'dev')
+    exp_name = exp_name or 'new-pearl--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
 
     search_space = {
         'algo_kwargs.save_replay_buffer': [

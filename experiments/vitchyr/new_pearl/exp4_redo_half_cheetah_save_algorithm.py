@@ -99,6 +99,15 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
             batch_size=256, # number of transitions in the RL batch
             max_path_length=200, # max path length for this environment
             min_num_steps_before_training=1000,
+            save_algorithm=True,
+            save_extra_manual_epoch_list=(
+                0, 50,
+                100, 150,
+                200, 250,
+                300, 350,
+                400, 450,
+                499, 500,
+            ),
             # update_post_train=1, # how often to resample the context when collecting data during training (in trajectories)
             # num_exp_traj_eval=2, # how many exploration trajs to collect before beginning posterior sampling at test time
             # dump_eval_paths=False, # whether to save evaluation trajectories
@@ -106,19 +115,20 @@ def main(debug, exp_name, mode, gpu, gpu_id, nseeds):
         ),
     )
     if debug:
-       variant['algo_kwargs'].update(dict(
-           num_trains_per_train_loop=20,
-           num_eval_steps_per_epoch=4*2,
-           num_expl_steps_per_train_loop=10,
-           max_path_length=2,
-           batch_size=13,
-           num_epochs=2,
-           min_num_steps_before_training=20,
-       ))
-       variant["net_size"] = 3
+        variant['algo_kwargs'].update(dict(
+            num_trains_per_train_loop=20,
+            num_eval_steps_per_epoch=4*2,
+            num_expl_steps_per_train_loop=10,
+            max_path_length=2,
+            batch_size=13,
+            num_epochs=2,
+            min_num_steps_before_training=20,
+        ))
+        variant["net_size"] = 3
+        exp_name = 'dev'
 
     mode = mode or 'local'
-    exp_name = 'new-pearl--' + (exp_name or 'dev')
+    exp_name = exp_name or 'new-pearl--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
 
     search_space = {
         'algo_kwargs.save_replay_buffer': [

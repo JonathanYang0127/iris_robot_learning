@@ -91,7 +91,8 @@ if __name__ == "__main__":
         ),
         num_ungrouped_images=128,
         logger_config=dict(
-            push_prefix=False,
+            snapshot_mode='gap_and_last',
+            snapshot_gap=50,
         ),
     )
 

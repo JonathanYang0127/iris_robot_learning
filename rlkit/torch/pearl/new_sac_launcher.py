@@ -23,7 +23,7 @@ from rlkit.torch.torch_rl_algorithm import (
 )
 
 
-def pearl_experiment(
+def pearl_sac_experiment(
         qf_kwargs=None,
         vf_kwargs=None,
         trainer_kwargs=None,
