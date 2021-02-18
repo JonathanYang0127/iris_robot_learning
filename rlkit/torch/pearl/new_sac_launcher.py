@@ -79,9 +79,11 @@ def pearl_sac_experiment(
     replay_buffer_kwargs = replay_buffer_kwargs or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
-    base_env = ENVS[env_name](**env_params)
-    expl_env = NormalizedBoxEnv(base_env)
-    eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
+    base_expl_env = ENVS[env_name](**env_params)
+    expl_env = NormalizedBoxEnv(base_expl_env)
+    base_eval_env = ENVS[env_name](**env_params)
+    base_eval_env.tasks = base_expl_env.tasks
+    eval_env = NormalizedBoxEnv(base_eval_env)
     reward_dim = 1
 
     if debug:
@@ -199,7 +201,7 @@ def pearl_sac_experiment(
         for name, kwargs in name_to_expl_path_collector_kwargs.items()
     })
 
-    diagnostic_fns = get_diagnostics(base_env)
+    diagnostic_fns = get_diagnostics(base_expl_env)
     algorithm = PearlAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,

@@ -50,6 +50,9 @@ class AutoSetup:
                 use_gpu=doodad_config.use_gpu,
                 gpu_id=doodad_config.gpu_id,
             )
+        # TODO: remove this hack
+        from rlkit.launchers import config
+        config.LOCAL_LOG_DIR = doodad_config.base_log_dir
         variant.pop('logger_config', None)
         variant.pop('seed', None)
         variant.pop('exp_id', None)

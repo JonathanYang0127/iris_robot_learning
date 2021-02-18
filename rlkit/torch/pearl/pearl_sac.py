@@ -177,6 +177,7 @@ class PearlSacTrainer(TorchTrainer):
         actions = batch['actions']
         context = batch['context']
         next_obs = batch['next_observations']
+        # TODO: am I updated the context_encoder...at all???
 
         """
         Policy and Alpha Loss

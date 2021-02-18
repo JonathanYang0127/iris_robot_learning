@@ -4,7 +4,6 @@ import pickle
 
 import boto3
 
-from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
 import os
 
 import torch
@@ -17,10 +16,12 @@ TORCH = 'torch'
 
 
 def get_relative_path(filename):
+    from rlkit.launchers.config import LOCAL_LOG_DIR
     return os.path.join(LOCAL_LOG_DIR, filename)
 
 
 def local_path_from_s3_or_local_path(filename):
+    from rlkit.launchers.config import LOCAL_LOG_DIR
     print('local log dir', LOCAL_LOG_DIR, 'filename', filename)
     relative_filename = os.path.join(LOCAL_LOG_DIR, filename)
     if os.path.isfile(filename):
@@ -32,6 +33,7 @@ def local_path_from_s3_or_local_path(filename):
 
 
 def sync_down(path, check_exists=True):
+    from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
     is_docker = os.path.isfile("/.dockerenv")
     if is_docker:
         local_path = "/tmp/%s" % (path)
@@ -62,6 +64,7 @@ def sync_down(path, check_exists=True):
 
 
 def sync_down_folder(path):
+    from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
     is_docker = os.path.isfile("/.dockerenv")
     if is_docker:
         local_path = "/tmp/%s" % (path)
@@ -127,6 +130,7 @@ def load_local_or_remote_file(filepath, file_type=None, **kwargs):
 
 
 def get_absolute_path(path):
+    from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
     if path[0] == "/":
         return path
     else:
