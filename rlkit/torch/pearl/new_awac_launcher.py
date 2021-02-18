@@ -1,35 +1,24 @@
-# import roboverse
-from rlkit.core.simple_offline_rl_algorithm import OfflineMetaRLAlgorithm
-from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger
-from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
-from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
-from rlkit.demos.source.mdp_path_loader import MDPPathLoader
-from rlkit.envs.contextual import ContextualEnv
+from rlkit.core.simple_offline_rl_algorithm import OfflineMetaRLAlgorithm
+from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.samplers.data_collector.joint_path_collector import \
     JointPathCollector
 from rlkit.torch.networks import ConcatMlp
+from rlkit.torch.pearl import networks
 from rlkit.torch.pearl.agent import PEARLAgent, MakePEARLAgentDeterministic
+from rlkit.torch.pearl.buffer import PearlReplayBuffer
+from rlkit.torch.pearl.diagnostics import get_diagnostics
 from rlkit.torch.pearl.launcher_util import (
     load_buffer_onto_algo,
     policy_class_from_str,
 )
-from rlkit.torch.pearl.buffer import PearlReplayBuffer
-from rlkit.torch.pearl.diagnostics import get_diagnostics
-
-from rlkit.torch.pearl import networks
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
-from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
-from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
-from rlkit.torch.torch_rl_algorithm import (
-    TorchBatchRLAlgorithm,
-)
 
 
 def pearl_awac_experiment(
@@ -136,6 +125,7 @@ def pearl_awac_experiment(
         )
         return encoder
     context_encoder = create_context_encoder()
+
     def create_context_decoder():
         return networks.MlpDecoder(
             input_size=obs_dim + action_dim + latent_dim,
@@ -267,6 +257,17 @@ def pearl_awac_experiment(
     if pretrain_rl:
         pretrain()
 
-    algorithm.to(ptu.device)
+    def check_data_collection_settings():
+        if (
+                algorithm.num_expl_steps_per_train_loop % (
+                len(name_to_expl_path_collector_kwargs) * algorithm.max_path_length) != 0
+        ):
+            raise ValueError("# of exploration steps should divide nicely")
+        if (
+                algorithm.num_eval_steps_per_epoch % (len(name_to_eval_path_collector_kwargs) * algorithm.max_path_length) != 0
+        ):
+            raise ValueError("# of eval steps should divide nicely")
+    check_data_collection_settings()
 
+    algorithm.to(ptu.device)
     algorithm.train()

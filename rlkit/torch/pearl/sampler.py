@@ -140,7 +140,6 @@ def rollout(
         if use_predicted_reward:
             r = agent.infer_reward(o, a, z)
         if accum_context:
-            # context.append([o, a, r, next_o, d, env_info])
             context = agent.update_context(
                 context,
                 [o, a, r, next_o, d, env_info],

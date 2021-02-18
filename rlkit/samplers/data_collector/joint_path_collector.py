@@ -6,21 +6,41 @@ from rlkit.samplers.data_collector import PathCollector
 
 
 class JointPathCollector(PathCollector):
-    def __init__(self, path_collectors: Dict[str, PathCollector]):
+    EVENLY = 'evenly'
+
+    def __init__(
+            self,
+            path_collectors: Dict[str, PathCollector],
+            divide_num_steps_strategy=EVENLY,
+    ):
+        """
+        :param path_collectors: Dictionary of path collectors
+        :param divide_num_steps_strategy: How the steps are divided among the
+        path collectors.
+        Valid values:
+         - 'evenly': divide `num_steps' evenly among the collectors
+        """
         sorted_collectors = OrderedDict()
         # Sort the path collectors to have a canonical ordering
         for k in sorted(path_collectors):
             sorted_collectors[k] = path_collectors[k]
         self.path_collectors = sorted_collectors
+        self.divide_num_steps_strategy = divide_num_steps_strategy
+        if divide_num_steps_strategy not in {self.EVENLY}:
+            raise ValueError(divide_num_steps_strategy)
 
     def collect_new_paths(self, max_path_length, num_steps,
                           discard_incomplete_paths,
                           **kwargs):
         paths = []
+        if self.divide_num_steps_strategy == self.EVENLY:
+            num_steps_per_collector = num_steps // len(self.path_collectors)
+        else:
+            raise ValueError(self.divide_num_steps_strategy)
         for name, collector in self.path_collectors.items():
             paths += collector.collect_new_paths(
                 max_path_length=max_path_length,
-                num_steps=num_steps,
+                num_steps=num_steps_per_collector,
                 discard_incomplete_paths=discard_incomplete_paths,
                 **kwargs
             )

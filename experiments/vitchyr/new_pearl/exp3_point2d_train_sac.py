@@ -21,7 +21,7 @@ def load_configs(config_paths):
 @click.option('--take', default=None)
 def main(debug, take):
     mode = 'sss'
-    n_seeds = 1
+    n_seeds = 3
     gpu = True
 
     base_dir = Path(__file__).parent
@@ -33,7 +33,7 @@ def main(debug, take):
     path_parts = __file__.split('/')
     suffix = '' if take is None else '--take{}'.format(take)
     exp_name = '{}--{}{}'.format(
-        path_parts[-2],
+        path_parts[-2].replace('_', '-'),
         path_parts[-1].split('.')[0].replace('_', '-'),
         suffix,
     )
@@ -47,12 +47,6 @@ def main(debug, take):
     variant = ppp.recursive_to_dict(config)
 
     search_space = {
-        'algo_kwargs.save_replay_buffer': [
-            True,
-        ],
-        '_debug_do_not_sqrt': [
-            False,
-        ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

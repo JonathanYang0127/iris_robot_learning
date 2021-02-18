@@ -1,9 +1,7 @@
 # import roboverse
-from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 import rlkit.torch.pytorch_util as ptu
-from rlkit.core import logger
-from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
+from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
@@ -17,10 +15,7 @@ from rlkit.torch.pearl.networks import MlpEncoder
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
 from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
-from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
-from rlkit.torch.torch_rl_algorithm import (
-    TorchBatchRLAlgorithm,
-)
+from rlkit.torch.sac.policies import TanhGaussianPolicy
 
 
 def pearl_sac_experiment(
@@ -29,7 +24,6 @@ def pearl_sac_experiment(
         trainer_kwargs=None,
         algo_kwargs=None,
         context_encoder_kwargs=None,
-        policy_class=None,
         policy_kwargs=None,
         policy_path=None,
         normalize_env=True,
@@ -101,16 +95,12 @@ def pearl_sac_experiment(
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
 
-    if hasattr(expl_env, 'info_sizes'):
-        env_info_sizes = expl_env.info_sizes
-    else:
-        env_info_sizes = dict()
-
     if use_next_obs_in_context:
         context_encoder_input_dim = 2 * obs_dim + action_dim + reward_dim
     else:
         context_encoder_input_dim = obs_dim + action_dim + reward_dim
     context_encoder_output_dim = latent_dim * 2
+
     def create_qf():
         return ConcatMlp(
             input_size=obs_dim + action_dim + latent_dim,
@@ -163,7 +153,6 @@ def pearl_sac_experiment(
         **trainer_kwargs
     )
     task_indices = expl_env.get_all_task_idx()
-    task = expl_env.tasks
     train_task_indices = task_indices[:n_train_tasks]
     test_task_indices = task_indices[-n_eval_tasks:]
     if n_train_tasks + n_eval_tasks > len(task_indices):
@@ -224,6 +213,17 @@ def pearl_sac_experiment(
         **algo_kwargs
     )
 
-    algorithm.to(ptu.device)
+    def check_data_collection_settings():
+        if (
+                algorithm.num_expl_steps_per_train_loop % (
+                len(name_to_expl_path_collector_kwargs) * algorithm.max_path_length) != 0
+        ):
+            raise ValueError("# of exploration steps should divide nicely")
+        if (
+                algorithm.num_eval_steps_per_epoch % (len(name_to_eval_path_collector_kwargs) * algorithm.max_path_length) != 0
+        ):
+            raise ValueError("# of eval steps should divide nicely")
+    check_data_collection_settings()
 
+    algorithm.to(ptu.device)
     algorithm.train()
