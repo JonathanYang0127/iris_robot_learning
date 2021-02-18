@@ -27,7 +27,7 @@ def main(debug, dry, take):
 
     base_dir = Path(__file__).parent
     configs = [
-        base_dir / 'configs/default.conf',
+        base_dir / 'configs/default_sac.conf',
         base_dir / 'configs/half_cheetah.conf',
     ]
 

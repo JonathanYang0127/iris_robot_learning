@@ -23,6 +23,7 @@ from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
 
 def pearl_awac_experiment(
         qf_kwargs=None,
+        vf_kwargs=None,
         trainer_kwargs=None,
         algo_kwargs=None,
         context_encoder_kwargs=None,
@@ -55,6 +56,7 @@ def pearl_awac_experiment(
         load_buffer_kwargs=None,
         saved_tasks_path=None,
 ):
+    del vf_kwargs  # keep it here to make it easier to reuse settings between SAC and AWAC launchers
     register_pearl_envs()
     env_params = env_params or {}
     replay_buffer_kwargs = replay_buffer_kwargs or {}

@@ -1,161 +1,53 @@
-"""
-PEARL Experiment
-"""
-
 import click
+from pathlib import Path
 
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.torch.pearl.new_awac_launcher import pearl_awac_experiment
+import rlkit.pythonplusplus as ppp
 import rlkit.misc.hyperparameter as hyp
+from rlkit.torch.pearl.new_awac_launcher import pearl_awac_experiment
+
+
+def load_configs(config_paths):
+    from pyhocon import ConfigFactory, ConfigTree
+    config = ConfigFactory.parse_file(config_paths[0])
+    for path in config_paths[1:]:
+        new_config = ConfigFactory.parse_file(path)
+        config = ConfigTree.merge_configs(config, new_config)
+    return config
 
 
 @click.command()
 @click.option('--debug', is_flag=True, default=False)
+@click.option('--dry', is_flag=True, default=False)
 @click.option('--take', default=None)
-def main(debug, take):
-    variant = dict(
-        replay_buffer_kwargs=dict(
-            max_replay_buffer_size=1000000,
-            use_next_obs_in_context=False,
-            sparse_rewards=False,
-        ),
-        name_to_expl_path_collector_kwargs=dict(
-            prior=dict(
-                accum_context=False,
-                resample_latent_period=1,
-                update_posterior_period=0,
-                use_predicted_reward=False,
-            ),
-            posterior=dict(
-                accum_context=False,
-                resample_latent_period=1,
-                update_posterior_period=0,
-                use_predicted_reward=False,
-            ),
-        ),
-        name_to_eval_path_collector_kwargs=dict(
-            prior=dict(
-                accum_context=False,
-                resample_latent_period=1,
-                update_posterior_period=0,
-                use_predicted_reward=False,
-            ),
-            posterior=dict(
-                accum_context=False,
-                resample_latent_period=1,
-                update_posterior_period=0,
-                use_predicted_reward=False,
-            ),
-            posterior_live_update=dict(
-                accum_context=False,
-                resample_latent_period=1,
-                update_posterior_period=1,
-                use_predicted_reward=False,
-            ),
-        ),
-        qf_kwargs=dict(
-            hidden_sizes=[256, 256],
-        ),
-        policy_kwargs=dict(
-            hidden_sizes=[256, 256, 256, 256],
-            max_log_std=0,
-            min_log_std=-6,
-            std_architecture="values",
-        ),
-        context_encoder_kwargs=dict(
-            hidden_sizes=[200, 200, 200],
-        ),
-        context_decoder_kwargs=dict(
-            hidden_sizes=[64, 64],
-        ),
-        reward_encoder_kwargs=dict(
-            hidden_sizes=[200, 200, 200],
-        ),
-        policy_class='GaussianPolicy',
-        pretrain_rl=True,
-        pearl_buffer_kwargs=dict(
-            meta_batch_size=4,
-            embedding_batch_size=256,
-        ),
-        load_buffer_kwargs={
-            "pretrain_buffer_path": "demos/ant_dir/buffer_500k/extra_snapshot_itr100.pkl"
-        },
-        saved_tasks_path="demos/ant_dir/buffer_500k/tasks.pkl",
-        pretrain_offline_algo_kwargs=dict(
-            batch_size=128,
-            logging_period=1000,
-            meta_batch_size=4,
-            num_batches=50000,
-            task_embedding_batch_size=64,
-        ),
-        env_name='ant-dir',
-        n_train_tasks=2,
-        n_eval_tasks=2,
-        latent_dim=5,  # dimension of the latent context vector
-        env_params=dict(
-            n_tasks=2, # number of distinct tasks in this domain, shoudl equal sum of train and eval tasks
-            randomize_tasks=True, # shuffle the tasks after creating them
-        ),
-        trainer_kwargs=dict(
-            soft_target_tau=0.005, # for SAC target network update
-            policy_lr=3E-4,
-            qf_lr=3E-4,
-            context_lr=3e-4,
-            kl_lambda=.1, # weight on KL divergence term in encoder loss
-            use_information_bottleneck=True, # False makes latent context deterministic
-            use_next_obs_in_context=False, # use next obs if it is useful in distinguishing tasks
-            sparse_rewards=False, # whether to sparsify rewards as determined in env
-            recurrent=False, # recurrent or permutation-invariant encoder
-            discount=0.99, # RL discount factor
-            reward_scale=5., # scale rewards before constructing Bellman update, effectively controls weight on the entropy of the policy
-        ),
-        algo_kwargs=dict(
-            num_epochs=500, # number of data sampling / training iterates
-            num_trains_per_train_loop=4000,
-            num_eval_steps_per_epoch=1000,
-            num_expl_steps_per_train_loop=1000,
-            num_train_loops_per_epoch=1,
-            batch_size=1024,  # number of transitions in the RL batch
-            max_path_length=1000,  # max path length for this environment
-            min_num_steps_before_training=1000,
-            # update_post_train=1, # how often to resample the context when collecting data during training (in trajectories)
-            # num_exp_traj_eval=2, # how many exploration trajs to collect before beginning posterior sampling at test time
-            # dump_eval_paths=False, # whether to save evaluation trajectories
-            # num_iterations_with_reward_supervision=999999,
-            save_algorithm=True,
-            save_extra_manual_epoch_list=(
-                0, 50,
-                100, 150,
-                200, 250,
-                300, 350,
-                400, 450,
-                499, 500,
-            ),
-        ),
-    )
-
-    n_seeds = 3
+def main(debug, dry, take):
     mode = 'sss'
-    exp_name = 'new-pearl--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
-    if take is not None:
-        exp_name += '--take{}'.format(take)
+    n_seeds = 3
+    gpu = True
 
+    base_dir = Path(__file__).parent
+    configs = [
+        base_dir / 'configs/default_awac.conf',
+        base_dir / 'configs/ant.conf',
+        base_dir / 'configs/ant_offline.conf',
+    ]
+
+    path_parts = __file__.split('/')
+    suffix = '' if take is None else '--take{}'.format(take)
+    exp_name = '{}--{}{}'.format(
+        path_parts[-2].replace('_', '-'),
+        path_parts[-1].split('.')[0].replace('_', '-'),
+        suffix,
+    )
     if debug:
-        exp_name = 'dev--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
+        configs.append(base_dir / 'configs/debug.conf')
+    if debug or dry:
+        exp_name = 'dev--' + exp_name
         mode = 'local'
         n_seeds = 1
-        variant['algo_kwargs'].update(dict(
-            num_trains_per_train_loop=20,
-            num_eval_steps_per_epoch=4*2,
-            num_expl_steps_per_train_loop=10,
-            max_path_length=2,
-            batch_size=13,
-            num_epochs=2,
-            min_num_steps_before_training=20,
-        ))
-        variant['pretrain_offline_algo_kwargs'].update(dict(
-            num_batches=17,
-        ))
+
+    config = load_configs(configs)
+    variant = ppp.recursive_to_dict(config)
 
     search_space = {
         'trainer_kwargs.train_context_decoder': [
@@ -182,12 +74,13 @@ def main(debug, take):
                 exp_name=exp_name,
                 mode=mode,
                 variant=variant,
-                time_in_mins=3*24*60-1,
-                use_gpu=True,
+                time_in_mins=3 * 24 * 60 - 1,
+                use_gpu=gpu,
             )
     print(exp_name)
 
 
 if __name__ == "__main__":
     main()
+
 

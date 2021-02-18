@@ -125,7 +125,6 @@ def pearl_sac_experiment(
     context_encoder = MlpEncoder(
         input_size=context_encoder_input_dim,
         output_size=context_encoder_output_dim,
-        hidden_sizes=[200, 200, 200],
         **context_encoder_kwargs
     )
     reward_predictor = ConcatMlp(
