@@ -1,6 +1,7 @@
 import numpy as np
 
 from rlkit.policies.base import Policy
+import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector import MdpPathCollector
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
 from rlkit.torch.pearl.sampler import rollout
@@ -15,6 +16,7 @@ class PearlPathCollector(MdpPathCollector):
             task_indices,
             replay_buffer: PearlReplayBuffer,
             rollout_fn=rollout,
+            sample_initial_context=False,
             **kwargs
     ):
         super().__init__(
@@ -25,6 +27,7 @@ class PearlPathCollector(MdpPathCollector):
         self.replay_buffer = replay_buffer
         self.task_indices = task_indices
         self._rollout_kwargs = kwargs
+        self._sample_initial_context = sample_initial_context
 
     def collect_new_paths(
             self,
@@ -34,10 +37,11 @@ class PearlPathCollector(MdpPathCollector):
             **kwargs
     ):
         task_idx = task_idx or np.random.choice(self.task_indices)
-        if initial_context is None:
+        if initial_context is None and self._sample_initial_context:
             # TODO: fix hack and consolidate where init context is sampled
             try:
                 initial_context = self.replay_buffer.sample_context(task_idx )
+                initial_context = ptu.from_numpy(initial_context)
             except ValueError:
                 # this is needed for just the first loop where we need to fill the replay buffer without setting the replay buffer
                 pass

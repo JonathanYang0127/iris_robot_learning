@@ -28,12 +28,6 @@ def local_path_from_s3_or_local_path(filename):
     elif os.path.isfile(relative_filename):
         return relative_filename
     else:
-        relative_filename2 = os.path.join(
-            '/global/scratch/vitchyr/doodad-log-since-2020-11-12',
-            filename
-        )
-        if os.path.isfile(relative_filename2):
-            return relative_filename2
         return sync_down(filename)
 
 

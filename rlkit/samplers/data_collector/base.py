@@ -23,6 +23,7 @@ class PathCollector(DataCollector, metaclass=abc.ABCMeta):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
+            **kwargs
     ):
         pass
 
@@ -34,5 +35,6 @@ class StepCollector(DataCollector, metaclass=abc.ABCMeta):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
+            **kwargs
     ):
         pass

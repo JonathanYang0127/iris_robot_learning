@@ -13,7 +13,7 @@ from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent, MakePEARLAgentDeterministic
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
 from rlkit.torch.pearl.diagnostics import get_diagnostics
-from rlkit.torch.pearl.encoder import MlpEncoder
+from rlkit.torch.pearl.networks import MlpEncoder
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
 from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer

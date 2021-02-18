@@ -153,6 +153,8 @@ def process_launcher_args(variant):
         launcher_config["mode"] = "slurm"
     if "--ss" in sys.argv:
         launcher_config["mode"] = "slurm_singularity"
+    if "--sss" in sys.argv:
+        launcher_config["mode"] = "sss"
     if "--htp" in sys.argv:
         launcher_config["mode"] = "htp"
     if "--ssh" in sys.argv:
