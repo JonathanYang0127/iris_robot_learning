@@ -22,7 +22,7 @@ def load_configs(config_paths):
 @click.option('--take', default=None)
 def main(debug, dry, take):
     mode = 'sss'
-    n_seeds = 3
+    n_seeds = 1
     gpu = True
 
     base_dir = Path(__file__).parent
