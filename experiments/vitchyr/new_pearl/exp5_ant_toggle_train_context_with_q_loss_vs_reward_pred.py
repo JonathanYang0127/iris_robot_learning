@@ -138,7 +138,7 @@ def main(debug, take):
     mode = 'sss'
     exp_name = 'new-pearl--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
     if take is not None:
-        exp_name += '--take2'
+        exp_name += '--take{}'.format(take)
 
     if debug:
         exp_name = 'dev--' + __file__.split('/')[-1].split('.')[0].replace('_', '-')
@@ -160,6 +160,14 @@ def main(debug, take):
     search_space = {
         'trainer_kwargs.train_context_decoder': [
             True,
+            False,
+        ],
+        'trainer_kwargs.beta': [
+            0.5,
+            2,
+            5,
+            10,
+            50,
         ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(

@@ -88,7 +88,7 @@ def main(config, debug, take):
             False,
         ],
         'trainer_kwargs.train_context_decoder': [
-            False,
+            True,
         ],
         'algo_params.num_iterations_with_reward_supervision': [
             9999,
