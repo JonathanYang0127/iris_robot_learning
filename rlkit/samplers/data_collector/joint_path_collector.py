@@ -15,18 +15,13 @@ class JointPathCollector(PathCollector):
 
     def collect_new_paths(self, max_path_length, num_steps,
                           discard_incomplete_paths,
-                          initial_context=None,
                           **kwargs):
         paths = []
         for name, collector in self.path_collectors.items():
-            # TODO: fix hack. should probably have PearlJointPathCollector
-            if name == 'prior':
-                initial_context = None
             paths += collector.collect_new_paths(
                 max_path_length=max_path_length,
                 num_steps=num_steps,
                 discard_incomplete_paths=discard_incomplete_paths,
-                initial_context=initial_context,
                 **kwargs
             )
         return paths

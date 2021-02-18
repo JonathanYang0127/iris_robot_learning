@@ -120,15 +120,11 @@ def pearl_sac_experiment(
 
     qf1 = create_qf()
     qf2 = create_qf()
-    target_qf1 = create_qf()
-    target_qf2 = create_qf()
     vf = ConcatMlp(
         input_size=obs_dim + latent_dim,
         output_size=1,
         **vf_kwargs
     )
-    # target_qf1 = create_qf()
-    # target_qf2 = create_qf()
 
     policy = TanhGaussianPolicy(
         obs_dim=obs_dim + latent_dim,

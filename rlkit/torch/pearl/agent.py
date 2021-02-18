@@ -155,7 +155,10 @@ class PEARLAgent(nn.Module):
         if context is None:
             context = data
         else:
-            context = torch.cat([context, data], dim=1)
+            try:
+                context = torch.cat([context, data], dim=1)
+            except Exception as e:
+                import ipdb; ipdb.set_trace()
         return context
 
     def compute_kl_div(self):

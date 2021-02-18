@@ -19,6 +19,23 @@ class MdpPathCollector(PathCollector):
             save_env_in_snapshot=True,
             **kwargs
     ):
+        """
+
+        :param env:
+        :param policy:
+        :param max_num_epoch_paths_saved: Maximum number of paths to save per
+        epoch for computing statistics.
+        :param rollout_fn: Some function with signature
+        ```
+        def rollout_fn(
+            env, policy, max_path_length, *args, **kwargs
+        ) -> List[Path]:
+        ```
+
+        :param save_env_in_snapshot: If True, save the environment in the
+        snapshot.
+        :param kwargs: Unused kwargs are passed on to `rollout_fn`
+        """
         self._env = env
         self._policy = policy
         self._max_num_epoch_paths_saved = max_num_epoch_paths_saved
@@ -35,7 +52,6 @@ class MdpPathCollector(PathCollector):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
-            **kwargs
     ):
         paths = []
         num_steps_collected = 0
@@ -48,7 +64,6 @@ class MdpPathCollector(PathCollector):
                 self._env,
                 self._policy,
                 max_path_length=max_path_length_this_loop,
-                **kwargs
             )
             path_len = len(path['actions'])
             if (
