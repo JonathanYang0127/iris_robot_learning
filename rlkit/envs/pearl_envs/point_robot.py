@@ -13,9 +13,7 @@ class PointEnv(Env):
     """
 
     def __init__(self, randomize_tasks=False, n_tasks=2):
-
         if randomize_tasks:
-            np.random.seed(1337)
             goals = [[np.random.uniform(-1., 1.), np.random.uniform(-1., 1.)] for _ in range(n_tasks)]
         else:
             # some hand-coded goals for debugging

@@ -61,6 +61,7 @@ def pearl_sac_experiment(
         load_env_dataset_demos=False,
         save_initial_buffers=False,
         save_pretrained_algorithm=False,
+        ignore_overlapping_train_and_test=False,
         _debug_do_not_sqrt=False,
         # PEARL
         n_train_tasks=0,
@@ -148,26 +149,27 @@ def pearl_sac_experiment(
         vf=vf,
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
-        # target_qf1=target_qf1,
-        # target_qf2=target_qf2,
         **trainer_kwargs
     )
     task_indices = expl_env.get_all_task_idx()
     train_task_indices = task_indices[:n_train_tasks]
     test_task_indices = task_indices[-n_eval_tasks:]
-    if n_train_tasks + n_eval_tasks > len(task_indices):
-        print("WARNING: your test and train overlap!")
+    if (
+            n_train_tasks + n_eval_tasks > len(task_indices)
+            and not ignore_overlapping_train_and_test
+    ):
+        raise ValueError("Your test and train overlap!")
     eval_policy = MakePEARLAgentDeterministic(agent)
     expl_policy = agent
 
     replay_buffer = MultiTaskReplayBuffer(
         env=expl_env,
-        task_indices=train_task_indices,
+        task_indices=task_indices,
         **replay_buffer_kwargs
     )
     enc_replay_buffer = MultiTaskReplayBuffer(
         env=expl_env,
-        task_indices=train_task_indices,
+        task_indices=task_indices,
         **replay_buffer_kwargs
     )
     pearl_replay_buffer = PearlReplayBuffer(

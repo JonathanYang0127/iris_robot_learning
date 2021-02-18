@@ -103,9 +103,11 @@ def rollout(
     :param animated:
     :param save_frames: if True, save video of rollout
     :param resample_latent_period: How often to resample from the latent posterior, in units of env steps.
-        If zero, never resample.
-    :param update_posterior_period: How often to update the latent posterior, in units of env steps.
-        If zero, never update.
+        If zero, never resample after the first sample.
+    :param update_posterior_period: How often to update the latent posterior,
+    in units of env steps.
+        If zero, never update unless an initial context is provided, in which
+        case only update at the start using that initial context.
     :return:
     """
     observations = []

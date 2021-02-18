@@ -18,8 +18,9 @@ def load_configs(config_paths):
 
 @click.command()
 @click.option('--debug', is_flag=True, default=False)
+@click.option('--dry', is_flag=True, default=False)
 @click.option('--take', default=None)
-def main(debug, take):
+def main(debug, dry, take):
     mode = 'sss'
     n_seeds = 3
     gpu = True
@@ -39,6 +40,7 @@ def main(debug, take):
     )
     if debug:
         configs.append(base_dir / 'configs/debug.conf')
+    if debug or dry:
         exp_name = 'dev--' + exp_name
         mode = 'local'
         n_seeds = 1

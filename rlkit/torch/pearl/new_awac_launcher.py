@@ -44,6 +44,7 @@ def pearl_awac_experiment(
         _debug_do_not_sqrt=False,
         networks_ignore_context=False,
         use_ground_truth_context=False,
+        ignore_overlapping_train_and_test=False,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -81,8 +82,11 @@ def pearl_awac_experiment(
         task_indices = list(base_expl_env.get_all_task_idx())
         train_task_indices = list(task_indices[:n_train_tasks])
         test_task_indices = list(task_indices[-n_eval_tasks:])
-        if n_train_tasks + n_eval_tasks > len(task_indices):
-            print("WARNING: your test and train overlap!")
+        if (
+                n_train_tasks + n_eval_tasks > len(task_indices)
+                and not ignore_overlapping_train_and_test
+        ):
+            raise ValueError("Your test and train overlap!")
 
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size

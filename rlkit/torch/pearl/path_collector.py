@@ -17,6 +17,7 @@ class PearlPathCollector(MdpPathCollector):
             replay_buffer: PearlReplayBuffer,
             rollout_fn=rollout,
             sample_initial_context=False,
+            accum_context_across_rollouts=False,
             **kwargs
     ):
         super().__init__(
@@ -28,6 +29,7 @@ class PearlPathCollector(MdpPathCollector):
         self.task_indices = task_indices
         self._rollout_kwargs = kwargs
         self._sample_initial_context = sample_initial_context
+        self.accum_context_across_rollouts = accum_context_across_rollouts
 
     def collect_new_paths(
             self,
@@ -62,6 +64,8 @@ class PearlPathCollector(MdpPathCollector):
                 max_path_length=max_path_length_this_loop,
                 initial_context=initial_context,
             )
+            if self.accum_context_across_rollouts:
+                initial_context = path['context']
             path_len = len(path['actions'])
             if (
                     path_len != max_path_length
