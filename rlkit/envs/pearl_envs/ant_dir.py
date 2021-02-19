@@ -5,7 +5,9 @@ from rlkit.envs.pearl_envs.ant_multitask_base import MultitaskAntEnv
 
 class AntDirEnv(MultitaskAntEnv):
 
-    def __init__(self, task={}, n_tasks=2, forward_backward=False, randomize_tasks=True, **kwargs):
+    def __init__(self, task=None, n_tasks=2, forward_backward=False, randomize_tasks=True, **kwargs):
+        if task is None:
+            task = {}
         self.quick_init(locals())
         self.forward_backward = forward_backward
         super(AntDirEnv, self).__init__(task, n_tasks, **kwargs)
@@ -46,6 +48,3 @@ class AntDirEnv(MultitaskAntEnv):
             velocities = np.random.uniform(0., 2.0 * np.pi, size=(num_tasks,))
         tasks = [{'goal': velocity} for velocity in velocities]
         return tasks
-
-    def task_to_vec(self, task):
-        return np.array([task['goal']])

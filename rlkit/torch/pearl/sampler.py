@@ -103,9 +103,11 @@ def rollout(
     :param animated:
     :param save_frames: if True, save video of rollout
     :param resample_latent_period: How often to resample from the latent posterior, in units of env steps.
-        If zero, never resample.
-    :param update_posterior_period: How often to update the latent posterior, in units of env steps.
-        If zero, never update.
+        If zero, never resample after the first sample.
+    :param update_posterior_period: How often to update the latent posterior,
+    in units of env steps.
+        If zero, never update unless an initial context is provided, in which
+        case only update at the start using that initial context.
     :return:
     """
     observations = []
@@ -140,12 +142,12 @@ def rollout(
         if use_predicted_reward:
             r = agent.infer_reward(o, a, z)
         if accum_context:
-            # context.append([o, a, r, next_o, d, env_info])
             context = agent.update_context(
                 context,
                 [o, a, r, next_o, d, env_info],
             )
-        if update_posterior_period != 0 and path_length % update_posterior_period == 0 and len(context) > 0:
+        # TODO: remove "context is not None" check after fixing first-loop hack
+        if update_posterior_period != 0 and path_length % update_posterior_period == 0 and context is not None and len(context) > 0:
             z_dist = agent.latent_posterior(context, squeeze=True)
         zs.append(z)
         observations.append(o)
@@ -168,14 +170,15 @@ def rollout(
     if len(actions.shape) == 1:
         actions = np.expand_dims(actions, 1)
     observations = np.array(observations)
-    if len(observations.shape) == 1:
+    if len(observations.shape) == 1 and not isinstance(observations[0], dict):
         observations = np.expand_dims(observations, 1)
         next_o = np.array([next_o])
-    next_observations = np.vstack(
+    next_observations = np.concatenate(
         (
-            observations[1:, :],
+            observations[1:, ...],
             np.expand_dims(next_o, 0)
-        )
+        ),
+        axis=0,
     )
     return dict(
         observations=observations,
