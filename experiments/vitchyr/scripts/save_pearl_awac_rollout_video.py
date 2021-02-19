@@ -22,6 +22,7 @@ from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo
 from rlkit.torch.pearl.sampler import rollout
 from rlkit.visualization.video import dump_video
 
+counter = 0
 
 def simulate_policy(args):
     if args.pause:
@@ -30,6 +31,7 @@ def simulate_policy(args):
     # buffer_data = cloudpickle.load(
     #     open(buffer_path, 'rb'))
     # replay_buffer = buffer_data['replay_buffer']
+    prefix = 'all_'
 
     snapshot_path = args.file
     ptu.set_gpu_mode(True)
@@ -58,7 +60,7 @@ def simulate_policy(args):
             env.wrapped_env.tasks = tasks
         else:
             load_buffer_kwargs = None
-    else:  # old-style trainer
+    elif 'agent' in data:  # old-style trainer
         policy = data['agent']
         env = data['env']
 
@@ -141,26 +143,51 @@ def simulate_policy(args):
 
     save_dir = Path(snapshot_path).parent / 'generated_rollouts'
     save_dir.mkdir(parents=True, exist_ok=True)
-    save_path = save_dir / 'rollout0.mp4'
+    save_path = save_dir / '{}rollout0.mp4'.format(prefix)
     # rollout_fn = partial(
     #     rollout,
     # )
 
     def random_task_rollout_fn(*args, **kwargs):
-        task_idx = np.random.choice([0, 1])
-        if pearl_replay_buffer is not None:
+        global counter
+        task_idx = counter
+        counter += 1
+        # task_idx = np.random.choice([0, 1])
+        if task_idx in [0, 1, 2]:
+        # if pearl_replay_buffer is not None and task_idx in train_task_indices:
+            text_renderer.prefix = 'train (sample z from buffer)\n'
             init_context = pearl_replay_buffer.sample_context(task_idx)
             init_context = ptu.from_numpy(init_context)
+            return rollout(
+                *args,
+                task_idx=task_idx,
+                initial_context=init_context,
+                resample_latent_period=0,
+                # accum_context=True,
+                # update_posterior_period=1,
+                **kwargs)
+        elif task_idx in [3, 4, 5]:
+            text_renderer.prefix = 'eval on train\n'
+            return rollout(
+                *args,
+                task_idx=task_idx - 3,
+                initial_context=None,
+                resample_latent_period=0,
+                accum_context=True,
+                update_posterior_period=1,
+                **kwargs)
         else:
+            text_renderer.prefix = 'eval on test\n'
             init_context = None
-        return rollout(
-            *args,
-            task_idx=task_idx,
-            initial_context=init_context,
-            resample_latent_period=0,
-            # accum_context=True,
-            # update_posterior_period=1,
-            **kwargs)
+            return rollout(
+                *args,
+                task_idx=task_idx - 3,
+                initial_context=init_context,
+                resample_latent_period=0,
+                accum_context=True,
+                update_posterior_period=1,
+                **kwargs)
+
     dump_video(
         env=img_env,
         policy=policy,
@@ -171,8 +198,8 @@ def simulate_policy(args):
         image_format=img_renderer.output_image_format,
         # rows=1,
         # columns=1,
-        rows=2,
-        columns=3,
+        rows=1,
+        columns=8,
         imsize=256,
         horizon=200,
     )

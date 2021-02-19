@@ -126,6 +126,7 @@ class TextRenderer(MatplotLibRenderer):
         super().__init__(*args, **kwargs)
         self._font_size = font_size
         self.ax.axis('off')
+        self.prefix = ''
         self._text = None
         self._img = None
 
@@ -144,6 +145,6 @@ class TextRenderer(MatplotLibRenderer):
         self._text = self.ax.text(
             0.0,
             0.5,
-            text,
+            self.prefix + text,
             fontsize=self._font_size,
         )

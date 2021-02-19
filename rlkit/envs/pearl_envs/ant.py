@@ -60,6 +60,7 @@ class AntEnv(MujocoEnv):
             lookat=(0, 0, 0),
             distance=10,
             elevation=-45,
+            azimuth=90,
             trackbodyid=self.sim.model.body_name2id('torso'),
         )
         self.camera_init(self.viewer.cam)
