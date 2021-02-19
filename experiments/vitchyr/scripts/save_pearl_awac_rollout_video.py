@@ -157,7 +157,7 @@ def simulate_policy(args):
             *args,
             task_idx=task_idx,
             initial_context=init_context,
-            resample_latent_period=1,
+            resample_latent_period=0,
             # accum_context=True,
             # update_posterior_period=1,
             **kwargs)
@@ -174,6 +174,7 @@ def simulate_policy(args):
         rows=2,
         columns=3,
         imsize=256,
+        horizon=200,
     )
 
 
