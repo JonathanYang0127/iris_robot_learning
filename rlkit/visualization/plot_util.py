@@ -8,7 +8,7 @@ try:
     import rllab.viskit.core as core
 except:
     import viskit.core as core
-from rllab.misc import ext
+from rlkit.misc.variant_generator import AttrDict
 
 read_tb = lambda: None
 import glob
@@ -102,7 +102,7 @@ def load_exps_data_numpy(exp_folder_paths, log_reader, disable_variant=False,
                     params = core.load_params(variant_json_path)
                 except IOError:
                     params = core.load_params(params_json_path)
-            exps_data.append(ext.AttrDict(
+            exps_data.append(AttrDict(
                 progress=progress, params=params, flat_params=core.flatten_dict(params)))
         except IOError as e:
             print(e)
@@ -209,9 +209,9 @@ def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
         if not bar_plot:
             ax.set_ylabel(key)
         if xlim:
-            ax.xlim(xlim)
+            ax.set_xlim(xlim)
         if ylim:
-            ax.ylim(ylim)
+            ax.set_ylim(ylim)
 
     y_data = {}
     x_data = {}
