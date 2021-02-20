@@ -78,6 +78,7 @@ def pearl_experiment(
     # eval_env = make(env_id, env_class, env_kwargs, normalize_env)
     expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
+    eval_env.tasks = expl_env.tasks
     reward_dim = 1
 
     if debug:
@@ -157,7 +158,8 @@ def pearl_experiment(
         # target_qf2=target_qf2,
         **trainer_kwargs
     )
-    tasks = expl_env.get_all_task_idx()
+    task_indices = expl_env.get_all_task_idx()
+    tasks = expl_env.tasks
     if use_data_collectors:
         eval_policy = MakeDeterministic(policy)
         eval_path_collector = PearlPathCollector(eval_env, eval_policy)
@@ -179,8 +181,8 @@ def pearl_experiment(
             # evaluation_env=eval_env,
             exploration_data_collector=expl_path_collector,
             evaluation_data_collector=eval_path_collector,
-            train_task_indices=list(tasks[:n_train_tasks]),
-            eval_task_indices=list(tasks[-n_eval_tasks:]),
+            train_task_indices=list(task_indices[:n_train_tasks]),
+            eval_task_indices=list(task_indices[-n_eval_tasks:]),
             # nets=[agent, qf1, qf2, vf],
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
@@ -195,8 +197,10 @@ def pearl_experiment(
             # evaluation_env=eval_env,
             # exploration_data_collector=expl_path_collector,
             # evaluation_data_collector=eval_path_collector,
-            train_task_indices=list(tasks[:n_train_tasks]),
-            eval_task_indices=list(tasks[-n_eval_tasks:]),
+            train_task_indices=list(task_indices[:n_train_tasks]),
+            eval_task_indices=list(task_indices[-n_eval_tasks:]),
+            train_tasks=tasks[:n_train_tasks],
+            eval_tasks=tasks[-n_eval_tasks:],
             # nets=[agent, qf1, qf2, vf],
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,

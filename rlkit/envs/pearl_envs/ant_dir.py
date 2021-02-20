@@ -5,9 +5,19 @@ from rlkit.envs.pearl_envs.ant_multitask_base import MultitaskAntEnv
 
 class AntDirEnv(MultitaskAntEnv):
 
-    def __init__(self, task=None, n_tasks=2, forward_backward=False, randomize_tasks=True, **kwargs):
+    def __init__(
+            self,
+            task=None,
+            n_tasks=2,
+            fixed_tasks=None,
+            forward_backward=False,
+            direction_in_degrees=False,
+            **kwargs
+    ):
         if task is None:
             task = {}
+        self.fixed_tasks = fixed_tasks
+        self.direction_in_degrees = direction_in_degrees
         self.quick_init(locals())
         self.forward_backward = forward_backward
         super(AntDirEnv, self).__init__(task, n_tasks, **kwargs)
@@ -15,7 +25,11 @@ class AntDirEnv(MultitaskAntEnv):
     def step(self, action):
         torso_xyz_before = np.array(self.get_body_com("torso"))
 
-        direct = (np.cos(self._goal), np.sin(self._goal))
+        if self.direction_in_degrees:
+            goal = self._goal / 180 * np.pi
+        else:
+            goal = self._goal
+        direct = (np.cos(goal), np.sin(goal))
 
         self.do_simulation(action, self.frame_skip)
         torso_xyz_after = np.array(self.get_body_com("torso"))
@@ -43,8 +57,16 @@ class AntDirEnv(MultitaskAntEnv):
     def sample_tasks(self, num_tasks):
         if self.forward_backward:
             assert num_tasks == 2
-            velocities = np.array([0., np.pi])
+            if self.direction_in_degrees:
+                directions = np.array([0., 180])
+            else:
+                directions = np.array([0., np.pi])
+        elif self.fixed_tasks:
+            directions = np.array(self.fixed_tasks)
         else:
-            velocities = np.random.uniform(0., 2.0 * np.pi, size=(num_tasks,))
-        tasks = [{'goal': velocity} for velocity in velocities]
+            if self.direction_in_degrees:
+                directions = np.random.uniform(0., 360, size=(num_tasks,))
+            else:
+                directions = np.random.uniform(0., 2.0 * np.pi, size=(num_tasks,))
+        tasks = [{'goal': desired_dir} for desired_dir in directions]
         return tasks

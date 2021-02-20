@@ -14,14 +14,22 @@ import rlkit.misc.hyperparameter as hyp
 
 
 @click.command()
-@click.argument('config', default=None)
 @click.option('--debug', is_flag=True, default=False)
-@click.option('--exp_name', default=None)
-@click.option('--mode', default='local')
-@click.option('--gpu', default=False)
-@click.option('--gpu_id', default=0)
-@click.option('--nseeds', default=1)
-def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
+@click.option('--dry', is_flag=True, default=False)
+@click.option('--take', default=None)
+def main(debug, dry, take):
+    mode = 'sss'
+    n_seeds = 3
+
+    path_parts = __file__.split('/')
+    suffix = '' if take is None else '--take{}'.format(take)
+    exp_name = '{}--{}{}'.format(
+        path_parts[-2].replace('_', '-'),
+        path_parts[-1].split('.')[0].replace('_', '-'),
+        suffix,
+    )
+
+    config = 'experiments/references/pearl/ant-dir-four-dirs-train-four-dirs-eval.json'
     if config:
         with open(os.path.join(config)) as f:
             exp_params = json.load(f)
@@ -47,14 +55,16 @@ def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
             "max_path_length": 2,
         }
         exp_params["net_size"] = 3
+    if debug or dry:
+        exp_name = 'dev--' + exp_name
+        mode = 'local'
+        n_seeds = 1
+
     variant = ppp.merge_recursive_dicts(
         exp_params,
         configs.default_trainer_config,
         ignore_duplicate_keys_in_second_dict=True,
     )
-
-    mode = mode or 'local'
-    exp_name = exp_name or 'dev'
 
     search_space = {
         'algo_params.save_replay_buffer': [
@@ -84,7 +94,7 @@ def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
             # 10,
             # 20,
             # 30,
-            9999,
+            999999,
         ],
         # 'algo_params.freeze_encoder_buffer_in_unsupervised_phase': [
         #     True,
@@ -115,7 +125,7 @@ def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
         variant['policy_kwargs'] = dict(
             hidden_sizes=[net_size, net_size, net_size],
         )
-        for _ in range(nseeds):
+        for _ in range(n_seeds):
             variant['exp_id'] = exp_id
             run_experiment(
                 pearl_experiment,
@@ -123,9 +133,8 @@ def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
                 exp_name=exp_name,
                 mode=mode,
                 variant=variant,
-                time_in_mins=int(2.8 * 24 * 60),  # if you use mode=sss
-                use_gpu=gpu,
-                gpu_id=gpu_id,
+                time_in_mins=3 * 24 * 60 - 1,
+                use_gpu=True,
             )
     print(exp_name)
 

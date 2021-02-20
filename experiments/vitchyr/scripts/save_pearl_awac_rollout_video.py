@@ -153,7 +153,7 @@ def simulate_policy(args):
         task_idx = counter
         counter += 1
         # task_idx = np.random.choice([0, 1])
-        if task_idx in [0, 1, 2]:
+        if task_idx in [0, 1]:
         # if pearl_replay_buffer is not None and task_idx in train_task_indices:
             text_renderer.prefix = 'train (sample z from buffer)\n'
             init_context = pearl_replay_buffer.sample_context(task_idx)
@@ -166,11 +166,11 @@ def simulate_policy(args):
                 # accum_context=True,
                 # update_posterior_period=1,
                 **kwargs)
-        elif task_idx in [3, 4, 5]:
+        elif task_idx in [2, 3]:
             text_renderer.prefix = 'eval on train\n'
             return rollout(
                 *args,
-                task_idx=task_idx - 3,
+                task_idx=task_idx - 2,
                 initial_context=None,
                 resample_latent_period=0,
                 accum_context=True,
@@ -181,7 +181,7 @@ def simulate_policy(args):
             init_context = None
             return rollout(
                 *args,
-                task_idx=task_idx - 3,
+                task_idx=task_idx - 2,
                 initial_context=init_context,
                 resample_latent_period=0,
                 accum_context=True,
@@ -199,7 +199,7 @@ def simulate_policy(args):
         # rows=1,
         # columns=1,
         rows=1,
-        columns=8,
+        columns=4,
         imsize=256,
         horizon=200,
     )

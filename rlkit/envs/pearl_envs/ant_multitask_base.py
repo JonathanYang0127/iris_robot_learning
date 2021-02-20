@@ -2,7 +2,9 @@ from rlkit.envs.pearl_envs.ant import AntEnv
 
 
 class MultitaskAntEnv(AntEnv):
-    def __init__(self, task=None, n_tasks=2, **kwargs):
+    def __init__(self, task=None, n_tasks=2,
+                 randomize_tasks=True,
+                 **kwargs):
         if task is None:
             task = {}
         self._task = task
