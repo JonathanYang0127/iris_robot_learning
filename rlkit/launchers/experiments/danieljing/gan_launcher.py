@@ -65,7 +65,7 @@ def train_gan(variant, return_data = False):
     if variant.get('simpusher', False):
         imsize = variant.get('imsize')
         beta = variant["beta"]
-        representation_size = variant.get("representation_size", variant.get("latent_size", None))
+        representation_size = variant.get("representation_size")
         use_linear_dynamics = variant.get('use_linear_dynamics', False)
         generate_vae_dataset_fctn = variant.get('generate_vae_data_fctn',
                                                 generate_vae_dataset)
@@ -75,7 +75,8 @@ def train_gan(variant, return_data = False):
         train_dataset, test_dataset, info = generate_vae_dataset_fctn(
             variant['generate_vae_dataset_kwargs'])
 
-        dataloader = train_dataset.dataset_loader
+        trainloader = train_dataset.dataset_loader
+        testloader = test_dataset.dataset_loader
         get_data = lambda d: d['x_t'].reshape(128, 3, imsize, imsize)
 
         if use_linear_dynamics:
@@ -103,7 +104,7 @@ def train_gan(variant, return_data = False):
             else:
                 model = gan_class(latent_size = representation_size, **variant['gan_kwargs'])
         model.to(ptu.device)
-        
+
         gan_trainer_class = variant['vae_trainer_class']
         trainer = gan_trainer_class(model, latent_size = representation_size, beta=beta,
                            **variant['algo_kwargs'])
@@ -113,7 +114,7 @@ def train_gan(variant, return_data = False):
 
 
     for epoch in range(variant['num_epochs']):
-        trainer.train_epoch(dataloader, epoch, variant['num_epochs'], get_data)
+        trainer.train_epoch(trainloader, epoch, variant['num_epochs'], get_data)
         #trainer.test_epoch(epoch, test_dataset)
         #dump samples is called in trainer
 

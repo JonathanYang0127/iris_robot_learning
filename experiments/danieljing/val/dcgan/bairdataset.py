@@ -9,7 +9,7 @@ from rlkit.torch.gan.dcgan_trainer import DCGANTrainer
 from multiworld.envs.pygame.multiobject_pygame_env import Multiobj2DEnv
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
 from rlkit.data_management.external.bair_dataset.config import BAIR_DATASET_LOCATION
-from experiments.danieljing.large_scale_rig.gan_launcher import train_gan
+from rlkit.launchers.experiments.danieljing.gan_launcher import train_gan
 
 if __name__ == "__main__":
 

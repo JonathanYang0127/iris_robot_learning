@@ -92,7 +92,7 @@ class GatedPixelCNN(nn.Module):
     def __init__(self, input_dim=256, dim=64, n_layers=15, n_classes=1):
         super().__init__()
         self.dim = dim
-
+        self.is_conditional = True
         # Create embedding layer to embed input
         self.embedding = nn.Embedding(input_dim, dim)
         # Building the PixelCNN layer by layer
