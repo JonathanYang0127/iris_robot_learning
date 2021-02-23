@@ -367,12 +367,9 @@ class TanhNormal(Distribution):
             log_std = torch.log(normal_std)
         self.log_std = log_std
 
-    def sample_n(self, n, return_pre_tanh_value=False):
+    def sample_n(self, n):
         z = self.normal.sample_n(n)
-        if return_pre_tanh_value:
-            return torch.tanh(z), z
-        else:
-            return torch.tanh(z)
+        return torch.tanh(z)
 
     def _log_prob_from_pre_tanh(self, pre_tanh_value):
         """
@@ -442,13 +439,15 @@ class TanhNormal(Distribution):
         log_p = self.log_prob(value, pre_tanh_value)
         return value, log_p
 
-    def rsample_and_logprob(self, return_pre_tanh_value=False):
+    def rsample_and_logprob(self):
         value, pre_tanh_value = self.rsample_with_pretanh()
         log_p = self.log_prob(value, pre_tanh_value)
-        if return_pre_tanh_value:
-            return value, log_p, pre_tanh_value
-        else:
-            return value, log_p
+        return value, log_p
+
+    def rsample_logprob_and_pretanh(self):
+        value, pre_tanh_value = self.rsample_with_pretanh()
+        log_p = self.log_prob(value, pre_tanh_value)
+        return value, log_p, pre_tanh_value
 
     @property
     def mean(self):

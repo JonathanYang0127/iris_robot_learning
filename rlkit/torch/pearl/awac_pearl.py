@@ -482,7 +482,9 @@ class AwacPearlTrainer(TorchTrainer):
         # policy_mle = dist.mle_estimate()
 
         dist, task_z = self.agent(obs, context, return_task_z=True)
-        new_obs_actions, log_pi, pre_tanh_value = dist.rsample_and_logprob(return_pre_tanh_value=True)
+        new_obs_actions, log_pi, pre_tanh_value = (
+            dist.rsample_logprob_and_pretanh()
+        )
         # policy_mean = dist.mean
         policy_log_std = dist.log_std
         policy_mle = dist.mle_estimate()

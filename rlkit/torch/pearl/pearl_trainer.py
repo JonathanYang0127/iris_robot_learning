@@ -163,7 +163,9 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         action_distrib, p_z, task_z = self.agent(
             obs, context, return_latent_posterior_and_task_z=True,
         )
-        new_actions, log_pi, pre_tanh_value = action_distrib.rsample_and_logprob(return_pre_tanh_value=True)
+        new_actions, log_pi, pre_tanh_value = (
+            action_distrib.rsample_logprob_and_pretanh()
+        )
         policy_mean = action_distrib.mean
         policy_log_std = action_distrib.log_std
 
