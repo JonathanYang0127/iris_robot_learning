@@ -35,6 +35,11 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             evaluation_get_diagnostic_functions=None,
             eval_epoch_freq=1,
             eval_only=False,
+            save_algorithm=False,
+            save_replay_buffer=False,
+            save_logger=False,
+            save_extra_manual_epoch_list=(),
+            keep_only_last_extra=True,
     ):
         self.trainer = trainer
         self.expl_env = exploration_env
@@ -47,6 +52,11 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         self.post_epoch_funcs = []
         self.epoch = self._start_epoch
         self.num_epochs = num_epochs
+        self.save_algorithm = save_algorithm
+        self.save_replay_buffer = save_replay_buffer
+        self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
+        self.save_logger = save_logger
+        self.keep_only_last_extra = keep_only_last_extra
         if exploration_get_diagnostic_functions is None:
             exploration_get_diagnostic_functions = [
                 eval_util.get_generic_path_information,
@@ -69,7 +79,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
 
     def train(self):
         timer.return_global_times = True
-        for _ in range(self.num_epochs):
+        for _ in range(self.epoch, self.num_epochs):
             self._begin_epoch()
             timer.start_timer('saving')
             logger.save_itr_params(self.epoch, self._get_snapshot())
@@ -100,6 +110,26 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
 
         for post_epoch_func in self.post_epoch_funcs:
             post_epoch_func(self, self.epoch)
+
+        if self.epoch in self.save_extra_manual_epoch_list:
+            if self.keep_only_last_extra:
+                file_name = 'extra_snapshot'
+                info_lines = [
+                    'extra_snapshot_itr = {}'.format(self.epoch),
+                    'snapshot_dir = {}'.format(logger.get_snapshot_dir())
+                ]
+                logger.save_extra_data(
+                    '\n'.join(info_lines),
+                    file_name='snapshot_info',
+                    mode='txt',
+                )
+            else:
+                file_name = 'extra_snapshot_itr{}'.format(self.epoch)
+            logger.save_extra_data(
+                self.get_extra_data_to_save(self.epoch),
+                file_name=file_name,
+                mode='cloudpickle',
+            )
         self.epoch += 1
 
     def _get_snapshot(self):
@@ -113,6 +143,24 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         for k, v in self.replay_buffer.get_snapshot().items():
             snapshot['replay_buffer/' + k] = v
         return snapshot
+
+    def get_extra_data_to_save(self, epoch):
+        """
+        Save things that shouldn't be saved every snapshot but rather
+        overwritten every time.
+        :param epoch:
+        :return:
+        """
+        data_to_save = dict(
+            epoch=epoch,
+        )
+        if self.save_replay_buffer:
+            data_to_save['replay_buffer'] = self.replay_buffer
+        if self.save_algorithm:
+            data_to_save['algorithm'] = self
+        if self.save_logger:
+            data_to_save['logger'] = logger
+        return data_to_save
 
     def _get_diagnostics(self):
         timer.start_timer('logging', unique=False)

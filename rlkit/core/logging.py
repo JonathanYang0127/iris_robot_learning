@@ -33,9 +33,9 @@ def add_prefix(log_dict: OrderedDict, prefix: str, divider=''):
     return with_prefix
 
 
-def append_log(log_dict, to_add_dict, prefix=None):
+def append_log(log_dict, to_add_dict, prefix=None, divider=''):
     if prefix is not None:
-        to_add_dict = add_prefix(to_add_dict, prefix=prefix)
+        to_add_dict = add_prefix(to_add_dict, prefix=prefix, divider=divider)
     return log_dict.update(to_add_dict)
 
 
@@ -323,8 +323,15 @@ class Logger(object):
             joblib.dump(params, file_name + ".pkl", compress=3)
         elif mode == 'pickle':
             pickle.dump(params, open(file_name + ".pkl", "wb"))
+        elif mode == 'cloudpickle':
+            import cloudpickle
+            cloudpickle.dump(params, open(file_name + ".cpkl", "wb"))
+            print(file_name + ".cpkl", "wb")
         elif mode == 'torch':
             torch.save(params, file_name + ".pt")
+        elif mode == 'txt':
+            with open(file_name + ".txt", "w") as f:
+                f.write(params)
         else:
             raise ValueError("Invalid mode: {}".format(mode))
 

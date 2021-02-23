@@ -238,6 +238,38 @@ def recursive_items(dictionary):
             yield from recursive_items(value)
 
 
+def recursive_string_replace(x, original, new):
+    if isinstance(x, dict):
+        return {k: recursive_string_replace(v, original, new)
+                for k, v in x.items()}
+    elif isinstance(x, str):
+        return x.replace(original, new)
+    elif isinstance(x, list):
+        return [recursive_string_replace(i, original, new) for i in x]
+    elif isinstance(x, tuple):
+        return tuple(recursive_string_replace(i, original, new) for i in x)
+    else:
+        return x
+
+
+def recursive_to_dict(maybe_dictable):
+    """Try to convert something into a recursive dictionary.
+
+    The main use case is to have some generic config/loading module (e.g.
+    pyhocon) but to convert everything to a dictionary right before you use it.
+
+    :param maybe_dictable: Something that may be a dictionary.
+    :return:
+    """
+    try:
+        dict_version = dict(maybe_dictable)
+        return {
+            k: recursive_to_dict(v)
+            for k, v in dict_version.items()
+        }
+    except (TypeError, ValueError):
+        return maybe_dictable
+
 # TODO(vitchyr): test methods/classes below
 
 

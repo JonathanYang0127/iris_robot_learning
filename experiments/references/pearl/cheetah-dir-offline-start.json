@@ -1,0 +1,34 @@
+{
+    "env_name": "cheetah-dir",
+    "n_train_tasks": 2,
+    "n_eval_tasks": 2,
+    "env_params": {
+        "n_tasks": 2
+    },
+    "algo_params": {
+        "meta_batch": 4,
+        "num_initial_steps": 2000,
+        "num_steps_prior": 1000,
+        "num_steps_posterior": 0,
+        "num_extra_rl_steps_posterior": 1000,
+        "num_evals": 4,
+        "num_steps_per_eval": 600,
+        "num_exp_traj_eval": 2,
+        "embedding_batch_size": 256,
+        "num_iterations_with_reward_supervision": 100,
+        "freeze_encoder_buffer_in_unsupervised_phase": false,
+        "embedding_mini_batch_size": 256
+    },
+    "pretrain_rl": true,
+    "load_buffer_kwargs": {
+        "pretrain_buffer_path": "demos/half_cheetah/buffer_1M/extra_snapshot_itr100.pkl"
+    },
+    "saved_tasks_path": "demos/half_cheetah/buffer_1M/tasks.pkl",
+    "pretrain_offline_algo_kwargs": {
+        "batch_size": 256,
+        "logging_period": 1000,
+        "meta_batch_size": 4,
+        "num_batches": 50000,
+        "task_embedding_batch_size": 256
+    }
+}

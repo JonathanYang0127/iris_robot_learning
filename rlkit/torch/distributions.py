@@ -116,6 +116,9 @@ class Delta(Distribution):
     def entropy(self):
         return 0
 
+    def __repr__(self):
+        return 'Delta({})'.format(self.value)
+
 
 class Bernoulli(Distribution, TorchBernoulli):
     def get_diagnostics(self):
@@ -350,7 +353,7 @@ class TanhNormal(Distribution):
 
     Note: this is not very numerically stable.
     """
-    def __init__(self, normal_mean, normal_std, epsilon=1e-6):
+    def __init__(self, normal_mean, normal_std, epsilon=1e-6, log_std=None):
         """
         :param normal_mean: Mean of the normal distribution
         :param normal_std: Std of the normal distribution
@@ -360,13 +363,13 @@ class TanhNormal(Distribution):
         self.normal_std = normal_std
         self.normal = MultivariateDiagonalNormal(normal_mean, normal_std)
         self.epsilon = epsilon
+        if log_std is None:
+            log_std = torch.log(normal_std)
+        self.log_std = log_std
 
-    def sample_n(self, n, return_pre_tanh_value=False):
+    def sample_n(self, n):
         z = self.normal.sample_n(n)
-        if return_pre_tanh_value:
-            return torch.tanh(z), z
-        else:
-            return torch.tanh(z)
+        return torch.tanh(z)
 
     def _log_prob_from_pre_tanh(self, pre_tanh_value):
         """
@@ -440,6 +443,11 @@ class TanhNormal(Distribution):
         value, pre_tanh_value = self.rsample_with_pretanh()
         log_p = self.log_prob(value, pre_tanh_value)
         return value, log_p
+
+    def rsample_logprob_and_pretanh(self):
+        value, pre_tanh_value = self.rsample_with_pretanh()
+        log_p = self.log_prob(value, pre_tanh_value)
+        return value, log_p, pre_tanh_value
 
     @property
     def mean(self):

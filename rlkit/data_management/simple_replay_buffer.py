@@ -54,6 +54,12 @@ class SimpleReplayBuffer(ReplayBuffer):
     def terminate_episode(self):
         pass
 
+    def clear(self):
+        self._top = 0
+        self._size = 0
+        self._episode_starts = []
+        self._cur_episode_start = 0
+
     def _advance(self):
         self._top = (self._top + 1) % self._max_replay_buffer_size
         if self._size < self._max_replay_buffer_size:
@@ -92,6 +98,65 @@ class SimpleReplayBuffer(ReplayBuffer):
         return OrderedDict([
             ('size', self._size)
         ])
+
+    """saving / copying buffers"""
+    def copy_data(
+            self,
+            other_buffer: 'SimpleReplayBuffer',
+            start_idx=0,
+            end_idx=None,
+    ):
+        """
+        Copy data from [start:end] from the other buffer to this buffer.
+        :param other_buffer: A SimpleReplayBuffer (either this one, or from PEARL)
+        :param start_idx: start index for copying.
+        :param end_idx: end index for copying.
+        :return: None
+
+        :raise: ValueError if there is nothing to copy.
+        """
+        if end_idx is None:
+            end_idx = other_buffer._top
+            if other_buffer._top == start_idx:
+                raise ValueError("nothing to copy!")
+        if end_idx < 0 or end_idx <= start_idx:
+            raise ValueError("end_idx must be larger than start_idx")
+        num_new_steps = end_idx - start_idx
+        end_i = self._top + num_new_steps
+        this_slc = slice(self._top, end_i)
+        other_slc = slice(start_idx, end_idx)
+        if end_i > self._max_replay_buffer_size:
+            raise NotImplementedError()
+        self._observations[this_slc] = (
+            other_buffer._observations[other_slc].copy()
+        )
+        self._actions[this_slc] = (
+            other_buffer._actions[other_slc].copy()
+        )
+        self._rewards[this_slc] = (
+            other_buffer._rewards[other_slc].copy()
+        )
+        self._terminals[this_slc] = (
+            other_buffer._terminals[other_slc].copy()
+        )
+        self._next_obs[this_slc] = (
+            other_buffer._next_obs[other_slc].copy()
+        )
+        from rlkit.data_management.multitask_replay_buffer import (
+            SimpleReplayBuffer as OldPearlSimpleReplayBuffer
+        )
+        for key in self._env_info_keys:
+            # TODO: remove this special case
+            if key == 'sparse_reward' and isinstance(other_buffer, OldPearlSimpleReplayBuffer):
+                    self._env_infos['sparse_reward'][this_slc] = (
+                        other_buffer._sparse_rewards[other_slc].copy()
+                    )
+            else:
+                self._env_infos[key][this_slc] = (
+                    other_buffer._env_infos[key][other_slc]
+                )
+        self._top += num_new_steps
+        self._size += num_new_steps
 
     def __getstate__(self):
         # Do not save self.replay_buffer since it's a duplicate and seems to

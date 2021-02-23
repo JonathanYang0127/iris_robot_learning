@@ -1,0 +1,14 @@
+{
+    "pretrain_rl": true,
+    "load_buffer_kwargs": {
+        "pretrain_buffer_path": "/home/vitchyr/mnt2/log2/21-02-09-dev-point-robot-save-buffer/21-02-09-dev-point-robot-save-buffer_2021_02_09_16_26_51_id000--s922672/extra_snapshot_itr0.pkl"
+    },
+    "saved_tasks_path": "/home/vitchyr/mnt2/log2/21-02-09-dev-point-robot-save-buffer/21-02-09-dev-point-robot-save-buffer_2021_02_09_16_26_51_id000--s922672/tasks.pkl",
+    "pretrain_offline_algo_kwargs": {
+        "batch_size": 64,
+        "logging_period": 100,
+        "meta_batch_size": 4,
+        "num_batches": 500,
+        "task_embedding_batch_size": 32
+    }
+}

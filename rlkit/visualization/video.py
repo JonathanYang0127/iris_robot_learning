@@ -167,6 +167,7 @@ def dump_video(
         grayscale=False,
         keys_to_show=None,
         num_columns_per_rollout=1,
+        obs_dict_key='full_observations',
         **combine_img_kwargs
 ):
     """
@@ -206,11 +207,10 @@ def dump_video(
             env,
             policy,
             max_path_length=horizon,
-            render=False,
         )
 
         l = []
-        for i_in_path, d in enumerate(path['full_observations']):
+        for i_in_path, d in enumerate(path[obs_dict_key]):
             imgs_to_stack = [d[k] for k in keys_to_show]
             imgs_to_stack += get_extra_imgs(path, i_in_path, env)
             grid_img = combine_images_into_grid(
