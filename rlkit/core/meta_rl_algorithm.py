@@ -100,6 +100,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.replay_buffer_size = replay_buffer_size
         self.reward_scale = reward_scale
         self.update_post_train = update_post_train
+        self.post_train_funcs = []
         self.num_exp_traj_eval = num_exp_traj_eval
         self.eval_deterministic = eval_deterministic
         self.render = render
@@ -397,7 +398,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         if epoch in self.save_extra_manual_epoch_list:
             logger.save_extra_data(
                 self.get_extra_data_to_save(epoch),
-                file_name='extra_snapshot_itr{}'.format(epoch)
+                file_name='extra_snapshot_itr{}'.format(epoch),
+                mode='cloudpickle',
             )
         if self._save_extra_every_epoch:
             logger.save_extra_data(self.get_extra_data_to_save(epoch))
@@ -492,6 +494,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         logger.push_prefix('Iteration #%d | ' % epoch)
 
     def _end_epoch(self, epoch):
+        for post_train_func in self.post_train_funcs:
+            post_train_func(self, epoch)
+
         self.trainer.end_epoch(epoch)
         logger.log("Epoch Duration: {0}".format(
             time.time() - self._epoch_start_time

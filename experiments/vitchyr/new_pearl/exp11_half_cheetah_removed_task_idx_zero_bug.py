@@ -19,8 +19,8 @@ def load_configs(config_paths):
 @click.command()
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--dry', is_flag=True, default=False)
-@click.option('--take', default=None)
-def main(debug, dry, take):
+@click.option('--suffix', default=None)
+def main(debug, dry, suffix):
     mode = 'sss'
     n_seeds = 3
     gpu = True
@@ -32,7 +32,7 @@ def main(debug, dry, take):
     ]
 
     path_parts = __file__.split('/')
-    suffix = '' if take is None else '--take{}'.format(take)
+    suffix = '' if suffix is None else '--{}'.format(suffix)
     exp_name = '{}--{}{}'.format(
         path_parts[-2].replace('_', '-'),
         path_parts[-1].split('.')[0].replace('_', '-'),

@@ -208,6 +208,7 @@ def dump_video(
             env,
             policy,
             max_path_length=horizon,
+            counter=i,
         )
 
         l = []
