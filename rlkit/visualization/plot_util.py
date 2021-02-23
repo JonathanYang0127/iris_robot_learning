@@ -8,7 +8,7 @@ try:
     import rllab.viskit.core as core
 except:
     import viskit.core as core
-from rllab.misc import ext
+from rlkit.misc.variant_generator import AttrDict
 
 read_tb = lambda: None
 import glob
@@ -82,7 +82,8 @@ def load_exps(dirnames, filter_fn=true_fn, suppress_output=False, progress_filen
             good_exps.append(e)
     return good_exps
 
-def load_exps_data_numpy(exp_folder_paths, log_reader, disable_variant=False, progress_filename="progress.csv", ):
+def load_exps_data_numpy(exp_folder_paths, log_reader, disable_variant=False,
+        progress_filename="progress.csv", params_filename="variant.json"):
     exps = []
     for exp_folder_path in exp_folder_paths:
         exps += [x[0] for x in os.walk(exp_folder_path)]
@@ -90,9 +91,8 @@ def load_exps_data_numpy(exp_folder_paths, log_reader, disable_variant=False, pr
     for exp in exps:
         try:
             exp_path = exp
-            # params_json_path = os.path.join(exp_path, "params.json")
             params_json_path = os.path.join(exp_path, "params.pkl")
-            variant_json_path = os.path.join(exp_path, "variant.json")
+            variant_json_path = os.path.join(exp_path, params_filename)
             progress_csv_path = os.path.join(exp_path, progress_filename)
             progress = log_reader.read_log(exp_path, progress_csv_path)
             if disable_variant:
@@ -102,7 +102,7 @@ def load_exps_data_numpy(exp_folder_paths, log_reader, disable_variant=False, pr
                     params = core.load_params(variant_json_path)
                 except IOError:
                     params = core.load_params(params_json_path)
-            exps_data.append(ext.AttrDict(
+            exps_data.append(AttrDict(
                 progress=progress, params=params, flat_params=core.flatten_dict(params)))
         except IOError as e:
             print(e)
@@ -209,9 +209,9 @@ def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
         if not bar_plot:
             ax.set_ylabel(key)
         if xlim:
-            ax.xlim(xlim)
+            ax.set_xlim(xlim)
         if ylim:
-            ax.ylim(ylim)
+            ax.set_ylim(ylim)
 
     y_data = {}
     x_data = {}
@@ -408,7 +408,7 @@ def split(exps,
                 figsize=figsize,
                 print_final=print_final,
                 print_max=print_max, print_min=print_min,
-                print_plot=print_plot, ax=ax,
+                print_plot=print_plot, ax=ax, default_vary=default_vary,
                 **kwargs)
             if print_plot:
                 ax.set_title(prettify_configuration(c) + " Vary " + " ".join(vary))
@@ -563,3 +563,4 @@ def number_M_format_func(value, tick_number):
 
 def format_func_epoch(value, tick_number):
     return(str(int(value)) + 'K')
+

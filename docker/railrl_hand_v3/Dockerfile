@@ -132,3 +132,6 @@ RUN pip install Pillow==6.2.1
 RUN pip install torch==1.0.1.post2
 RUN pip install tabulate
 RUN pip install pybullet
+
+COPY ./files/mjkey.txt /root/.mujoco/mjkey.txt
+RUN python -c "import mujoco_py"

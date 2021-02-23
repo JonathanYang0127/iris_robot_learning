@@ -49,16 +49,16 @@ def train_vae_and_update_variant(variant):
             'progress.csv', relative_to_snapshot_dir=True
         )
         logger.add_tabular_output(
-            'vae_progress.csv', relative_to_snapshot_dir=True
+            'model_progress.csv', relative_to_snapshot_dir=True
         )
         vae, vae_train_data, vae_test_data = train_fn(train_vae_variant,
                                                        return_data=True)
         if grill_variant.get('save_vae_data', False):
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
-        logger.save_extra_data(vae, 'vae.pkl', mode='pickle')
+        logger.save_extra_data(vae, 'model', mode='pickle')
         logger.remove_tabular_output(
-            'vae_progress.csv',
+            'model_progress.csv',
             relative_to_snapshot_dir=True,
         )
         logger.add_tabular_output(
@@ -73,6 +73,20 @@ def train_vae_and_update_variant(variant):
             )
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
+
+def train_vqvae(variant):
+    from rlkit.launchers.experiments.ashvin.pixelcnn_launcher import train_pixelcnn
+    vqvae = train_vae(variant)
+    dataset_path = variant['generate_vae_dataset_kwargs']['dataset_path']
+    data_filter_fn = variant['generate_vae_dataset_kwargs'].get('data_filter_fn', lambda x: x)
+    train_pixelcnn_kwargs = variant.get('train_pixelcnn_kwargs', {})
+    vqvae = train_pixelcnn(
+        vqvae=vqvae,
+        dataset_path=dataset_path,
+        data_filter_fn=data_filter_fn,
+        **train_pixelcnn_kwargs
+    )
+    return vqvae
 
 def train_vae(variant, return_data=False):
     from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
@@ -157,7 +171,7 @@ def train_vae(variant, return_data=False):
         should_save_imgs = (epoch % save_period == 0)
         trainer.train_epoch(epoch, train_dataset)
         trainer.test_epoch(epoch, test_dataset)
-        
+
         if should_save_imgs:
             trainer.dump_reconstructions(epoch)
             trainer.dump_samples(epoch)
@@ -174,7 +188,7 @@ def train_vae(variant, return_data=False):
 
         if epoch % 50 == 0:
             logger.save_itr_params(epoch, model)
-    logger.save_extra_data(model, 'vae.pkl', mode='pickle')
+    logger.save_extra_data(model, 'model', mode='pickle')
 
     if return_data:
         return model, train_dataset, test_dataset
@@ -182,24 +196,20 @@ def train_vae(variant, return_data=False):
     return model
 
 def concatenate_datasets(data_list):
-        prefix = '/home/ashvin/data/pusher_pucks/'
-        obs, envs, actions, dataset = [], [], [], {}
-        for path in data_list:
-            curr_data = load_local_or_remote_file(prefix + path)
-            curr_data = curr_data.item()
-            n_random_steps = curr_data['observations'].shape[1]
-            imlength = curr_data['observations'].shape[2]
-            action_dim = curr_data['actions'].shape[2]
-            curr_data['env'] = np.repeat(curr_data['env'], n_random_steps, axis=0)
-            curr_data['observations'] = curr_data['observations'].reshape(-1, 1, imlength)
-            curr_data['actions'] = curr_data['actions'].reshape(-1, 1, action_dim)
-            obs.append(curr_data['observations'])
-            envs.append(curr_data['env'])
-            actions.append(curr_data['actions'])
-        dataset['observations'] = np.concatenate(obs, axis=0)
-        dataset['env'] = np.concatenate(envs, axis=0)
-        dataset['actions'] = np.concatenate(actions, axis=0)
-        return dataset
+    from rlkit.misc.asset_loader import load_local_or_remote_file
+    obs, envs, dataset = [], [], {}
+    for path in data_list:
+        curr_data = load_local_or_remote_file(path)
+        curr_data = curr_data.item()
+        n_random_steps = curr_data['observations'].shape[1]
+        imlength = curr_data['observations'].shape[2]
+        curr_data['env'] = np.repeat(curr_data['env'], n_random_steps, axis=0)
+        curr_data['observations'] = curr_data['observations'].reshape(-1, 1, imlength)
+        obs.append(curr_data['observations'])
+        envs.append(curr_data['env'])
+    dataset['observations'] = np.concatenate(obs, axis=0)
+    dataset['env'] = np.concatenate(envs, axis=0)
+    return dataset
 
 def format_flat_dataset(dataset):
     num_samples = dataset['observations'].shape[0]
@@ -225,6 +235,8 @@ def generate_vae_dataset(variant):
     init_camera = variant.get('init_camera', None)
     dataset_path = variant.get('dataset_path', None)
     augment_data = variant.get('augment_data', False)
+    data_filter_fn = variant.get('data_filter_fn', lambda x: x)
+    delete_after_loading = variant.get('delete_after_loading', False)
     oracle_dataset_using_set_to_goal = variant.get('oracle_dataset_using_set_to_goal', False)
     random_rollout_data = variant.get('random_rollout_data', False)
     random_rollout_data_set_to_goal = variant.get('random_rollout_data_set_to_goal', True)
@@ -258,7 +270,7 @@ def generate_vae_dataset(variant):
     use_test_dataset = False
     if dataset_path is not None:
         if type(dataset_path) == str:
-            dataset = load_local_or_remote_file(dataset_path)
+            dataset = load_local_or_remote_file(dataset_path, delete_after_loading=delete_after_loading)
             dataset = dataset.item()
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
@@ -267,12 +279,18 @@ def generate_vae_dataset(variant):
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
         if isinstance(dataset_path, dict):
-            dataset = load_local_or_remote_file(dataset_path['train'])
-            dataset = dataset.item()
-            test_dataset = load_local_or_remote_file(dataset_path['test'])
-            test_dataset = test_dataset.item()
-            #dataset = format_flat_dataset(dataset)
-            test_dataset = format_flat_dataset(test_dataset)
+
+            if type(dataset_path['train']) == str:
+                dataset = load_local_or_remote_file(dataset_path['train'], delete_after_loading=delete_after_loading)
+                dataset = dataset.item()
+            elif isinstance(dataset_path['train'], list):
+                dataset = concatenate_datasets(dataset_path['train'])
+
+            if type(dataset_path['test']) == str:
+                test_dataset = load_local_or_remote_file(dataset_path['test'], delete_after_loading=delete_after_loading)
+                test_dataset = test_dataset.item()
+            elif isinstance(dataset_path['test'], list):
+                test_dataset = concatenate_datasets(dataset_path['test'])
 
             N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
@@ -293,7 +311,7 @@ def generate_vae_dataset(variant):
             tag,
         )
         if use_cached and osp.isfile(filename):
-            dataset = load_local_or_remote_file(filename)
+            dataset = load_local_or_remote_file(filename, delete_after_loading=delete_after_loading)
             if conditional_vae_dataset:
                 dataset = dataset.item()
             print("loaded data from saved file", filename)
@@ -371,7 +389,7 @@ def generate_vae_dataset(variant):
                     env.step(u)
                 elif oracle_dataset_using_set_to_goal:
                     print(i)
-                    
+
                     goal = env.sample_goal()
                     env.set_to_goal(goal)
                     obs = env._get_obs()
@@ -403,6 +421,7 @@ def generate_vae_dataset(variant):
     info['train_labels'] = []
     info['test_labels'] = []
 
+    dataset = data_filter_fn(dataset)
     if use_linear_dynamics and conditional_vae_dataset:
         num_trajectories = N // n_random_steps
         n = int(num_trajectories * test_p)
