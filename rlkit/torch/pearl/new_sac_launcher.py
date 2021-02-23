@@ -81,8 +81,6 @@ def pearl_sac_experiment(
         save_video_kwargs=None,
         n_train_tasks_for_video=None,
         n_test_tasks_for_video=None,
-        n_eval_video_rollouts=None,
-        n_expl_video_rollouts=None,
         video_img_size=256,
         # PEARL
         n_train_tasks=0,
@@ -262,11 +260,12 @@ def pearl_sac_experiment(
     algorithm.to(ptu.device)
 
     if save_video:
+        font_size = int(video_img_size / 256 * 40)  # heuristic
         def config_reward_ax(ax):
             ax.set_title('reward vs step')
             ax.set_xlabel('steps')
             ax.set_ylabel('reward')
-            size = 20
+            size = font_size
             ax.yaxis.set_tick_params(labelsize=size)
             ax.xaxis.set_tick_params(labelsize=size)
             ax.title.set_size(size)
@@ -288,6 +287,7 @@ def pearl_sac_experiment(
                 text='test',
                 width=video_img_size,
                 height=video_img_size,
+                font_size=font_size,
             )
             reward_plotter = ScrollingPlotRenderer(
                 width=video_img_size,
@@ -317,20 +317,18 @@ def pearl_sac_experiment(
                 tag=tag,
                 num_steps=num_steps,
                 max_path_length=algorithm.max_path_length,
-                rows=len(task_indices),
                 **save_video_kwargs
             )
         video_train_tasks = train_task_indices[:n_train_tasks_for_video]
         video_eval_tasks = list(sorted(
-            set(test_task_indices[:n_test_tasks_for_video]).intersection(
+            set(test_task_indices[:n_test_tasks_for_video]).union(
                 video_train_tasks
             )
-        ))
-        if n_expl_video_rollouts is None:
-            n_expl_video_rollouts = (
-                    len(expl_path_collector.path_collectors)
-                    * len(video_train_tasks)
-            )
+        ))  # avoid duplicates
+        n_expl_video_rollouts = (
+                len(expl_path_collector.path_collectors)
+                * len(video_train_tasks)
+        )
         save_expl_video_func = make_video_func(
             expl_env,
             eval_policy,
@@ -341,11 +339,10 @@ def pearl_sac_experiment(
         )
         algorithm.post_train_funcs.append(save_expl_video_func)
 
-        if n_eval_video_rollouts is None:
-            n_eval_video_rollouts = (
-                    len(eval_path_collector.path_collectors)
-                    * len(video_eval_tasks)
-            )
+        n_eval_video_rollouts = (
+                len(eval_path_collector.path_collectors)
+                * len(video_eval_tasks)
+        )
         save_eval_video_func = make_video_func(
             eval_env,
             eval_policy,
@@ -356,95 +353,3 @@ def pearl_sac_experiment(
         )
         algorithm.post_train_funcs.append(save_eval_video_func)
     algorithm.train()
-
-
-def get_video():
-    obs_key = 'tmp'
-    policy = FlatToDictPearlPolicy(policy, obs_key)
-    env = FlatToDictEnv(env, obs_key)
-
-    img_renderer = GymEnvRenderer(
-        width=256,
-        height=256,
-    )
-    text_renderer = TextRenderer(
-        text='test',
-        width=256,
-        height=256,
-    )
-    reward_plotter = ScrollingPlotRenderer(
-        width=256,
-        height=256,
-    )
-    renderers={
-        'image_observation': img_renderer,
-        'text': text_renderer,
-        'reward': reward_plotter,
-    }
-    img_env = DebugInsertImagesEnv(
-        wrapped_env=env,
-        renderers=renderers,
-    )
-
-    save_dir = Path(snapshot_path).parent / 'generated_rollouts'
-    save_dir.mkdir(parents=True, exist_ok=True)
-    save_path = save_dir / '{}rollout0.mp4'.format(prefix)
-    # rollout_fn = partial(
-    #     rollout,
-    # )
-
-    def random_task_rollout_fn(*args, **kwargs):
-        global counter
-        task_idx = counter
-        counter += 1
-        # task_idx = np.random.choice([0, 1])
-        if task_idx in [0, 1]:
-            # if pearl_replay_buffer is not None and task_idx in train_task_indices:
-            text_renderer.prefix = 'train (sample z from buffer)\n'
-            init_context = pearl_replay_buffer.sample_context(task_idx)
-            init_context = ptu.from_numpy(init_context)
-            return rollout(
-                *args,
-                task_idx=task_idx,
-                initial_context=init_context,
-                resample_latent_period=1,
-                accum_context=True,
-                update_posterior_period=1,
-                **kwargs)
-        elif task_idx in [2, 3]:
-            text_renderer.prefix = 'eval on train\n'
-            return rollout(
-                *args,
-                task_idx=task_idx - 2,
-                initial_context=None,
-                resample_latent_period=0,
-                accum_context=True,
-                update_posterior_period=1,
-                **kwargs)
-        else:
-            text_renderer.prefix = 'eval on test\n'
-            init_context = None
-            return rollout(
-                *args,
-                task_idx=task_idx - 2,
-                initial_context=init_context,
-                resample_latent_period=0,
-                accum_context=True,
-                update_posterior_period=1,
-                **kwargs)
-
-    dump_video(
-        env=img_env,
-        policy=policy,
-        filename=save_path,
-        rollout_function=random_task_rollout_fn,
-        obs_dict_key='observations',
-        keys_to_show=list(renderers.keys()),
-        image_format=img_renderer.output_image_format,
-        # rows=1,
-        # columns=1,
-        rows=1,
-        columns=4,
-        imsize=256,
-        horizon=200,
-    )

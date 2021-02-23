@@ -181,8 +181,11 @@ class TextRenderer(MatplotLibRenderer):
     def _add_text(self, text):
         self._text = self.ax.text(
             0.0,
-            0.5,
+            1.0,
             self.prefix + text,
+            horizontalalignment='left',
+            verticalalignment='top',
+            # transform=self.ax.transAxes,
             fontsize=self._font_size,
         )
 

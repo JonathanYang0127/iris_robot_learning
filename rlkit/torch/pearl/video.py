@@ -6,47 +6,6 @@ from rlkit.torch.pearl.path_collector import (
 )
 from rlkit.visualization.video import dump_paths
 
-def create_video_saving_function2(
-        path_collector: PearlJointPathCollector,
-        save_video_period,
-        keys_to_save,
-        max_path_length,
-        num_steps,
-        text_renderer,
-        tag='',
-        task_indices_per_rollout=None,
-        **dump_video_kwargs
-):
-    logdir = logger.get_snapshot_dir()
-
-    def save_video(algo, epoch):
-        if epoch % save_video_period == 0 or epoch >= algo.num_epochs - 1:
-            # def label_name(name, kwargs):
-            #     text_renderer.prefix = '{name}\n'.format(name=name)
-            #     if task_indices_per_rollout is not None:
-            #         kwargs['task_indices_for_rollout'] = task_indices_per_rollout
-            #     return kwargs
-            paths = path_collector.collect_new_paths(
-                max_path_length,
-                num_steps,
-                False,
-                # per_name_callback=label_name,
-            )
-            filename = 'video_{tag}{epoch}.mp4'.format(
-                tag=tag + '_' if tag else '',
-                epoch=epoch)
-            filepath = osp.join(logdir, filename)
-            dump_paths(
-                None,
-                filepath,
-                paths,
-                keys=keys_to_save,
-                # rows=3,
-                # columns=len(),
-                **dump_video_kwargs
-            )
-    return save_video
-
 
 class PearlSaveVideoFunction(object):
     def __init__(
@@ -79,20 +38,26 @@ class PearlSaveVideoFunction(object):
                 if self.task_indices_per_rollout is not None:
                     kwargs['task_indices_for_rollout'] = self.task_indices_per_rollout
                 return kwargs
-            paths = self.path_collector.collect_new_paths(
+            name_to_path_and_indices = self.path_collector.collect_named_paths_and_indices(
                 self.max_path_length,
                 self.num_steps,
                 False,
                 per_name_callback=label_name,
             )
-            filename = 'video_{tag}{epoch}.mp4'.format(
-                tag=self.tag,
-                epoch=epoch)
-            filepath = osp.join(logdir, filename)
-            dump_paths(
-                None,
-                filepath,
-                paths,
-                keys=self.keys_to_save,
-                **self.dump_video_kwargs
-            )
+            for name, (paths, _) in name_to_path_and_indices.items():
+                filename = 'video_{tag}{name}_{epoch}.mp4'.format(
+                    tag=self.tag,
+                    name=name.replace('/', '-'),
+                    epoch=epoch)
+                filepath = osp.join(logdir, filename)
+                dump_paths(
+                    None,
+                    filepath,
+                    paths,
+                    keys=self.keys_to_save,
+                    columns=len(self.task_indices_per_rollout),
+                    rows=None,  # fill in automatically
+                    # columns=len(video_path_collector.path_collectors),
+                    # columns=self
+                    **self.dump_video_kwargs
+                )

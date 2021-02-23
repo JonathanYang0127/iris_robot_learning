@@ -1,3 +1,4 @@
+import math
 import os
 import os.path as osp
 import uuid
@@ -322,6 +323,11 @@ def dump_paths(
 
     H = num_imgs * imheight  # imsize
     W = imwidth  # imsize
+
+    if rows is None and columns is not None:
+        rows = min(math.ceil(len(paths) / columns), 1)
+    if columns is None and rows is not None:
+        columns = min(math.ceil(len(paths) / rows), 1)
 
     if len(paths) < rows * columns:
         columns = min(columns, len(paths))
