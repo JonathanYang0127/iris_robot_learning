@@ -260,65 +260,6 @@ def pearl_sac_experiment(
     algorithm.to(ptu.device)
 
     if save_video:
-        font_size = int(video_img_size / 256 * 40)  # heuristic
-        def config_reward_ax(ax):
-            ax.set_title('reward vs step')
-            ax.set_xlabel('steps')
-            ax.set_ylabel('reward')
-            size = font_size
-            ax.yaxis.set_tick_params(labelsize=size)
-            ax.xaxis.set_tick_params(labelsize=size)
-            ax.title.set_size(size)
-            ax.xaxis.label.set_size(size)
-            ax.yaxis.label.set_size(size)
-
-        def make_video_func(
-                env, policy, tag, create_path_collector, num_steps, task_indices
-        ):
-            obs_key = 'obervation_for_video'
-            img_policy = FlatToDictPearlPolicy(policy, obs_key)
-            env = FlatToDictEnv(env, obs_key)
-
-            img_renderer = GymEnvRenderer(
-                width=video_img_size,
-                height=video_img_size,
-            )
-            text_renderer = TextRenderer(
-                text='test',
-                width=video_img_size,
-                height=video_img_size,
-                font_size=font_size,
-            )
-            reward_plotter = ScrollingPlotRenderer(
-                width=video_img_size,
-                height=video_img_size,
-                modify_ax_fn=config_reward_ax,
-            )
-            renderers = OrderedDict([
-                ('image_observation', img_renderer),
-                ('reward_plot', reward_plotter),
-                ('text', text_renderer),
-            ])
-            img_env = DebugInsertImagesEnv(
-                wrapped_env=env,
-                renderers=renderers,
-            )
-            video_path_collector = create_path_collector(img_env, img_policy)
-            keys_to_save = list(renderers.keys())
-            return video.PearlSaveVideoFunction(
-                video_path_collector,
-                keys_to_save=keys_to_save,
-                obs_dict_key='observations',
-                image_format=text_renderer.output_image_format,
-                text_renderer=text_renderer,
-                imsize=video_img_size,
-                unnormalize=True,
-                task_indices_per_rollout=task_indices,
-                tag=tag,
-                num_steps=num_steps,
-                max_path_length=algorithm.max_path_length,
-                **save_video_kwargs
-            )
         video_train_tasks = train_task_indices[:n_train_tasks_for_video]
         video_eval_tasks = list(sorted(
             set(test_task_indices[:n_test_tasks_for_video]).union(
@@ -329,13 +270,15 @@ def pearl_sac_experiment(
                 len(expl_path_collector.path_collectors)
                 * len(video_train_tasks)
         )
-        save_expl_video_func = make_video_func(
+        save_expl_video_func = video.make_save_video_function(
             expl_env,
             eval_policy,
             'expl',
-            create_expl_path_collector,
+            create_path_collector=create_expl_path_collector,
             num_steps=n_expl_video_rollouts * algorithm.max_path_length,
             task_indices=video_train_tasks,
+            max_path_length=algorithm.max_path_length,
+            **save_video_kwargs
         )
         algorithm.post_train_funcs.append(save_expl_video_func)
 
@@ -343,13 +286,15 @@ def pearl_sac_experiment(
                 len(eval_path_collector.path_collectors)
                 * len(video_eval_tasks)
         )
-        save_eval_video_func = make_video_func(
+        save_eval_video_func = video.make_save_video_function(
             eval_env,
             eval_policy,
             'eval',
-            create_eval_path_collector,
+            create_path_collector=create_eval_path_collector,
             num_steps=n_eval_video_rollouts * algorithm.max_path_length,
             task_indices=video_eval_tasks,
+            max_path_length=algorithm.max_path_length,
+            **save_video_kwargs
         )
         algorithm.post_train_funcs.append(save_eval_video_func)
     algorithm.train()
