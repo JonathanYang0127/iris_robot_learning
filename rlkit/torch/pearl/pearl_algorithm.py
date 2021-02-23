@@ -40,17 +40,17 @@ class PearlAlgorithm(TorchBatchRLAlgorithm):
         if not self._eval_only:
             for _ in range(self.num_train_loops_per_epoch):
                 timer.start_timer('exploration sampling', unique=False)
-                task_idx = np.random.choice(self.train_task_indices)
-                new_expl_paths = self.expl_data_collector.collect_new_paths(
+                # task_idx = np.random.choice(self.train_task_indices)
+                new_expl_paths, task_indices = self.expl_data_collector.collect_new_paths_and_indices(
                     self.max_path_length,
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
-                    task_idx=task_idx,
+                    # task_idx=task_idx,
                 )
                 timer.stop_timer('exploration sampling')
 
                 timer.start_timer('replay buffer data storing', unique=False)
-                self.replay_buffer.add_paths(new_expl_paths, task_idx)
+                self.replay_buffer.add_paths_with_task_indices(new_expl_paths, task_indices)
                 timer.stop_timer('replay buffer data storing')
 
                 timer.start_timer('training', unique=False)

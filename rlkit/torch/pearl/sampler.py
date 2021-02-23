@@ -67,7 +67,7 @@ class PEARLInPlacePathSampler(object):
 def rollout(
         env,
         agent,
-        task_idx=0,
+        task_idx,
         max_path_length=np.inf,
         accum_context=True,
         animated=False,

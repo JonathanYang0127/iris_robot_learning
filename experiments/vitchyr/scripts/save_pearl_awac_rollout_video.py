@@ -152,9 +152,7 @@ def simulate_policy(args):
         global counter
         task_idx = counter
         counter += 1
-        # task_idx = np.random.choice([0, 1])
         if task_idx in [0, 1]:
-        # if pearl_replay_buffer is not None and task_idx in train_task_indices:
             text_renderer.prefix = 'train (sample z from buffer)\n'
             init_context = pearl_replay_buffer.sample_context(task_idx)
             init_context = ptu.from_numpy(init_context)
@@ -162,9 +160,9 @@ def simulate_policy(args):
                 *args,
                 task_idx=task_idx,
                 initial_context=init_context,
-                resample_latent_period=0,
-                # accum_context=True,
-                # update_posterior_period=1,
+                resample_latent_period=1,
+                accum_context=True,
+                update_posterior_period=1,
                 **kwargs)
         elif task_idx in [2, 3]:
             text_renderer.prefix = 'eval on train\n'

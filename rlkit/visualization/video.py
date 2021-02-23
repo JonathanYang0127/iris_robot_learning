@@ -306,6 +306,7 @@ def dump_paths(
         grayscale=False,
         get_extra_imgs=None,
         num_columns_per_rollout=1,
+        obs_dict_key='full_observations',
         **combine_img_kwargs
 ):
     # TODO: merge with `dump_video`
@@ -332,7 +333,7 @@ def dump_paths(
         start = time.time()
         path = paths[i]
         l = []
-        for i_in_path, d in enumerate(path['full_observations']):
+        for i_in_path, d in enumerate(path[obs_dict_key]):
             imgs = [d[k] for k in keys]
             imgs = imgs + get_extra_imgs(path, i_in_path, env)
             imgs = imgs[:num_imgs]

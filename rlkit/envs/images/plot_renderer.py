@@ -20,9 +20,12 @@ class MatplotLibRenderer(Renderer, metaclass=abc.ABCMeta):
             normalize_image='True',
             **kwargs)
         self._dpi = dpi  # TODO: use automatically
+        self.modify_fig_fn = modify_fig_fn
+        self.modify_ax_fn = modify_ax_fn
         _, height, width = self.image_chw
 
         figsize = (height / dpi, width / dpi)
+        self._figsize = figsize
         self.fig = plt.figure(
             figsize=figsize,
             dpi=dpi,
@@ -44,6 +47,29 @@ class MatplotLibRenderer(Renderer, metaclass=abc.ABCMeta):
         height = int(height)
         img = flat_img.reshape(height, width, 3)
         return img
+
+    def __getstate__(self):
+        """You can't cloudpickle matplotlib most objects."""
+        state = {k: v for k, v in self.__dict__.items()}
+        state.pop('fig')
+        state.pop('ax')
+        state.pop('canvas')
+        return state
+
+    def __setstate__(self, state):
+        for k, v in state:
+            self.__dict__[k] = v
+        self.fig = plt.figure(
+            figsize=self._figsize,
+            dpi=self._dpi,
+        )
+
+        self.ax = self.fig.add_subplot(1, 1, 1)
+        if self.modify_fig_fn:
+            self.modify_fig_fn(self.fig)
+        if self.modify_ax_fn:
+            self.modify_ax_fn(self.ax)
+        self.canvas = FigureCanvas(self.fig)
 
 
 class ScrollingPlotRenderer(MatplotLibRenderer):
@@ -98,6 +124,17 @@ class ScrollingPlotRenderer(MatplotLibRenderer):
         self.ax.relim()
         self.ax.autoscale_view(scalex=True, scaley=self._autoscale_y)
 
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['lines'] = None
+        return state
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        self.lines = self.ax.plot(
+            [], [],
+        )[0]
+
 
 class TextRenderer(MatplotLibRenderer):
     """
@@ -148,3 +185,8 @@ class TextRenderer(MatplotLibRenderer):
             self.prefix + text,
             fontsize=self._font_size,
         )
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['_text'] = None
+        return state
