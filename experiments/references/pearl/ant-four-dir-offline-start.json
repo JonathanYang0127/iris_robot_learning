@@ -1,14 +1,14 @@
 {
     "env_name": "ant-dir",
-    "n_train_tasks": 2,
-    "n_eval_tasks": 2,
+    "n_train_tasks": 4,
+    "n_eval_tasks": 4,
     "env_params": {
-        "n_tasks": 2
+        "n_tasks": 4
     }
     ,
     "algo_params": {
-        "batch_size": 1024,
-        "max_path_length": 1000,
+        "batch_size": 256,
+        "max_path_length": 200,
         "meta_batch": 4,
         "num_initial_steps": 2000,
         "num_steps_prior": 400,
@@ -34,9 +34,9 @@
     "policy_class": "GaussianPolicy",
     "pretrain_rl": true,
     "load_buffer_kwargs": {
-        "pretrain_buffer_path": "demos/ant_dir/buffer_501k/extra_snapshot_itr100.pkl"
+        "pretrain_buffer_path": "21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-sac-to-get-buffer-longer/21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-sac-to-get-buffer-longer_2021_02_23_06_09_23_id000--s270987/extra_snapshot_itr400.cpkl"
     },
-    "saved_tasks_path": "demos/ant_dir/buffer_500k/tasks.pkl",
+    "saved_tasks_path": "demos/ant_four_dir/buffer_550k_each/tasks.pkl",
     "pretrain_offline_algo_kwargs": {
         "batch_size": 128,
         "logging_period": 1000,
