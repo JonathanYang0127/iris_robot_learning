@@ -57,7 +57,7 @@ class MatplotLibRenderer(Renderer, metaclass=abc.ABCMeta):
         return state
 
     def __setstate__(self, state):
-        for k, v in state:
+        for k, v in state.items():
             self.__dict__[k] = v
         self.fig = plt.figure(
             figsize=self._figsize,

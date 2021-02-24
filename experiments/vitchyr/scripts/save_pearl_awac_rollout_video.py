@@ -11,6 +11,7 @@ from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.envs.images import GymEnvRenderer
 # from rlkit.envs.images.text_renderer import TextRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
+from rlkit.envs.pearl_envs import HalfCheetahDirEnv, AntDirEnv
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
@@ -19,7 +20,7 @@ from rlkit.torch.pearl.diagnostics import (
     FlatToDictPearlPolicy,
 )
 from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo
-from rlkit.torch.pearl.sampler import rollout
+from rlkit.torch.pearl.sampler import rollout, rollout_multiple_and_flatten
 from rlkit.visualization.video import dump_video
 
 counter = 0
@@ -144,46 +145,62 @@ def simulate_policy(args):
     save_dir = Path(snapshot_path).parent / 'generated_rollouts'
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / '{}rollout0.mp4'.format(prefix)
-    # rollout_fn = partial(
-    #     rollout,
-    # )
+    base_env = env.env.wrapped_env
+    if isinstance(base_env, HalfCheetahDirEnv):
+        n_tasks = 2
+        test_task_idxs = [0, 1]
+        n_videos = 3 * n_tasks
+        n_repeats = 3
+    elif isinstance(base_env, AntDirEnv):
+        n_tasks = 4
+        n_videos = 3 * n_tasks
+        test_task_idxs = [4, 5, 6, 7]
+        n_repeats = 3
+    else:
+        raise NotImplementedError()
 
-    def random_task_rollout_fn(*args, **kwargs):
+    def random_task_rollout_fn(*args, max_path_length=None, **kwargs):
         global counter
         task_idx = counter
         counter += 1
-        if task_idx in [0, 1]:
+        if task_idx in list(range(n_tasks)):
             text_renderer.prefix = 'train (sample z from buffer)\n'
             init_context = pearl_replay_buffer.sample_context(task_idx)
             init_context = ptu.from_numpy(init_context)
-            return rollout(
+            return rollout_multiple_and_flatten(
                 *args,
                 task_idx=task_idx,
                 initial_context=init_context,
                 resample_latent_period=1,
                 accum_context=True,
                 update_posterior_period=1,
+                max_path_length=int(max_path_length//n_repeats),
+                num_repeats=n_repeats,
                 **kwargs)
-        elif task_idx in [2, 3]:
+        elif task_idx in [i + n_tasks for i in range(n_tasks)]:
             text_renderer.prefix = 'eval on train\n'
-            return rollout(
+            return rollout_multiple_and_flatten(
                 *args,
-                task_idx=task_idx - 2,
+                task_idx=task_idx - n_tasks,
                 initial_context=None,
                 resample_latent_period=0,
                 accum_context=True,
                 update_posterior_period=1,
+                max_path_length=int(max_path_length//n_repeats),
+                num_repeats=n_repeats,
                 **kwargs)
         else:
             text_renderer.prefix = 'eval on test\n'
             init_context = None
-            return rollout(
+            return rollout_multiple_and_flatten(
                 *args,
-                task_idx=task_idx - 2,
+                task_idx=test_task_idxs[task_idx - 2*n_tasks],
                 initial_context=init_context,
                 resample_latent_period=0,
                 accum_context=True,
                 update_posterior_period=1,
+                max_path_length=int(max_path_length//n_repeats),
+                num_repeats=n_repeats,
                 **kwargs)
 
     dump_video(
@@ -197,9 +214,9 @@ def simulate_policy(args):
         # rows=1,
         # columns=1,
         rows=1,
-        columns=4,
+        columns=n_videos,
         imsize=256,
-        horizon=200,
+        horizon=100 * n_repeats,
     )
 
 
