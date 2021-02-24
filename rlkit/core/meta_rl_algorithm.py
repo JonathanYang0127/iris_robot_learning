@@ -109,6 +109,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.save_replay_buffer = save_replay_buffer
         self.save_algorithm = save_algorithm
         self.save_environment = save_environment
+        if num_iterations_with_reward_supervision is None:
+            num_iterations_with_reward_supervision = np.inf
         self.num_iterations_with_reward_supervision = num_iterations_with_reward_supervision
         self.freeze_encoder_buffer_in_unsupervised_phase = (
             freeze_encoder_buffer_in_unsupervised_phase

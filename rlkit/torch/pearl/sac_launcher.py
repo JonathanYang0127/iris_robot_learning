@@ -237,8 +237,10 @@ def pearl_experiment(
     saved_path = logger.save_extra_data(
         data=dict(
             tasks=expl_env.tasks,
-            train_task_indices=list(tasks[:n_train_tasks]),
-            eval_task_indices=list(tasks[-n_eval_tasks:]),
+            train_task_indices=list(task_indices[:n_train_tasks]),
+            eval_task_indices=list(task_indices[-n_eval_tasks:]),
+            train_tasks=tasks[:n_train_tasks],
+            eval_tasks=tasks[-n_eval_tasks:],
         ),
         file_name='tasks',
     )
