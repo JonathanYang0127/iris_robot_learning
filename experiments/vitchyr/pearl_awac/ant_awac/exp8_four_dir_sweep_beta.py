@@ -17,7 +17,7 @@ import rlkit.misc.hyperparameter as hyp
 @click.option('--suffix', default=None)
 def main(debug, dry, suffix):
     mode = 'sss'
-    n_seeds = 3
+    n_seeds = 1
     gpu = True
 
     base_dir = Path(__file__).parent.parent
@@ -44,6 +44,13 @@ def main(debug, dry, suffix):
     variant = ppp.recursive_to_dict(config)
 
     search_space = {
+        'trainer_kwargs.beta': [
+            0.5,
+            2,
+            5,
+            10,
+            50,
+        ],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
