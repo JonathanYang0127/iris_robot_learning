@@ -28,13 +28,13 @@ def main(debug, dry, suffix):
 
     path_parts = __file__.split('/')
     suffix = '' if suffix is None else '--{}'.format(suffix)
-    exp_name = '{}--{}{}'.format(
+    exp_name = 'pearl-awac-{}--{}{}'.format(
         path_parts[-2].replace('_', '-'),
         path_parts[-1].split('.')[0].replace('_', '-'),
         suffix,
     )
     if debug:
-        configs.append(base_dir / 'configs/debug.conf')
+        configs.append(base_dir / 'configs/debug_awac.conf')
     if debug or dry:
         exp_name = 'dev--' + exp_name
         mode = 'local'

@@ -30,7 +30,7 @@ def main(debug, dry, suffix):
         suffix,
     )
     if debug:
-        configs.append(base_dir / 'configs/debug.conf')
+        configs.append(base_dir / 'configs/debug_awac.conf')
     if debug or dry:
         exp_name = 'dev--' + exp_name
         mode = 'local'

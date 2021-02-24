@@ -5,8 +5,6 @@ from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
-from rlkit.samplers.data_collector.joint_path_collector import \
-    JointPathCollector
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl import networks
 from rlkit.torch.pearl.agent import PEARLAgent, MakePEARLAgentDeterministic
@@ -16,7 +14,10 @@ from rlkit.torch.pearl.launcher_util import (
     load_buffer_onto_algo,
     policy_class_from_str,
 )
-from rlkit.torch.pearl.path_collector import PearlPathCollector
+from rlkit.torch.pearl.path_collector import (
+    PearlPathCollector,
+    PearlJointPathCollector,
+)
 from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
 
@@ -48,6 +49,7 @@ def pearl_awac_experiment(
         ignore_overlapping_train_and_test=False,
         save_video=False,
         save_video_period=25,
+        save_video_kwargs=None,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -203,12 +205,12 @@ def pearl_awac_experiment(
                 **kwargs)
             for name, kwargs in name_to_eval_path_collector_kwargs.items()
         })
-        return JointPathCollector(eval_path_collectors)
+        return PearlJointPathCollector(eval_path_collectors)
 
     eval_path_collector = create_eval_path_collector()
 
     def create_expl_path_collector():
-        return JointPathCollector({
+        return PearlJointPathCollector({
             name: PearlPathCollector(
                 expl_env, expl_policy, train_task_indices,
                 pearl_replay_buffer,
