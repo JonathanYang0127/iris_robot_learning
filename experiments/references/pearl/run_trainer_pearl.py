@@ -60,6 +60,9 @@ def main(config, debug, exp_name, mode, gpu, gpu_id, nseeds):
         'algo_params.save_replay_buffer': [
             True,
         ],
+        'algo_params.save_algorithm': [
+            True,
+        ],
         'algo_params.save_extra_every_epoch': [
             False,
         ],

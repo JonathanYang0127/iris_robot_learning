@@ -1,5 +1,3 @@
-import joblib
-
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
@@ -13,145 +11,17 @@ from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
-from rlkit.torch.pearl.encoder import MlpEncoder, DummyMlpEncoder
+from rlkit.torch.pearl.networks import MlpEncoder, DummyMlpEncoder, MlpDecoder
+from rlkit.torch.pearl.launcher_util import (
+    policy_class_from_str,
+    load_buffer_onto_algo,
+)
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
-from rlkit.torch.sac.policies import (
-    GaussianPolicy,
-)
-from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
+from rlkit.torch.sac.policies import MakeDeterministic
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
 )
-
-ENV_PARAMS = {
-    'HalfCheetah-v2': {
-        'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 1000,
-        'env_demo_path': dict(
-            path="demos/icml2020/mujoco/hc_action_noise_15.npy",
-            obs_dict=False,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            path="demos/icml2020/mujoco/hc_off_policy_15_demos_100.npy",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'Ant-v2': {
-        'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 1000,
-        'env_demo_path': dict(
-            path="demos/icml2020/mujoco/ant_action_noise_15.npy",
-            obs_dict=False,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            path="demos/icml2020/mujoco/ant_off_policy_15_demos_100.npy",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'Walker2d-v2': {
-        'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 1000,
-        'env_demo_path': dict(
-            path="demos/icml2020/mujoco/walker_action_noise_15.npy",
-            obs_dict=False,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            path="demos/icml2020/mujoco/walker_off_policy_15_demos_100.npy",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-
-    'SawyerRigGrasp-v0': {
-        'env_id': 'SawyerRigGrasp-v0',
-        # 'num_expl_steps_per_train_loop': 1000,
-        'max_path_length': 50,
-        # 'num_epochs': 1000,
-    },
-
-    'pen-binary-v0': {
-        'env_id': 'pen-binary-v0',
-        'max_path_length': 200,
-        'sparse_reward': True,
-        'env_demo_path': dict(
-            path="demos/icml2020/hand/pen2_sparse.npy",
-            # path="demos/icml2020/hand/sparsity/railrl_pen-binary-v0_demos.npy",
-            obs_dict=True,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            # path="demos/icml2020/hand/pen_bc_sparse1.npy",
-            # path="demos/icml2020/hand/pen_bc_sparse2.npy",
-            # path="demos/icml2020/hand/pen_bc_sparse3.npy",
-            # path="demos/icml2020/hand/pen_bc_sparse4.npy",
-            path="demos/icml2020/hand/pen_bc_sparse4.npy",
-            # path="ashvin/icml2020/hand/sparsity/bc/pen-binary1/run10/id*/video_*_*.p",
-            # sync_dir="ashvin/icml2020/hand/sparsity/bc/pen-binary1/run10",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'door-binary-v0': {
-        'env_id': 'door-binary-v0',
-        'max_path_length': 200,
-        'sparse_reward': True,
-        'env_demo_path': dict(
-            path="demos/icml2020/hand/door2_sparse.npy",
-            # path="demos/icml2020/hand/sparsity/railrl_door-binary-v0_demos.npy",
-            obs_dict=True,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            # path="demos/icml2020/hand/door_bc_sparse1.npy",
-            # path="demos/icml2020/hand/door_bc_sparse3.npy",
-            path="demos/icml2020/hand/door_bc_sparse4.npy",
-            # path="ashvin/icml2020/hand/sparsity/bc/door-binary1/run10/id*/video_*_*.p",
-            # sync_dir="ashvin/icml2020/hand/sparsity/bc/door-binary1/run10",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-    'relocate-binary-v0': {
-        'env_id': 'relocate-binary-v0',
-        'max_path_length': 200,
-        'sparse_reward': True,
-        'env_demo_path': dict(
-            path="demos/icml2020/hand/relocate2_sparse.npy",
-            # path="demos/icml2020/hand/sparsity/railrl_relocate-binary-v0_demos.npy",
-            obs_dict=True,
-            is_demo=True,
-        ),
-        'env_offpolicy_data_path': dict(
-            # path="demos/icml2020/hand/relocate_bc_sparse1.npy",
-            path="demos/icml2020/hand/relocate_bc_sparse4.npy",
-            # path="ashvin/icml2020/hand/sparsity/bc/relocate-binary1/run10/id*/video_*_*.p",
-            # sync_dir="ashvin/icml2020/hand/sparsity/bc/relocate-binary1/run10",
-            obs_dict=False,
-            is_demo=False,
-            train_split=0.9,
-        ),
-    },
-}
-
-
-def policy_class_from_str(policy_class):
-    if policy_class == 'GaussianPolicy':
-        return GaussianPolicy
-    elif policy_class == 'TanhGaussianPolicy':
-        return TanhGaussianPolicy
-    else:
-        raise ValueError(policy_class)
 
 
 def pearl_awac_launcher_simple(
@@ -160,6 +30,7 @@ def pearl_awac_launcher_simple(
         qf_kwargs=None,
         policy_kwargs=None,
         context_encoder_kwargs=None,
+        context_decoder_kwargs=None,
         env_name=None,
         env_params=None,
         path_loader_kwargs=None,
@@ -183,6 +54,7 @@ def pearl_awac_launcher_simple(
         use_next_obs_in_context=False,
 ):
     pretrain_buffer_kwargs = pretrain_buffer_kwargs or {}
+    context_decoder_kwargs = context_decoder_kwargs or {}
     pretrain_offline_algo_kwargs = pretrain_offline_algo_kwargs or {}
     register_pearl_envs()
     env_params = env_params or {}
@@ -261,6 +133,11 @@ def pearl_awac_launcher_simple(
         use_ground_truth_context=use_ground_truth_context,
         **context_encoder_kwargs
     )
+    context_decoder = MlpDecoder(
+        input_size=obs_dim + action_dim + latent_dim,
+        output_size=1,
+        **context_decoder_kwargs
+    )
     reward_predictor = ConcatMlp(
         input_size=obs_dim + action_dim + latent_dim,
         output_size=1,
@@ -285,6 +162,7 @@ def pearl_awac_launcher_simple(
         target_qf2=target_qf2,
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
+        context_decoder=context_decoder,
         _debug_ignore_context=networks_ignore_context,
         _debug_use_ground_truth_context=use_ground_truth_context,
         **trainer_kwargs
@@ -331,7 +209,10 @@ def pearl_awac_launcher_simple(
         )
 
     if load_buffer_kwargs:
-        load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
+        load_buffer_onto_algo(
+            algorithm.replay_buffer,
+            algorithm.enc_replay_buffer,
+            **load_buffer_kwargs)
     if path_loader_kwargs:
         replay_buffer = algorithm.replay_buffer.task_buffers[0]
         enc_replay_buffer = algorithm.enc_replay_buffer.task_buffers[0]
@@ -373,27 +254,3 @@ def pearl_awac_launcher_simple(
     algorithm.train()
 
 
-def load_buffer_onto_algo(
-        algorithm,
-        pretrain_buffer_path,
-        start_idx=0,
-        end_idx=None,
-):
-    data = load_local_or_remote_file(
-        pretrain_buffer_path,
-        file_type='joblib',
-    )
-    saved_replay_buffer = data['replay_buffer']
-    saved_enc_replay_buffer = data['enc_replay_buffer']
-    for k in algorithm.replay_buffer.task_buffers:
-        algorithm.replay_buffer.task_buffers[k].copy_data(
-            saved_replay_buffer.task_buffers[k],
-            start_idx=start_idx,
-            end_idx=end_idx,
-        )
-    for k in algorithm.enc_replay_buffer.task_buffers:
-        algorithm.enc_replay_buffer.task_buffers[k].copy_data(
-            saved_enc_replay_buffer.task_buffers[k],
-            start_idx=start_idx,
-            end_idx=end_idx,
-        )

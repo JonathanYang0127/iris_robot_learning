@@ -40,6 +40,11 @@ class PearlReplayBuffer(ReplayBuffer):
         self.replay_buffer.add_paths(task_idx, paths)
         self.encoder_replay_buffer.add_paths(task_idx, paths)
 
+    def add_paths_with_task_indices(self, paths, task_indices):
+        for task_idx, path in zip(task_indices, paths):
+            self.replay_buffer.add_path(task_idx, path)
+            self.encoder_replay_buffer.add_path(task_idx, path)
+
     def random_batch(self, batch_size):
         indices = np.random.choice(self.train_task_indices, self.meta_batch_size)
 

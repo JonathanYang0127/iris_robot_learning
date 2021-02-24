@@ -4,7 +4,6 @@ import pickle
 
 import boto3
 
-from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
 import os
 
 import torch
@@ -17,10 +16,12 @@ TORCH = 'torch'
 
 
 def get_relative_path(filename):
+    from rlkit.launchers.config import LOCAL_LOG_DIR
     return os.path.join(LOCAL_LOG_DIR, filename)
 
 
 def local_path_from_s3_or_local_path(filename):
+    from rlkit.launchers.config import LOCAL_LOG_DIR
     print('local log dir', LOCAL_LOG_DIR, 'filename', filename)
     relative_filename = os.path.join(LOCAL_LOG_DIR, filename)
     if os.path.isfile(filename):
@@ -28,16 +29,11 @@ def local_path_from_s3_or_local_path(filename):
     elif os.path.isfile(relative_filename):
         return relative_filename
     else:
-        relative_filename2 = os.path.join(
-            '/global/scratch/vitchyr/doodad-log-since-2020-11-12',
-            filename
-        )
-        if os.path.isfile(relative_filename2):
-            return relative_filename2
         return sync_down(filename)
 
 
 def sync_down(path, check_exists=True):
+    from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
     is_docker = os.path.isfile("/.dockerenv")
     if is_docker:
         local_path = "/tmp/%s" % (path)
@@ -68,6 +64,7 @@ def sync_down(path, check_exists=True):
 
 
 def sync_down_folder(path):
+    from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
     is_docker = os.path.isfile("/.dockerenv")
     if is_docker:
         local_path = "/tmp/%s" % (path)
@@ -108,8 +105,9 @@ class CPU_Unpickler(pickle.Unpickler):
             return lambda b: torch.load(io.BytesIO(b), map_location='cpu')
         else: return super().find_class(module, name)
 
-def load_local_or_remote_file(filepath, file_type=None, **kwargs):
+def load_local_or_remote_file(filepath, file_type=None, delete_after_loading=False, **kwargs):
     local_path = local_path_from_s3_or_local_path(filepath)
+    assert local_path is not None, "file not found. Filename: %s" % filepath
     if file_type is None:
         extension = local_path.split('.')[-1]
         if extension == 'npy' or extension == 'npz':
@@ -129,10 +127,15 @@ def load_local_or_remote_file(filepath, file_type=None, **kwargs):
         #object = CPU_Unpickler(f).load()
         object = pickle.load(open(local_path, "rb"))
     print("loaded", local_path)
+    
+    if (local_path[:4] == "/tmp") and delete_after_loading:
+        print("deleting tmp file after loading.")
+        os.remove(local_path)
+    
     return object
 
-
 def get_absolute_path(path):
+    from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
     if path[0] == "/":
         return path
     else:

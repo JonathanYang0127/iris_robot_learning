@@ -1,3 +1,4 @@
+import math
 import os
 import os.path as osp
 import uuid
@@ -306,6 +307,7 @@ def dump_paths(
         grayscale=False,
         get_extra_imgs=None,
         num_columns_per_rollout=1,
+        obs_dict_key='full_observations',
         **combine_img_kwargs
 ):
     # TODO: merge with `dump_video`
@@ -322,6 +324,11 @@ def dump_paths(
     H = num_imgs * imheight  # imsize
     W = imwidth  # imsize
 
+    if rows is None and columns is not None:
+        rows = min(math.ceil(len(paths) / columns), 1)
+    if columns is None and rows is not None:
+        columns = min(math.ceil(len(paths) / rows), 1)
+
     if len(paths) < rows * columns:
         columns = min(columns, len(paths))
         rows = max(min(rows, int(len(paths) / columns)), 1)
@@ -332,7 +339,7 @@ def dump_paths(
         start = time.time()
         path = paths[i]
         l = []
-        for i_in_path, d in enumerate(path['full_observations']):
+        for i_in_path, d in enumerate(path[obs_dict_key]):
             imgs = [d[k] for k in keys]
             imgs = imgs + get_extra_imgs(path, i_in_path, env)
             imgs = imgs[:num_imgs]

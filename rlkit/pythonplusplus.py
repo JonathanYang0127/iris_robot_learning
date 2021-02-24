@@ -252,6 +252,24 @@ def recursive_string_replace(x, original, new):
         return x
 
 
+def recursive_to_dict(maybe_dictable):
+    """Try to convert something into a recursive dictionary.
+
+    The main use case is to have some generic config/loading module (e.g.
+    pyhocon) but to convert everything to a dictionary right before you use it.
+
+    :param maybe_dictable: Something that may be a dictionary.
+    :return:
+    """
+    try:
+        dict_version = dict(maybe_dictable)
+        return {
+            k: recursive_to_dict(v)
+            for k, v in dict_version.items()
+        }
+    except (TypeError, ValueError):
+        return maybe_dictable
+
 # TODO(vitchyr): test methods/classes below
 
 

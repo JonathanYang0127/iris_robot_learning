@@ -50,6 +50,9 @@ class AutoSetup:
                 use_gpu=doodad_config.use_gpu,
                 gpu_id=doodad_config.gpu_id,
             )
+        # TODO: remove this hack
+        from rlkit.launchers import config
+        config.LOCAL_LOG_DIR = doodad_config.base_log_dir
         variant.pop('logger_config', None)
         variant.pop('seed', None)
         variant.pop('exp_id', None)
@@ -166,3 +169,12 @@ def generate_git_infos():
     except (ImportError, UnboundLocalError, NameError):
         git_infos = None
     return git_infos
+
+
+def load_pyhocon_configs(config_paths):
+    from pyhocon import ConfigFactory, ConfigTree
+    config = ConfigFactory.parse_file(config_paths[0])
+    for path in config_paths[1:]:
+        new_config = ConfigFactory.parse_file(path)
+        config = ConfigTree.merge_configs(config, new_config)
+    return config

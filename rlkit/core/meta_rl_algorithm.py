@@ -60,7 +60,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             save_extra_manual_epoch_list=(),
             save_extra_every_epoch=False,
             use_ground_truth_context=False,
-            expl_data_collector=None,
+            exploration_data_collector=None,
+            evaluation_data_collector=None,
     ):
         """
         :param env: training env
@@ -99,6 +100,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.replay_buffer_size = replay_buffer_size
         self.reward_scale = reward_scale
         self.update_post_train = update_post_train
+        self.post_train_funcs = []
         self.num_exp_traj_eval = num_exp_traj_eval
         self.eval_deterministic = eval_deterministic
         self.render = render
@@ -107,11 +109,14 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.save_replay_buffer = save_replay_buffer
         self.save_algorithm = save_algorithm
         self.save_environment = save_environment
+        if num_iterations_with_reward_supervision is None:
+            num_iterations_with_reward_supervision = np.inf
         self.num_iterations_with_reward_supervision = num_iterations_with_reward_supervision
         self.freeze_encoder_buffer_in_unsupervised_phase = (
             freeze_encoder_buffer_in_unsupervised_phase
         )
-        self.expl_data_collector = expl_data_collector
+        self.expl_data_collector = exploration_data_collector
+        self.eval_data_collector = evaluation_data_collector
 
         self.eval_statistics = None
         self.render_eval_paths = render_eval_paths
@@ -395,7 +400,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         if epoch in self.save_extra_manual_epoch_list:
             logger.save_extra_data(
                 self.get_extra_data_to_save(epoch),
-                file_name='extra_snapshot_itr{}'.format(epoch)
+                file_name='extra_snapshot_itr{}'.format(epoch),
+                mode='cloudpickle',
             )
         if self._save_extra_every_epoch:
             logger.save_extra_data(self.get_extra_data_to_save(epoch))
@@ -490,6 +496,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         logger.push_prefix('Iteration #%d | ' % epoch)
 
     def _end_epoch(self, epoch):
+        for post_train_func in self.post_train_funcs:
+            post_train_func(self, epoch)
+
         self.trainer.end_epoch(epoch)
         logger.log("Epoch Duration: {0}".format(
             time.time() - self._epoch_start_time
@@ -622,20 +631,25 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     idx,
                     self.embedding_batch_size
                 )
-                init_context = ptu.from_numpy(init_context)
-                # TODO: replace with sampler
-                # self.agent.infer_posterior(context)
-                p, _ = self.sampler.obtain_samples(
-                    deterministic=self.eval_deterministic,
-                    max_samples=self.max_path_length,
-                    accum_context=False,
-                    max_trajs=1,
-                    resample_latent_period=0,
-                    update_posterior_period=0,
-                    initial_context=init_context,
-                    task_idx=idx,
-                )
-                paths += p
+                if self.eval_data_collector:
+                    self.eval_data_collector.collect_new_paths(
+                        idx,
+                    )
+                else:
+                    init_context = ptu.from_numpy(init_context)
+                    # TODO: replace with sampler
+                    # self.agent.infer_posterior(context)
+                    p, _ = self.sampler.obtain_samples(
+                        deterministic=self.eval_deterministic,
+                        max_samples=self.max_path_length,
+                        accum_context=False,
+                        max_trajs=1,
+                        resample_latent_period=0,
+                        update_posterior_period=0,
+                        initial_context=init_context,
+                        task_idx=idx,
+                    )
+                    paths += p
 
             if self.sparse_rewards:
                 for p in paths:

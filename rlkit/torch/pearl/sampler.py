@@ -67,7 +67,7 @@ class PEARLInPlacePathSampler(object):
 def rollout(
         env,
         agent,
-        task_idx=0,
+        task_idx,
         max_path_length=np.inf,
         accum_context=True,
         animated=False,
@@ -191,6 +191,60 @@ def rollout(
         latents=np.array(zs),
         context=context,
     )
+
+
+def rollout_multiple(
+        *args,
+        num_repeats=1,
+        initial_context=None,
+        accum_context=True,
+        **kwargs
+):
+    """
+    Do multiple rollouts and concatenate the paths
+    """
+    assert num_repeats >= 1
+    last_path = rollout(
+        *args,
+        accum_context=accum_context,
+        initial_context=initial_context,
+        **kwargs)
+    paths = [last_path]
+    for i in range(num_repeats-1):
+        if accum_context:
+            initial_context = last_path['context']
+        new_path = rollout(
+            *args,
+            initial_context=initial_context,
+            accum_context=True,
+            **kwargs)
+        paths.append(new_path)
+        last_path = new_path
+
+    return paths
+
+
+def merge_paths(paths):
+    flat_path = paths[0]
+    for new_path in paths[1:]:
+        for k in [
+            'observations',
+            'actions',
+            'rewards',
+            'next_observations',
+            'terminals',
+            'latents',
+        ]:
+            flat_path[k] = np.concatenate((
+                flat_path[k],
+                new_path[k],
+            ), axis=0)
+    return flat_path
+
+
+def rollout_multiple_and_flatten(*args, **kwargs):
+    paths = rollout_multiple(*args, **kwargs)
+    return merge_paths(paths)
 
 
 def split_paths(paths):

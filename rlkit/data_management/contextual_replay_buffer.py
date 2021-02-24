@@ -157,8 +157,12 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         }]
 
         if num_distrib_contexts > 0:
-            sampled_contexts = self._context_distribution.sample(
-                num_distrib_contexts)
+            curr_obs = {
+                k: next_obs_dict[k][num_rollout_contexts:num_rollout_contexts + num_distrib_contexts]
+                for k in self.observation_keys
+            }
+            sampled_contexts = self._context_distribution(
+                context=curr_obs).sample(num_distrib_contexts, )
             sampled_contexts = {
                 k: sampled_contexts[k] for k in self._context_keys}
             contexts.append(sampled_contexts)
@@ -206,7 +210,6 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             'next_observations': next_obs,
             'indices': np.array(indices).reshape(-1, 1),
             **new_contexts
-            # 'contexts': new_contexts,
         }
         new_batch = self._post_process_batch_fn(
             batch,
