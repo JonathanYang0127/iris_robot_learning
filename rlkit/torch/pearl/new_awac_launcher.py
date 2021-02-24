@@ -46,6 +46,8 @@ def pearl_awac_experiment(
         networks_ignore_context=False,
         use_ground_truth_context=False,
         ignore_overlapping_train_and_test=False,
+        save_video=False,
+        save_video_period=25,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -276,4 +278,7 @@ def pearl_awac_experiment(
     check_data_collection_settings()
 
     algorithm.to(ptu.device)
+
+    if save_video:
+        print("TODO: implement video saving for awac launcher")
     algorithm.train()

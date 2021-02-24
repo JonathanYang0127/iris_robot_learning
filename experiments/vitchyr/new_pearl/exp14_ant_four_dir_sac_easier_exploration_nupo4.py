@@ -1,13 +1,9 @@
-"""
-PEARL Experiment
-"""
-
 import click
 from pathlib import Path
 
 from rlkit.launchers.launcher_util import run_experiment, load_pyhocon_configs
 import rlkit.pythonplusplus as ppp
-from rlkit.torch.pearl.awac_launcher import pearl_awac_launcher_simple
+from rlkit.torch.pearl.new_sac_launcher import pearl_sac_experiment
 import rlkit.misc.hyperparameter as hyp
 
 
@@ -20,10 +16,10 @@ def main(debug, dry, suffix):
     n_seeds = 3
     gpu = True
 
-    base_dir = Path(__file__).parent.parent
+    base_dir = Path(__file__).parent
     configs = [
-        base_dir / 'configs/default_awac.conf',
-        base_dir / 'configs/ant_four_dir_offline.conf',
+        base_dir / 'configs/default_sac.conf',
+        base_dir / 'configs/ant_four_dir.conf',
     ]
 
     path_parts = __file__.split('/')
@@ -42,8 +38,23 @@ def main(debug, dry, suffix):
 
     config = load_pyhocon_configs(configs)
     variant = ppp.recursive_to_dict(config)
+    variant.pop('name_to_expl_path_collector_kwargs')
 
     search_space = {
+        'save_video': [False],
+        'logger_config.snapshot_mode': ['gap_and_last'],
+        'logger_config.snapshot_gap': [25],
+        'name_to_expl_path_collector_kwargs': [
+            dict(
+                init_from_buffer=dict(
+                    sample_initial_context=True,
+                    accum_context_across_rollouts=False,
+                    resample_latent_period=0,
+                    update_posterior_period=0,
+                    use_predicted_reward=False,
+                )
+            )
+        ]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -52,7 +63,7 @@ def main(debug, dry, suffix):
         for _ in range(n_seeds):
             variant['exp_id'] = exp_id
             run_experiment(
-                pearl_awac_launcher_simple,
+                pearl_sac_experiment,
                 unpack_variant=True,
                 exp_name=exp_name,
                 mode=mode,

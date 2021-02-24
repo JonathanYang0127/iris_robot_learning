@@ -169,3 +169,12 @@ def generate_git_infos():
     except (ImportError, UnboundLocalError, NameError):
         git_infos = None
     return git_infos
+
+
+def load_pyhocon_configs(config_paths):
+    from pyhocon import ConfigFactory, ConfigTree
+    config = ConfigFactory.parse_file(config_paths[0])
+    for path in config_paths[1:]:
+        new_config = ConfigFactory.parse_file(path)
+        config = ConfigTree.merge_configs(config, new_config)
+    return config
