@@ -70,3 +70,11 @@ class AntDirEnv(MultitaskAntEnv):
                 directions = np.random.uniform(0., 2.0 * np.pi, size=(num_tasks,))
         tasks = [{'goal': desired_dir} for desired_dir in directions]
         return tasks
+
+    def task_to_vec(self, task):
+        direction = task['goal']
+        if self.direction_in_degrees:
+            normalized_direction = direction / 360
+        else:
+            normalized_direction = direction / (2*np.pi)
+        return np.array([normalized_direction])
