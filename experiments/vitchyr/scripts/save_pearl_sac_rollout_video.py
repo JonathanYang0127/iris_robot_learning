@@ -206,7 +206,7 @@ def simulate_policy(args):
             init_context = None
             path = rollout_multiple_and_flatten(
                 *args,
-                task_idx=test_task_idxs[task_idx - 2*n_tasks],
+                task_idx=task_idx,
                 initial_context=init_context,
                 resample_latent_period=0,
                 accum_context=True,

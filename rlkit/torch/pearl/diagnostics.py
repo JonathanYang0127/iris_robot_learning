@@ -99,11 +99,14 @@ def half_cheetah_dir_diagnostics(paths):
 
 def task_str(task):
     if isinstance(task, tuple):
-        return tuple(task_str(t) for t in task)
+        return str(tuple(task_str(t) for t in task))
     if isinstance(task, str):
         return task
     if isinstance(task, np.ndarray):
-        return '{:.2g}'.format(float(task))
+        with np.printoptions(precision=3, suppress=True):
+            return str(task)
+    if isinstance(task, list):
+        return '[{}]'.format(', '.join(task_str(t) for t in task))
     if isinstance(task, Number):
         return '{:.2g}'.format(task)
 
@@ -113,10 +116,9 @@ def format_task(idx, task):
     if isinstance(task, dict):
         lines.append('task')
         for k, v in task.items():
-            # v = (np.cos(v), np.sin(v))
             lines.append('{}: {}'.format(k, task_str(v)))
     else:
-        lines.append('task: {}'.format(task))
+        lines.append('task: {}'.format(task_str(task)))
     return '\n'.join(lines)
 
 

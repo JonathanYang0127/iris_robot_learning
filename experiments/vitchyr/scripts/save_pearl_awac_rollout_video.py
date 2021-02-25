@@ -7,11 +7,12 @@ import numpy as np
 import torch
 
 import rlkit.torch.pytorch_util as ptu
+from multiworld.envs.pygame.point2d import Point2DEnv
 from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
-from rlkit.envs.images import GymEnvRenderer
+from rlkit.envs.images import GymEnvRenderer, EnvRenderer
 # from rlkit.envs.images.text_renderer import TextRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
-from rlkit.envs.pearl_envs import HalfCheetahDirEnv, AntDirEnv
+from rlkit.envs.pearl_envs import HalfCheetahDirEnv, AntDirEnv, PointEnv
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
@@ -109,6 +110,7 @@ def simulate_policy(args):
             **pearl_buffer_kwargs
         )
     if load_buffer_kwargs:
+        pearl_replay_buffer.clear_all_buffers()
         load_buffer_onto_algo(
             pearl_replay_buffer.replay_buffer,
             pearl_replay_buffer.encoder_replay_buffer,
@@ -117,12 +119,101 @@ def simulate_policy(args):
 
     obs_key = 'tmp'
     policy = FlatToDictPearlPolicy(policy, obs_key)
+    base_env = env.wrapped_env
     env = FlatToDictEnv(env, obs_key)
 
-    img_renderer = GymEnvRenderer(
-        width=256,
-        height=256,
-    )
+    # if isinstance(base_env, HalfCheetahDirEnv):
+    #     n_tasks = 2
+    #     test_task_idxs = [0, 1]
+    #     n_videos = 3 * n_tasks
+    #     n_repeats = 3
+    # elif isinstance(base_env, AntDirEnv):
+    #     n_tasks = 4
+    #     n_videos = 3 * n_tasks
+    #     test_task_idxs = [4, 5, 6, 7]
+    #     n_repeats = 3
+    #     horizon = 200
+    #     img_renderer = GymEnvRenderer(width=256, height=256)
+    # elif isinstance(base_env, PointEnv):
+    #     n_tasks = 4
+    #     n_videos = 3 * n_tasks
+    #     test_task_idxs = [4, 5, 6, 7]
+    #     n_repeats = 3
+    #     horizon = 20
+    #     img_renderer = EnvRenderer(width=256, height=256)
+    # else:
+    #     raise NotImplementedError()
+    if isinstance(base_env, HalfCheetahDirEnv):
+        n_tasks = 2
+        n_repeats = 3
+        counter_to_init_train_task = {
+            0: 0,
+            1: 1,
+        }
+        counter_to_eval_on_train_task = {
+            2: 0,
+            3: 1,
+        }
+        counter_to_eval_on_test_task = {
+            4: 0,
+            5: 1,
+        }
+        rows = 2
+        columns = 3
+        horizon = 200
+        img_renderer = GymEnvRenderer(width=256, height=256)
+    elif isinstance(base_env, AntDirEnv):
+        n_tasks = 4
+        n_repeats = 3
+        counter_to_init_train_task = {
+            0: 0,
+            3: 1,
+            6: 2,
+            9: 3,
+        }
+        counter_to_eval_on_train_task = {
+            1: 0,
+            4: 1,
+            7: 2,
+            10: 3,
+        }
+        counter_to_eval_on_test_task = {
+            2: 4,
+            5: 5,
+            8: 6,
+            11: 7,
+        }
+        rows = 3
+        columns = 4
+        horizon = 200
+        img_renderer = GymEnvRenderer(width=256, height=256)
+    elif isinstance(base_env, PointEnv):
+        n_tasks = 4
+        n_repeats = 3
+        counter_to_init_train_task = {
+            0: 0,
+            3: 1,
+            6: 2,
+            9: 3,
+        }
+        counter_to_eval_on_train_task = {
+            1: 0,
+            4: 1,
+            7: 2,
+            10: 3,
+        }
+        counter_to_eval_on_test_task = {
+            2: 4,
+            5: 5,
+            8: 6,
+            11: 7,
+        }
+        rows = 3
+        columns = 4
+        horizon = 20
+        img_renderer = EnvRenderer(width=256, height=256)
+    else:
+        raise NotImplementedError()
     text_renderer = TextRenderer(
         text='test',
         width=256,
@@ -145,29 +236,14 @@ def simulate_policy(args):
     save_dir = Path(snapshot_path).parent / 'generated_rollouts'
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / '{}rollout0.mp4'.format(prefix)
-    base_env = env.env.wrapped_env
-    if isinstance(base_env, HalfCheetahDirEnv):
-        n_tasks = 2
-        test_task_idxs = [0, 1]
-        n_videos = 3 * n_tasks
-        n_repeats = 3
-    elif isinstance(base_env, AntDirEnv):
-        n_tasks = 4
-        n_videos = 3 * n_tasks
-        test_task_idxs = [4, 5, 6, 7]
-        n_repeats = 3
-    else:
-        raise NotImplementedError()
 
     def random_task_rollout_fn(*args, max_path_length=None, **kwargs):
         global counter
-        task_idx = counter
-        counter += 1
-        if task_idx in list(range(n_tasks)):
-            text_renderer.prefix = 'train (sample z from buffer)\n'
+        if counter in counter_to_init_train_task:
+            task_idx = counter_to_init_train_task[counter]
             init_context = pearl_replay_buffer.sample_context(task_idx)
             init_context = ptu.from_numpy(init_context)
-            return rollout_multiple_and_flatten(
+            path = rollout_multiple_and_flatten(
                 *args,
                 task_idx=task_idx,
                 initial_context=init_context,
@@ -177,9 +253,10 @@ def simulate_policy(args):
                 max_path_length=int(max_path_length//n_repeats),
                 num_repeats=n_repeats,
                 **kwargs)
-        elif task_idx in [i + n_tasks for i in range(n_tasks)]:
+        elif counter in counter_to_eval_on_train_task:
+            task_idx = counter_to_eval_on_train_task[counter]
             text_renderer.prefix = 'eval on train\n'
-            return rollout_multiple_and_flatten(
+            path = rollout_multiple_and_flatten(
                 *args,
                 task_idx=task_idx - n_tasks,
                 initial_context=None,
@@ -189,12 +266,13 @@ def simulate_policy(args):
                 max_path_length=int(max_path_length//n_repeats),
                 num_repeats=n_repeats,
                 **kwargs)
-        else:
+        elif counter in counter_to_eval_on_test_task:
+            task_idx = counter_to_eval_on_test_task[counter]
             text_renderer.prefix = 'eval on test\n'
             init_context = None
-            return rollout_multiple_and_flatten(
+            path = rollout_multiple_and_flatten(
                 *args,
-                task_idx=test_task_idxs[task_idx - 2*n_tasks],
+                task_idx=task_idx,
                 initial_context=init_context,
                 resample_latent_period=0,
                 accum_context=True,
@@ -202,6 +280,11 @@ def simulate_policy(args):
                 max_path_length=int(max_path_length//n_repeats),
                 num_repeats=n_repeats,
                 **kwargs)
+        else:
+            import ipdb; ipdb.set_trace()
+            path = None
+        counter += 1
+        return path
 
     dump_video(
         env=img_env,
@@ -213,10 +296,13 @@ def simulate_policy(args):
         image_format=img_renderer.output_image_format,
         # rows=1,
         # columns=1,
-        rows=1,
-        columns=n_videos,
+        # rows=1,
+        # columns=n_videos,
         imsize=256,
-        horizon=100 * n_repeats,
+        # horizon=horizon * n_repeats,
+        rows=rows,
+        columns=columns,
+        horizon=horizon * n_repeats,
     )
 
 

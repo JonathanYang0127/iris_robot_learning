@@ -76,6 +76,10 @@ class MultiTaskReplayBuffer(object):
     def clear_buffer(self, task):
         self.task_buffers[task].clear()
 
+    def clear_all_buffers(self):
+        for buffer in self.task_buffers.values():
+            buffer.clear()
+
     def sample_batch(self, indices, batch_size):
         """
         sample batch of training data from a list of tasks for training the

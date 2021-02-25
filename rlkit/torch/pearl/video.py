@@ -5,8 +5,9 @@ from typing import Callable, List
 from gym import Env
 
 from rlkit.core import logger
-from rlkit.envs.images import GymEnvRenderer
+from rlkit.envs.images import GymEnvRenderer, EnvRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
+from rlkit.envs.pearl_envs import PointEnv
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictEnv
 from rlkit.policies.base import Policy
 from rlkit.torch.pearl.diagnostics import (
@@ -101,12 +102,19 @@ def make_save_video_function(
 
     obs_key = 'obervation_for_video'
     img_policy = FlatToDictPearlPolicy(policy, obs_key)
+    base_env = env.wrapped_env
     env = FlatToDictEnv(env, obs_key)
 
-    img_renderer = GymEnvRenderer(
-        width=video_img_size,
-        height=video_img_size,
-    )
+    if isinstance(base_env, PointEnv):
+        img_renderer = EnvRenderer(
+            width=video_img_size,
+            height=video_img_size,
+        )
+    else:
+        img_renderer = GymEnvRenderer(
+            width=video_img_size,
+            height=video_img_size,
+        )
     text_renderer = TextRenderer(
         text='test',
         width=video_img_size,

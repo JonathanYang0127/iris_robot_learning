@@ -11,6 +11,10 @@ class PointEnv(Env):
      - tasks sampled from unit square
      - reward is L2 distance
     """
+    GOAL_SIZE = 0.1  # fraction of image
+    GOAL_COLOR = np.array([0, 255, 0], dtype=np.uint8)
+    AGENT_SIZE = 0.05
+    AGENT_COLOR = np.array([0, 0, 255], dtype=np.uint8)
 
     def __init__(self, randomize_tasks=False, n_tasks=2):
         if randomize_tasks:
@@ -77,6 +81,48 @@ class PointEnv(Env):
 
     def render(self):
         print('current state:', self._state)
+
+    def get_image(self, width, height):
+        white_img = np.zeros((height, width, 3), dtype=np.uint8)
+        img_with_goal = draw(
+            self._goal,
+            width,
+            height,
+            white_img,
+            self.GOAL_SIZE,
+            self.GOAL_COLOR
+        )
+        final_img = draw(
+            self._state,
+            width,
+            height,
+            img_with_goal,
+            self.AGENT_SIZE,
+            self.AGENT_COLOR
+        )
+        return final_img
+
+
+def draw(xy, width, height, img, size, color):
+    x, y = xy
+    x_pixel = map_to_int(x, [-1, 1], [0, width])
+    y_pixel = map_to_int(y, [-1, 1], [0, height])
+
+    x_min = int(max(x_pixel-size * width, 0))
+    x_max = int(min(x_pixel+size * width, width))
+
+    y_min = int(max(y_pixel - size * height, 0))
+    y_max = int(min(y_pixel + size * height, height))
+
+    img[y_min:y_max, x_min:x_max, :] = color
+    return img
+
+
+def map_to_int(x, in_range, out_range):
+    min_x, max_x = in_range
+    min_y, max_y = out_range
+    normalized_x = (x - min_x) / (max_x - min_x)
+    return (max_y - min_y) * normalized_x + min_y
 
 
 class SparsePointEnv(PointEnv):

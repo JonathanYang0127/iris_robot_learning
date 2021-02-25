@@ -29,6 +29,10 @@ class PearlReplayBuffer(ReplayBuffer):
                    terminal, **kwargs):
         raise NotImplementedError()
 
+    def clear_all_buffers(self):
+        self.replay_buffer.clear_all_buffers()
+        self.encoder_replay_buffer.clear_all_buffers()
+
     def terminate_episode(self):
         raise NotImplementedError()
 
