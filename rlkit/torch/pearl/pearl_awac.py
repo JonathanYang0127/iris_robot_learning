@@ -394,10 +394,11 @@ class PearlAwacTrainer(TorchTrainer):
         if self.train_context_decoder:
             # TODO: change to use a distribution
             reward_pred = self.context_decoder(obs, actions, task_z)
-            prediction_loss = ((reward_pred - rewards_flat)**2).mean()
-            context_loss = kl_loss + prediction_loss
+            reward_prediction_loss = ((reward_pred - rewards_flat)**2).mean()
+            context_loss = kl_loss + reward_prediction_loss
         else:
             context_loss = kl_loss
+            reward_prediction_loss = ptu.zeros(1)
 
         """
         Policy Loss
@@ -555,6 +556,9 @@ class PearlAwacTrainer(TorchTrainer):
             )
             self.eval_statistics['task_embedding/kl_loss'] = (
                 ptu.get_numpy(kl_loss)
+            )
+            self.eval_statistics['task_embedding/reward_prediction_loss'] = (
+                ptu.get_numpy(reward_prediction_loss)
             )
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Log Pis',
