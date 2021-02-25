@@ -15,6 +15,7 @@ from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
 from rlkit.envs.pearl_envs import HalfCheetahDirEnv, AntDirEnv, PointEnv
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.torch.pearl.agent import MakePEARLAgentDeterministic
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
 from rlkit.torch.pearl.diagnostics import (
     DebugInsertImagesEnv,
@@ -77,11 +78,17 @@ def simulate_policy(args):
         tasks = task_data['tasks']
         train_task_indices = task_data['train_task_indices']
         test_task_indices = task_data['eval_task_indices']
-        env.wrapped_env.tasks = tasks
-        task_indices = list(env.wrapped_env.get_all_task_idx())
-        unwrapped_tasks = [
-            np.array([t['goal']]) for t in tasks
-        ]
+        base_env = env.wrapped_env
+        base_env.tasks = tasks
+        task_indices = list(base_env.get_all_task_idx())
+        if hasattr(base_env, 'task_to_vec'):
+            unwrapped_tasks = [
+                base_env.task_to_vec(t) for t in tasks
+            ]
+        else:
+            unwrapped_tasks = [
+                np.array([t['goal']]) for t in tasks
+            ]
         replay_buffer_kwargs = dict(
             max_replay_buffer_size=1000000,
             use_next_obs_in_context=False,
@@ -109,7 +116,7 @@ def simulate_policy(args):
             train_task_indices=train_task_indices,
             **pearl_buffer_kwargs
         )
-    if load_buffer_kwargs:
+    if load_buffer_kwargs is not None:
         pearl_replay_buffer.clear_all_buffers()
         load_buffer_onto_algo(
             pearl_replay_buffer.replay_buffer,
@@ -144,7 +151,6 @@ def simulate_policy(args):
     # else:
     #     raise NotImplementedError()
     if isinstance(base_env, HalfCheetahDirEnv):
-        n_tasks = 2
         n_repeats = 3
         counter_to_init_train_task = {
             0: 0,
@@ -163,7 +169,6 @@ def simulate_policy(args):
         horizon = 200
         img_renderer = GymEnvRenderer(width=256, height=256)
     elif isinstance(base_env, AntDirEnv):
-        n_tasks = 4
         n_repeats = 3
         counter_to_init_train_task = {
             0: 0,
@@ -188,7 +193,6 @@ def simulate_policy(args):
         horizon = 200
         img_renderer = GymEnvRenderer(width=256, height=256)
     elif isinstance(base_env, PointEnv):
-        n_tasks = 4
         n_repeats = 3
         counter_to_init_train_task = {
             0: 0,
@@ -214,6 +218,13 @@ def simulate_policy(args):
         img_renderer = EnvRenderer(width=256, height=256)
     else:
         raise NotImplementedError()
+    if rows * columns < (
+            len(counter_to_eval_on_test_task)
+            + len(counter_to_eval_on_train_task)
+            + len(counter_to_init_train_task)
+    ):
+        print("Not all settings will be rendered. Are you sure?")
+        import ipdb; ipdb.set_trace()
     text_renderer = TextRenderer(
         text='test',
         width=256,
@@ -235,7 +246,8 @@ def simulate_policy(args):
 
     save_dir = Path(snapshot_path).parent / 'generated_rollouts'
     save_dir.mkdir(parents=True, exist_ok=True)
-    save_path = save_dir / '{}rollout0.mp4'.format(prefix)
+    save_path = save_dir / '{}rollout0_{}.mp4'.format(
+        prefix, Path(snapshot_path).stem)
 
     def random_task_rollout_fn(*args, max_path_length=None, **kwargs):
         global counter
@@ -247,9 +259,9 @@ def simulate_policy(args):
                 *args,
                 task_idx=task_idx,
                 initial_context=init_context,
-                resample_latent_period=1,
-                accum_context=True,
-                update_posterior_period=1,
+                resample_latent_period=0,
+                accum_context=False,
+                update_posterior_period=0,
                 max_path_length=int(max_path_length//n_repeats),
                 num_repeats=n_repeats,
                 **kwargs)
@@ -258,7 +270,7 @@ def simulate_policy(args):
             text_renderer.prefix = 'eval on train\n'
             path = rollout_multiple_and_flatten(
                 *args,
-                task_idx=task_idx - n_tasks,
+                task_idx=task_idx,
                 initial_context=None,
                 resample_latent_period=0,
                 accum_context=True,
@@ -294,12 +306,7 @@ def simulate_policy(args):
         obs_dict_key='observations',
         keys_to_show=list(renderers.keys()),
         image_format=img_renderer.output_image_format,
-        # rows=1,
-        # columns=1,
-        # rows=1,
-        # columns=n_videos,
         imsize=256,
-        # horizon=horizon * n_repeats,
         rows=rows,
         columns=columns,
         horizon=horizon * n_repeats,
