@@ -41,7 +41,6 @@ class PearlAwacTrainer(TorchTrainer):
             use_information_bottleneck=True,
             use_next_obs_in_context=False,
             sparse_rewards=False,
-            back_prop_reward_prediction_into_encoder=False,
 
             train_reward_pred_in_unsupervised_phase=False,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
@@ -132,7 +131,6 @@ class PearlAwacTrainer(TorchTrainer):
         self.policy_pre_activation_weight = policy_pre_activation_weight
         self.plotter = plotter
         self.render_eval_paths = render_eval_paths
-        self.back_prop_reward_prediction_into_encoder = back_prop_reward_prediction_into_encoder
 
         self.train_reward_pred_in_unsupervised_phase = train_reward_pred_in_unsupervised_phase
         self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = (
@@ -173,33 +171,19 @@ class PearlAwacTrainer(TorchTrainer):
                 ),
                 lr=context_lr,
             )
-            self.qf1_optimizer = optimizer_class(
-                self.qf1.parameters(),
-                lr=qf_lr,
-            )
-            self.qf2_optimizer = optimizer_class(
-                self.qf2.parameters(),
-                lr=qf_lr,
-            )
         else:
             self.context_optimizer = optimizer_class(
                 self.context_encoder.parameters(),
                 lr=context_lr,
             )
-            self.qf1_optimizer = optimizer_class(
-                chain(
-                    self.qf1.parameters(),
-                    self.context_encoder.parameters(),
-                ),
-                lr=qf_lr,
-            )
-            self.qf2_optimizer = optimizer_class(
-                chain(
-                    self.qf2.parameters(),
-                    self.context_encoder.parameters(),
-                ),
-                lr=qf_lr,
-            )
+        self.qf1_optimizer = optimizer_class(
+            self.qf1.parameters(),
+            lr=qf_lr,
+        )
+        self.qf2_optimizer = optimizer_class(
+            self.qf2.parameters(),
+            lr=qf_lr,
+        )
 
         self.eval_statistics = None
         self._need_to_update_eval_statistics = True
@@ -493,19 +477,16 @@ class PearlAwacTrainer(TorchTrainer):
         Update networks
         """
         if self._n_train_steps_total % self.q_update_period == 0:
-            if self.train_context_decoder:
-                self.context_optimizer.zero_grad()
-                context_loss.backward(retain_graph=True)
-                self.context_optimizer.step()
-
+            self.context_optimizer.zero_grad()
             self.qf1_optimizer.zero_grad()
+            self.qf2_optimizer.zero_grad()
+            context_loss.backward(retain_graph=True)
             # retain graph because the encoder is trained by both QF losses
             qf1_loss.backward(retain_graph=True)
+            qf2_loss.backward()
             self.qf1_optimizer.step()
-
-            self.qf2_optimizer.zero_grad()
-            qf2_loss.backward(retain_graph=self.train_context_decoder)
             self.qf2_optimizer.step()
+            self.context_optimizer.step()
 
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
@@ -604,6 +585,7 @@ class PearlAwacTrainer(TorchTrainer):
             target_qf2=self.target_qf2.state_dict(),
             policy=self.agent.policy.state_dict(),
             context_encoder=self.agent.context_encoder.state_dict(),
+            context_decoder=self.context_decoder.state_dict(),
         )
         return snapshot
 

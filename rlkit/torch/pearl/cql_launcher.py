@@ -22,15 +22,14 @@ from rlkit.torch.pearl.diagnostics import (
 from rlkit.torch.pearl.networks import MlpEncoder, MlpDecoder
 from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo
 from rlkit.torch.pearl.path_collector import PearlPathCollector
-from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
+from rlkit.torch.pearl.pearl_cql import PearlCqlTrainer
 from rlkit.torch.pearl.sampler import rollout
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.visualization.video import dump_video
 
 
-def pearl_experiment(
+def pearl_cql_experiment(
         qf_kwargs=None,
-        vf_kwargs=None,
         trainer_kwargs=None,
         algo_kwargs=None,
         context_encoder_kwargs=None,
@@ -70,9 +69,6 @@ def pearl_experiment(
     context_encoder_kwargs = context_encoder_kwargs or {}
     context_decoder_kwargs = context_decoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
-    # expl_env = make(env_id, env_class, env_kwargs, normalize_env)
-    # eval_env = make(env_id, env_class, env_kwargs, normalize_env)
-    # expl_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     base_env = ENVS[env_name](**env_params)
     if saved_tasks_path:
         task_data = load_local_or_remote_file(
@@ -102,12 +98,7 @@ def pearl_experiment(
         algo_kwargs['min_num_steps_before_training'] = 100
 
     obs_dim = expl_env.observation_space.low.size
-    action_dim = eval_env.action_space.low.size
-
-    if hasattr(expl_env, 'info_sizes'):
-        env_info_sizes = expl_env.info_sizes
-    else:
-        env_info_sizes = dict()
+    action_dim = expl_env.action_space.low.size
 
     if use_next_obs_in_context:
         context_encoder_input_dim = 2 * obs_dim + action_dim + reward_dim
@@ -123,11 +114,8 @@ def pearl_experiment(
 
     qf1 = create_qf()
     qf2 = create_qf()
-    vf = ConcatMlp(
-        input_size=obs_dim + latent_dim,
-        output_size=1,
-        **vf_kwargs
-    )
+    target_qf1 = create_qf()
+    target_qf2 = create_qf()
 
     policy = TanhGaussianPolicy(
         obs_dim=obs_dim + latent_dim,
@@ -158,15 +146,17 @@ def pearl_experiment(
         use_next_obs_in_context=use_next_obs_in_context,
         _debug_do_not_sqrt=_debug_do_not_sqrt,
     )
-    trainer = PEARLSoftActorCriticTrainer(
+    trainer = PearlCqlTrainer(
         latent_dim=latent_dim,
         agent=agent,
         qf1=qf1,
         qf2=qf2,
-        vf=vf,
+        target_qf1=target_qf1,
+        target_qf2=target_qf2,
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
         context_decoder=context_decoder,
+        action_space=expl_env.action_space,
         **trainer_kwargs
     )
     task_indices = expl_env.get_all_task_idx()

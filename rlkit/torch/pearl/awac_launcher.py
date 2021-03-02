@@ -41,6 +41,8 @@ def pearl_awac_launcher_simple(
         use_dummy_encoder=False,
         networks_ignore_context=False,
         use_ground_truth_context=False,
+        save_video=False,
+        save_video_period=False,
         # Pre-train params
         pretrain_rl=False,
         pretrain_offline_algo_kwargs=None,
