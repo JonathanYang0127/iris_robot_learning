@@ -1,5 +1,6 @@
-import os.path as osp
 from collections import OrderedDict
+import os.path as osp
+from pathlib import Path
 from typing import Callable, List
 
 from gym import Env
@@ -31,6 +32,8 @@ class PearlSaveVideoFunction(object):
             text_renderer,
             tag='',
             task_indices_per_rollout=None,
+            logdir=None,
+            discard_incomplete_paths=False,
             **dump_video_kwargs
     ):
         self.path_collector = path_collector
@@ -42,9 +45,11 @@ class PearlSaveVideoFunction(object):
         self.tag = tag + '_' if tag else ''
         self.task_indices_per_rollout = task_indices_per_rollout
         self.dump_video_kwargs = dump_video_kwargs
+        self.logdir = logdir or logger.get_snapshot_dir()
+        self.discard_incomplete_paths = discard_incomplete_paths
+        Path(self.logdir).mkdir(parents=True, exist_ok=True)
 
     def __call__(self, algo, epoch):
-        logdir = logger.get_snapshot_dir()
         if epoch % self.save_video_period == 0 or epoch >= algo.num_epochs - 1:
             def label_name(name, kwargs):
                 self.text_renderer.prefix = '{name}\n'.format(name=name)
@@ -54,7 +59,7 @@ class PearlSaveVideoFunction(object):
             name_to_path_and_indices = self.path_collector.collect_named_paths_and_indices(
                 self.max_path_length,
                 self.num_steps,
-                False,
+                self.discard_incomplete_paths,
                 per_name_callback=label_name,
             )
             for name, (paths, _) in name_to_path_and_indices.items():
@@ -62,7 +67,7 @@ class PearlSaveVideoFunction(object):
                     tag=self.tag,
                     name=name.replace('/', '-'),
                     epoch=epoch)
-                filepath = osp.join(logdir, filename)
+                filepath = osp.join(self.logdir, filename)
                 dump_paths(
                     None,
                     filepath,

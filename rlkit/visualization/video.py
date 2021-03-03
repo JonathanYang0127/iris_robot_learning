@@ -308,6 +308,7 @@ def dump_paths(
         get_extra_imgs=None,
         num_columns_per_rollout=1,
         obs_dict_key='full_observations',
+        horizon=None,
         **combine_img_kwargs
 ):
     # TODO: merge with `dump_video`
@@ -335,6 +336,10 @@ def dump_paths(
     else:
         rows = min(rows, int(len(paths) / columns))
     N = rows * columns
+    if horizon is None:
+        horizon = max(
+            len(path['actions']) for path in paths
+        )
     for i in range(N):
         start = time.time()
         path = paths[i]
@@ -352,6 +357,9 @@ def dump_paths(
                     **combine_img_kwargs
                 )
             )
+        if len(l) < horizon:
+            frozen_img = l[-1] / 2
+            l += [frozen_img] * (horizon - len(l))
         frames += l
 
         if dirname_to_save_images:
