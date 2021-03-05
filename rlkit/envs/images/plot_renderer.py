@@ -87,13 +87,31 @@ class ScrollingPlotRenderer(MatplotLibRenderer):
     |   |_____________  |
     |        time       |
     ---------------------
+
+
+    Usage
+    ```
+    renderer = ScrollingPlotRenderer()
+    img = renderer(1.0)
+    img = renderer(2.0)
+    img = renderer(3.0)
+
+    etc.
+
+    ```
     """
     def __init__(
             self,
             window_size=100,
+            cumsum=False,
             **kwargs
     ):
-        """Render an image."""
+        """Render an image of a plot over time.
+
+        :param window_size: How many datapoints to keep.
+        :param cumsum: If true, plot the cumulative sum since the last reset.
+        :param kwargs:  Any extra kwargs for the base class.
+        """
         super().__init__(**kwargs)
         self.window_size = window_size
         self.lines = self.ax.plot(
@@ -102,9 +120,12 @@ class ScrollingPlotRenderer(MatplotLibRenderer):
         self.t = 0
         self.xs = collections.deque(maxlen=window_size)
         self.ys = collections.deque(maxlen=window_size)
+        self.cumsum = cumsum
+        self._sum = 0
 
     def reset(self):
         self.t = 0
+        self._sum = 0
         self.xs = collections.deque(maxlen=self.window_size)
         self.ys = collections.deque(maxlen=self.window_size)
         self.lines.set_xdata(np.array([]))
@@ -118,7 +139,11 @@ class ScrollingPlotRenderer(MatplotLibRenderer):
         if number is not None:
             self.xs.append(self.t)
             self.t += 1
-            self.ys.append(number)
+            if self.cumsum:
+                self._sum = self._sum + number
+                self.ys.append(self._sum)
+            else:
+                self.ys.append(number)
         self.lines.set_xdata(np.array(self.xs))
         self.lines.set_ydata(np.array(self.ys))
         self.ax.relim()
@@ -137,21 +162,7 @@ class ScrollingPlotRenderer(MatplotLibRenderer):
 
 
 class TextRenderer(MatplotLibRenderer):
-    """
-    Plot the history of some number over a scrolling window.
-
-    So something like:
-
-    ---------------------
-    |                   |
-    |   |        ___/   |
-    |   |     __/       |
-    | y |    /          |
-    |   | __/           |
-    |   |_____________  |
-    |        time       |
-    ---------------------
-    """
+    """Show text as an image."""
     def __init__(
             self,
             text,
