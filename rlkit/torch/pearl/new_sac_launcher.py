@@ -27,7 +27,7 @@ from rlkit.torch.pearl.path_collector import (
     PearlJointPathCollector,
 )
 from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
-from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
+from rlkit.torch.pearl.pearl_sac import PEARLSoftActorCriticTrainer
 from rlkit.torch.pearl.sampler import rollout
 from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.visualization.video import dump_video

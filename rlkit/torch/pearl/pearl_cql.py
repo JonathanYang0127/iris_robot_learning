@@ -13,7 +13,7 @@ from rlkit.core.logging import add_prefix
 from rlkit.core.loss import LossStatistics
 from rlkit.core.timer import timer
 from rlkit.misc.eval_util import create_stats_ordered_dict
-from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
+from rlkit.torch.pearl.pearl_sac import PEARLSoftActorCriticTrainer
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
 

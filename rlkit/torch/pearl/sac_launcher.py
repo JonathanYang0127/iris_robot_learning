@@ -22,7 +22,7 @@ from rlkit.torch.pearl.diagnostics import (
 from rlkit.torch.pearl.networks import MlpEncoder, MlpDecoder
 from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo
 from rlkit.torch.pearl.path_collector import PearlPathCollector
-from rlkit.torch.pearl.pearl_trainer import PEARLSoftActorCriticTrainer
+from rlkit.torch.pearl.pearl_sac import PEARLSoftActorCriticTrainer
 from rlkit.torch.pearl.sampler import rollout
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.visualization.video import dump_video
