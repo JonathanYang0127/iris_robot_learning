@@ -9,7 +9,7 @@ import os
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.pearl import configs
 import rlkit.pythonplusplus as ppp
-from rlkit.torch.pearl.sac_launcher import pearl_experiment
+from rlkit.torch.pearl.sac_launcher import pearl_sac_experiment
 import rlkit.misc.hyperparameter as hyp
 
 
@@ -128,7 +128,7 @@ def main(debug, dry, take):
         for _ in range(n_seeds):
             variant['exp_id'] = exp_id
             run_experiment(
-                pearl_experiment,
+                pearl_sac_experiment,
                 unpack_variant=True,
                 exp_name=exp_name,
                 mode=mode,

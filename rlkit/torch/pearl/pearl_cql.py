@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch import nn as nn
+from torch.distributions import kl_divergence
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core.logging import add_prefix
@@ -44,7 +45,7 @@ class PearlCqlTrainer(TorchTrainer):
             use_information_bottleneck=True,
             use_next_obs_in_context=False,
             sparse_rewards=False,
-            back_prop_reward_prediction_into_encoder=False,
+            backprop_q_loss_into_encoder=False,
             train_context_decoder=False,
 
             train_reward_pred_in_unsupervised_phase=False,
@@ -82,7 +83,7 @@ class PearlCqlTrainer(TorchTrainer):
         self.policy_pre_activation_weight = policy_pre_activation_weight
         self.plotter = plotter
         self.render_eval_paths = render_eval_paths
-        self.back_prop_reward_prediction_into_encoder = back_prop_reward_prediction_into_encoder
+        self.backprop_q_loss_into_encoder = backprop_q_loss_into_encoder
 
         self.train_reward_pred_in_unsupervised_phase = train_reward_pred_in_unsupervised_phase
         self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = (
@@ -229,8 +230,12 @@ class PearlCqlTrainer(TorchTrainer):
         """
         QF Loss
         """
-        q1_pred = self.qf1(obs, actions, task_z_not_truncated)
-        q2_pred = self.qf2(obs, actions, task_z_not_truncated)
+        if self.backprop_q_loss_into_encoder:
+            q1_pred = self.qf1(obs, actions, task_z_not_truncated)
+            q2_pred = self.qf2(obs, actions, task_z_not_truncated)
+        else:
+            q1_pred = self.qf1(obs, actions, task_z)
+            q2_pred = self.qf2(obs, actions, task_z)
 
         if not self.max_q_backup:
             target_q_values = torch.min(
@@ -330,6 +335,19 @@ class PearlCqlTrainer(TorchTrainer):
 
         qf1_loss = qf1_loss + min_qf1_loss
         qf2_loss = qf2_loss + min_qf2_loss
+        qf_loss = qf1_loss + qf2_loss
+
+        """Context encoder/decoder"""
+        kl_div = kl_divergence(p_z, self.agent.latent_prior).sum()
+        kl_loss = self.kl_lambda * kl_div
+        if self.train_context_decoder:
+            # TODO: change to use a distribution
+            reward_pred = self.context_decoder(obs, actions, task_z)
+            reward_prediction_loss = ((reward_pred - rewards)**2).mean()
+            context_loss = kl_loss + reward_prediction_loss
+        else:
+            context_loss = kl_loss
+            reward_prediction_loss = ptu.zeros(1)
 
         """
         Update networks
@@ -339,12 +357,13 @@ class PearlCqlTrainer(TorchTrainer):
         self.policy_optimizer.step()
 
         self.qf1_optimizer.zero_grad()
-        qf1_loss.backward(retain_graph=True)
-        self.qf1_optimizer.step()
-
         self.qf2_optimizer.zero_grad()
-        qf2_loss.backward(retain_graph=False)
+        self.context_optimizer.zero_grad()
+        context_loss.backward(retain_graph=True)
+        qf_loss.backward()
+        self.qf1_optimizer.step()
         self.qf2_optimizer.step()
+        self.context_optimizer.step()
         """
         Soft Updates
         """
@@ -437,6 +456,18 @@ class PearlCqlTrainer(TorchTrainer):
                 'Policy log std',
                 ptu.get_numpy(policy_log_std),
             ))
+            self.eval_statistics['task_embedding/kl_divergence'] = (
+                ptu.get_numpy(kl_div)
+            )
+            self.eval_statistics['task_embedding/kl_loss'] = (
+                ptu.get_numpy(kl_loss)
+            )
+            self.eval_statistics['task_embedding/reward_prediction_loss'] = (
+                ptu.get_numpy(reward_prediction_loss)
+            )
+            self.eval_statistics['task_embedding/context_loss'] = (
+                ptu.get_numpy(context_loss)
+            )
 
             if self.use_automatic_entropy_tuning:
                 self.eval_statistics['Alpha'] = alpha.item()

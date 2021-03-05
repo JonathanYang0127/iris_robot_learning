@@ -32,6 +32,7 @@ class PearlAwacTrainer(TorchTrainer):
             context_decoder,
 
             train_context_decoder=False,
+            backprop_q_loss_into_encoder=True,
             context_lr=1e-3,
             kl_lambda=1.,
             policy_mean_reg_weight=1e-3,
@@ -123,6 +124,7 @@ class PearlAwacTrainer(TorchTrainer):
         super().__init__()
 
         self.train_context_decoder = train_context_decoder
+        self.backprop_q_loss_into_encoder = backprop_q_loss_into_encoder
         self.reward_scale = reward_scale
         self.discount = discount
         self.soft_target_tau = soft_target_tau
@@ -352,14 +354,19 @@ class PearlAwacTrainer(TorchTrainer):
         """
         QF Loss
         """
-        q1_pred = self.qf1(obs, actions, task_z)
-        q2_pred = self.qf2(obs, actions, task_z)
+        if self.backprop_q_loss_into_encoder:
+            q1_pred = self.qf1(obs, actions, task_z)
+            q2_pred = self.qf2(obs, actions, task_z)
+        else:
+            q1_pred = self.qf1(obs, actions, task_z.detach())
+            q2_pred = self.qf2(obs, actions, task_z.detach())
         # Make sure policy accounts for squashing functions like tanh correctly!
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
-        target_q_values = torch.min(
-            self.target_qf1(next_obs, new_next_actions, task_z),
-            self.target_qf2(next_obs, new_next_actions, task_z),
-        ) - alpha * new_log_pi
+        with torch.no_grad():
+            target_q_values = torch.min(
+                self.target_qf1(next_obs, new_next_actions, task_z),
+                self.target_qf2(next_obs, new_next_actions, task_z),
+            ) - alpha * new_log_pi
 
         q_target = rewards_flat + (
                     1. - terms_flat) * self.discount * target_q_values
@@ -540,6 +547,9 @@ class PearlAwacTrainer(TorchTrainer):
             )
             self.eval_statistics['task_embedding/reward_prediction_loss'] = (
                 ptu.get_numpy(reward_prediction_loss)
+            )
+            self.eval_statistics['task_embedding/context_loss'] = (
+                ptu.get_numpy(context_loss)
             )
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Log Pis',

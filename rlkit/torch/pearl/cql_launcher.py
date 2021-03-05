@@ -58,7 +58,9 @@ def pearl_cql_experiment(
         pretrain_offline_algo_kwargs=None,
         load_buffer_kwargs=None,
         saved_tasks_path=None,
+        tags=None,
 ):
+    del tags
     register_pearl_envs()
     pretrain_offline_algo_kwargs = pretrain_offline_algo_kwargs or {}
     env_kwargs = env_kwargs or {}

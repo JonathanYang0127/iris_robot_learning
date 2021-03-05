@@ -41,8 +41,8 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
             use_information_bottleneck=True,
             use_next_obs_in_context=False,
             sparse_rewards=False,
-            back_prop_reward_prediction_into_encoder=False,
             train_context_decoder=False,
+            backprop_q_loss_into_encoder=True,
 
             train_reward_pred_in_unsupervised_phase=False,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
@@ -54,7 +54,6 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
     ):
         super().__init__()
 
-        self.train_context_decoder = train_context_decoder
         self.reward_scale = reward_scale
         self.discount = discount
         self.soft_target_tau = soft_target_tau
@@ -64,7 +63,6 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         self.policy_pre_activation_weight = policy_pre_activation_weight
         self.plotter = plotter
         self.render_eval_paths = render_eval_paths
-        self.back_prop_reward_prediction_into_encoder = back_prop_reward_prediction_into_encoder
 
         self.train_reward_pred_in_unsupervised_phase = train_reward_pred_in_unsupervised_phase
         self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = (
@@ -83,6 +81,8 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         self.use_information_bottleneck = use_information_bottleneck
         self.sparse_rewards = sparse_rewards
         self.use_next_obs_in_context = use_next_obs_in_context
+        self.train_context_decoder = train_context_decoder
+        self.backprop_q_loss_into_encoder = backprop_q_loss_into_encoder
 
         self.agent = agent
         self.policy = agent.policy
@@ -193,8 +193,12 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
 
         # Q and V networks
         # encoder will only get gradients from Q nets
-        q1_pred = self.qf1(obs, actions, task_z)
-        q2_pred = self.qf2(obs, actions, task_z)
+        if self.backprop_q_loss_into_encoder:
+            q1_pred = self.qf1(obs, actions, task_z)
+            q2_pred = self.qf2(obs, actions, task_z)
+        else:
+            q1_pred = self.qf1(obs, actions, task_z.detach())
+            q2_pred = self.qf2(obs, actions, task_z.detach())
         v_pred = self.vf(obs, task_z.detach())
         # get targets for use in V and Q updates
         with torch.no_grad():
@@ -204,9 +208,6 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         QF, Encoder, and Decoder Loss
         """
         # note: encoder/deocder do not get grads from policy or vf
-        self.qf1_optimizer.zero_grad()
-        self.context_optimizer.zero_grad()
-        self.qf2_optimizer.zero_grad()
         q_target = rewards_flat + (1. - terms_flat) * self.discount * target_v_values
         qf_loss = torch.mean((q1_pred - q_target) ** 2) + torch.mean((q2_pred - q_target) ** 2)
 
@@ -221,13 +222,15 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         else:
             context_loss = kl_loss
             reward_prediction_loss = ptu.zeros(1)
-        context_loss.backward(retain_graph=True)
 
+        self.qf1_optimizer.zero_grad()
+        self.qf2_optimizer.zero_grad()
+        self.context_optimizer.zero_grad()
+        context_loss.backward(retain_graph=True)
         qf_loss.backward()
         self.qf1_optimizer.step()
         self.qf2_optimizer.step()
         self.context_optimizer.step()
-
 
         """
         VF update
@@ -288,6 +291,9 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
             )
             self.eval_statistics['task_embedding/reward_prediction_loss'] = (
                 ptu.get_numpy(reward_prediction_loss)
+            )
+            self.eval_statistics['task_embedding/context_loss'] = (
+                ptu.get_numpy(context_loss)
             )
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Q Predictions',

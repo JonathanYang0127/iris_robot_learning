@@ -24,7 +24,7 @@ from rlkit.torch.torch_rl_algorithm import (
 )
 
 
-def pearl_awac_launcher_simple(
+def pearl_awac_experiment(
         trainer_kwargs=None,
         algo_kwargs=None,
         qf_kwargs=None,
@@ -54,7 +54,9 @@ def pearl_awac_launcher_simple(
         n_eval_tasks=0,
         use_data_collectors=False,
         use_next_obs_in_context=False,
+        tags=None,
 ):
+    del tags
     pretrain_buffer_kwargs = pretrain_buffer_kwargs or {}
     context_decoder_kwargs = context_decoder_kwargs or {}
     pretrain_offline_algo_kwargs = pretrain_offline_algo_kwargs or {}

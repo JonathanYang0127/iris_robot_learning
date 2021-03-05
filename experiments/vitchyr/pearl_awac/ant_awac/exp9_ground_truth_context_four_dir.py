@@ -3,7 +3,7 @@ from pathlib import Path
 
 from rlkit.launchers.launcher_util import run_experiment, load_pyhocon_configs
 import rlkit.pythonplusplus as ppp
-from rlkit.torch.pearl.awac_launcher import pearl_awac_launcher_simple
+from rlkit.torch.pearl.awac_launcher import pearl_awac_experiment
 import rlkit.misc.hyperparameter as hyp
 
 
@@ -56,7 +56,7 @@ def main(debug, dry, suffix):
         for _ in range(n_seeds):
             variant['exp_id'] = exp_id
             run_experiment(
-                pearl_awac_launcher_simple,
+                pearl_awac_experiment,
                 unpack_variant=True,
                 exp_name=exp_name,
                 mode=mode,

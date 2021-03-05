@@ -28,7 +28,7 @@ from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.visualization.video import dump_video
 
 
-def pearl_experiment(
+def pearl_sac_experiment(
         qf_kwargs=None,
         vf_kwargs=None,
         trainer_kwargs=None,
@@ -59,7 +59,9 @@ def pearl_experiment(
         pretrain_offline_algo_kwargs=None,
         load_buffer_kwargs=None,
         saved_tasks_path=None,
+        tags=None,
 ):
+    del tags
     register_pearl_envs()
     pretrain_offline_algo_kwargs = pretrain_offline_algo_kwargs or {}
     env_kwargs = env_kwargs or {}
