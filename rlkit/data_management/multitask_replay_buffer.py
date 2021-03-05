@@ -121,6 +121,8 @@ class MultiTaskReplayBuffer(object):
                 sequence=False)
             for idx in indices
         ]
+        if any(b is None for b in batches):
+            return None
         if self.use_ground_truth_context:
             return np.array([self.ground_truth_tasks[i] for i in indices])
         context = [self.unpack_batch(batch) for batch in batches]

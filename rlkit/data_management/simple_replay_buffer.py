@@ -66,6 +66,8 @@ class SimpleReplayBuffer(ReplayBuffer):
             self._size += 1
 
     def random_batch(self, batch_size):
+        if self._size == 0:
+            return None
         indices = np.random.randint(0, self._size, batch_size)
         batch = dict(
             observations=self._observations[indices],
