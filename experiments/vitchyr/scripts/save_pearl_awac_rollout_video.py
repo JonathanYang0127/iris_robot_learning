@@ -34,7 +34,7 @@ def simulate_policy(args):
     # buffer_data = cloudpickle.load(
     #     open(buffer_path, 'rb'))
     # replay_buffer = buffer_data['replay_buffer']
-    prefix = 'all_'
+    prefix = 'cumsum_'
 
     snapshot_path = args.file
     ptu.set_gpu_mode(True)
@@ -230,14 +230,16 @@ def simulate_policy(args):
         width=256,
         height=256,
     )
-    reward_plotter = ScrollingPlotRenderer(
+    returns_plotter = ScrollingPlotRenderer(
         width=256,
         height=256,
+        window_size=horizon,
+        cumsum=True,
     )
     renderers={
         'image_observation': img_renderer,
         'text': text_renderer,
-        'reward': reward_plotter,
+        'returns': returns_plotter,
     }
     img_env = DebugInsertImagesEnv(
         wrapped_env=env,

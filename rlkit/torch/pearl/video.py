@@ -18,6 +18,7 @@ from rlkit.torch.pearl.diagnostics import (
 from rlkit.torch.pearl.path_collector import (
     PearlJointPathCollector,
 )
+from rlkit.torch.pearl.sampler import merge_paths
 from rlkit.visualization.video import dump_paths
 
 
@@ -34,6 +35,8 @@ class PearlSaveVideoFunction(object):
             task_indices_per_rollout=None,
             logdir=None,
             discard_incomplete_paths=False,
+            flatten_paths=False,
+            num_rollout_per_setting=3,
             **dump_video_kwargs
     ):
         self.path_collector = path_collector
@@ -47,6 +50,8 @@ class PearlSaveVideoFunction(object):
         self.dump_video_kwargs = dump_video_kwargs
         self.logdir = logdir or logger.get_snapshot_dir()
         self.discard_incomplete_paths = discard_incomplete_paths
+        self.flatten_paths = flatten_paths
+        self.num_rollout_per_setting = num_rollout_per_setting
         Path(self.logdir).mkdir(parents=True, exist_ok=True)
 
     def __call__(self, algo, epoch):
@@ -56,13 +61,14 @@ class PearlSaveVideoFunction(object):
                 if self.task_indices_per_rollout is not None:
                     kwargs['task_indices_for_rollout'] = self.task_indices_per_rollout
                 return kwargs
-            name_to_path_and_indices = self.path_collector.collect_named_paths_and_indices(
+            name_to_path_and_indices = self.path_collector.yield_name_paths_and_indices(
                 self.max_path_length,
                 self.num_steps,
                 self.discard_incomplete_paths,
                 per_name_callback=label_name,
+                flatten_paths=self.flatten_paths,
             )
-            for name, (paths, _) in name_to_path_and_indices.items():
+            for name, paths, _ in name_to_path_and_indices:
                 filename = 'video_{tag}{name}_{epoch}.mp4'.format(
                     tag=self.tag,
                     name=name.replace('/', '-'),
@@ -94,10 +100,10 @@ def make_save_video_function(
 ):
     font_size = int(video_img_size / 256 * 40)  # heuristic
 
-    def config_reward_ax(ax):
-        ax.set_title('reward vs step')
+    def config_return_ax(ax):
+        ax.set_title('returns vs step')
         ax.set_xlabel('steps')
-        ax.set_ylabel('reward')
+        ax.set_ylabel('returns')
         size = font_size
         ax.yaxis.set_tick_params(labelsize=size)
         ax.xaxis.set_tick_params(labelsize=size)
@@ -126,14 +132,16 @@ def make_save_video_function(
         height=video_img_size,
         font_size=font_size,
     )
-    reward_plotter = ScrollingPlotRenderer(
+    returns_plotter = ScrollingPlotRenderer(
         width=video_img_size,
         height=video_img_size,
-        modify_ax_fn=config_reward_ax,
+        modify_ax_fn=config_return_ax,
+        window_size=min(max_path_length, 200),
+        cumsum=True,
     )
     renderers = OrderedDict([
         ('image_observation', img_renderer),
-        ('reward_plot', reward_plotter),
+        ('return_plot', returns_plotter),
         ('text', text_renderer),
     ])
     img_env = DebugInsertImagesEnv(

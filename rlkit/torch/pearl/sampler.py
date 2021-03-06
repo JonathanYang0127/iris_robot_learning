@@ -136,7 +136,7 @@ def rollout(
     z = ptu.get_numpy(z_dist.sample())
     for path_length in range(max_path_length):
         if resample_latent_period != 0 and path_length % resample_latent_period == 0:
-            z = ptu.get_numpy(z_dist.rsample())
+            z = ptu.get_numpy(z_dist.sample())
         a, agent_info = agent.get_action(o, z)
         next_o, r, d, env_info = env.step(a)
         if use_predicted_reward:

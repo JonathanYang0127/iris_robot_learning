@@ -21,10 +21,11 @@ from rlkit.torch.pearl.diagnostics import (
     FlatToDictPearlPolicy,
 )
 from rlkit.torch.pearl.diagnostics import get_diagnostics
-from rlkit.torch.pearl.networks import MlpEncoder
+from rlkit.torch.pearl.networks import MlpEncoder, MlpDecoder
 from rlkit.torch.pearl.path_collector import (
     PearlPathCollector,
     PearlJointPathCollector,
+    PearlMultiPathCollector,
 )
 from rlkit.torch.pearl.pearl_algorithm import PearlAlgorithm
 from rlkit.torch.pearl.pearl_sac import PEARLSoftActorCriticTrainer
@@ -39,6 +40,7 @@ def pearl_sac_experiment(
         trainer_kwargs=None,
         algo_kwargs=None,
         context_encoder_kwargs=None,
+        context_decoder_kwargs=None,
         policy_kwargs=None,
         policy_path=None,
         normalize_env=True,
@@ -57,6 +59,7 @@ def pearl_sac_experiment(
         pearl_buffer_kwargs=None,
         name_to_eval_path_collector_kwargs=None,
         name_to_expl_path_collector_kwargs=None,
+        expl_joint_path_collector_kwargs=None,
         replay_buffer_class=EnvReplayBuffer,
         replay_buffer_kwargs=None,
         use_validation_buffer=False,
@@ -90,6 +93,8 @@ def pearl_sac_experiment(
         use_data_collectors=False,
         use_next_obs_in_context=False,
 ):
+    if expl_joint_path_collector_kwargs is None:
+        expl_joint_path_collector_kwargs = {}
     save_video_kwargs = save_video_kwargs or {}
     register_pearl_envs()
     env_kwargs = env_kwargs or {}
@@ -98,6 +103,7 @@ def pearl_sac_experiment(
     exploration_kwargs = exploration_kwargs or {}
     replay_buffer_kwargs = replay_buffer_kwargs or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
+    context_decoder_kwargs = context_decoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
     if n_train_tasks_for_video is None:
         n_train_tasks_for_video = n_train_tasks
@@ -153,6 +159,11 @@ def pearl_sac_experiment(
         output_size=context_encoder_output_dim,
         **context_encoder_kwargs
     )
+    context_decoder = MlpDecoder(
+        input_size=obs_dim + action_dim + latent_dim,
+        output_size=1,
+        **context_decoder_kwargs
+    )
     reward_predictor = ConcatMlp(
         input_size=obs_dim + action_dim + latent_dim,
         output_size=1,
@@ -174,6 +185,7 @@ def pearl_sac_experiment(
         vf=vf,
         reward_predictor=reward_predictor,
         context_encoder=context_encoder,
+        context_decoder=context_decoder,
         **trainer_kwargs
     )
     task_indices = expl_env.get_all_task_idx()
@@ -206,12 +218,13 @@ def pearl_sac_experiment(
 
     def create_eval_path_collector(env, policy):
         eval_path_collectors = {
-            'train/' + name: PearlPathCollector(
-                env, policy, train_task_indices, pearl_replay_buffer, **kwargs)
+            'train/' + name: PearlMultiPathCollector(
+                env, policy, train_task_indices, pearl_replay_buffer,
+                **kwargs)
             for name, kwargs in name_to_eval_path_collector_kwargs.items()
         }
         eval_path_collectors.update({
-            'test/' + name: PearlPathCollector(
+            'test/' + name: PearlMultiPathCollector(
                 env, policy, test_task_indices,
                 pearl_replay_buffer,
                 **kwargs)
@@ -223,12 +236,12 @@ def pearl_sac_experiment(
 
     def create_expl_path_collector(env, policy):
         return PearlJointPathCollector({
-            name: PearlPathCollector(
+            name: PearlMultiPathCollector(
                 env, policy, train_task_indices,
                 pearl_replay_buffer,
                 **kwargs)
             for name, kwargs in name_to_expl_path_collector_kwargs.items()
-        })
+        }, **expl_joint_path_collector_kwargs)
     expl_path_collector = create_expl_path_collector(expl_env, expl_policy)
 
     diagnostic_fns = get_diagnostics(base_expl_env)
@@ -266,7 +279,8 @@ def pearl_sac_experiment(
                 video_train_tasks
             )
         ))  # avoid duplicates
-        n_expl_video_rollouts = (
+        # TODO: stop hard-coding 3
+        n_expl_video_rollouts = 3 * (
                 len(expl_path_collector.path_collectors)
                 * len(video_train_tasks)
         )
@@ -282,15 +296,24 @@ def pearl_sac_experiment(
         )
         algorithm.post_train_funcs.append(save_expl_video_func)
 
-        n_eval_video_rollouts = (
+        n_eval_video_rollouts = 3 * (
                 len(eval_path_collector.path_collectors)
                 * len(video_eval_tasks)
         )
+
+        def create_video_eval_path_collector(env, policy):
+            eval_path_collectors = {
+                name: PearlMultiPathCollector(
+                    env, policy, train_task_indices, pearl_replay_buffer,
+                    **kwargs)
+                for name, kwargs in name_to_eval_path_collector_kwargs.items()
+            }
+            return PearlJointPathCollector(eval_path_collectors)
         save_eval_video_func = video.make_save_video_function(
             eval_env,
             eval_policy,
             'eval',
-            create_path_collector=create_eval_path_collector,
+            create_path_collector=create_video_eval_path_collector,
             num_steps=n_eval_video_rollouts * algorithm.max_path_length,
             task_indices=video_eval_tasks,
             max_path_length=algorithm.max_path_length,

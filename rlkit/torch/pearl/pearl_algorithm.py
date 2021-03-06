@@ -69,6 +69,8 @@ class PearlAlgorithm(TorchBatchRLAlgorithm):
                 discard_incomplete_paths=False,
                 task_idx=task_idx,
             )
+            if len(list(init_expl_paths)) == 0:
+                raise ValueError("need to get enough paths at the start.")
             self.replay_buffer.add_paths(init_expl_paths, task_idx)
         # TODO: how should I initialized these buffers?
         for task_idx in self.test_task_indices:
@@ -78,5 +80,7 @@ class PearlAlgorithm(TorchBatchRLAlgorithm):
                 discard_incomplete_paths=False,
                 task_idx=task_idx,
             )
+            if len(list(init_expl_paths)) == 0:
+                raise ValueError("need to get enough paths at the start.")
             self.replay_buffer.add_paths(init_expl_paths, task_idx)
         self.expl_data_collector.end_epoch(-1)

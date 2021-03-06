@@ -27,6 +27,7 @@ from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo
 from rlkit.torch.pearl.path_collector import (
     PearlPathCollector,
     PearlJointPathCollector,
+    PearlMultiPathCollector,
 )
 from rlkit.torch.pearl.sampler import rollout, rollout_multiple_and_flatten
 from rlkit.visualization.video import dump_video
@@ -77,20 +78,16 @@ def simulate_policy(args):
     default_variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
     name_to_eval_path_collector_kwargs = default_variant['name_to_eval_path_collector_kwargs']
     name_to_expl_path_collector_kwargs = default_variant['name_to_expl_path_collector_kwargs']
+    name_to_eval_path_collector_kwargs.pop('init_from_buffer')
+    name_to_eval_path_collector_kwargs.pop('init_from_buffer_live_update')
+    name_to_eval_path_collector_kwargs.pop('posterior_live_update')
 
     def create_eval_path_collector(env, policy):
         eval_path_collectors = {
-            'train/' + name: PearlPathCollector(
-                env, policy, train_task_indices, pearl_replay_buffer, **kwargs)
+            name: PearlMultiPathCollector(
+                env, policy, pearl_replay_buffer, **kwargs)
             for name, kwargs in name_to_eval_path_collector_kwargs.items()
         }
-        eval_path_collectors.update({
-            'test/' + name: PearlPathCollector(
-                env, policy, test_task_indices,
-                pearl_replay_buffer,
-                **kwargs)
-            for name, kwargs in name_to_eval_path_collector_kwargs.items()
-        })
         return PearlJointPathCollector(eval_path_collectors)
 
     def create_expl_path_collector(env, policy):
@@ -107,33 +104,54 @@ def simulate_policy(args):
         logdir=snapshot_dir / 'generated_rollouts'
     )
 
-    n_eval_video_rollouts = (
-            len(name_to_eval_path_collector_kwargs)
-            * (len(train_task_indices) + len(test_task_indices)))
+    n_eval_video_rollouts = 3 * (
+            len(name_to_eval_path_collector_kwargs) * len(train_task_indices)
+    )
     eval_save_video_fn = video.make_save_video_function(
         env=env,
         policy=algorithm.trainer.agent,
-        tag='retroactive_eval',
+        tag='retroactive_eval_3paths_train',
         create_path_collector=create_eval_path_collector,
         num_steps=n_eval_video_rollouts * algorithm.max_path_length,
         task_indices=train_task_indices,
         max_path_length=algorithm.max_path_length,
         discard_incomplete_paths=False,
+        # merge_every_N=3,
+        flatten_paths=True,
         **save_video_kwargs)
     eval_save_video_fn(algorithm, 0)
 
-    n_expl_video_rollouts = (
-            len(name_to_expl_path_collector_kwargs)
-            * len(train_task_indices))
+    n_eval_video_rollouts = 3 * (
+        len(name_to_eval_path_collector_kwargs) * len(test_task_indices)
+    )
+    eval_save_video_fn = video.make_save_video_function(
+        env=env,
+        policy=algorithm.trainer.agent,
+        tag='retroactive_eval_3paths_test',
+        create_path_collector=create_eval_path_collector,
+        num_steps=n_eval_video_rollouts * algorithm.max_path_length,
+        task_indices=test_task_indices,
+        max_path_length=algorithm.max_path_length,
+        discard_incomplete_paths=False,
+        flatten_paths=True,
+        # merge_every_N=3,
+        **save_video_kwargs)
+    eval_save_video_fn(algorithm, 0)
+
+    n_expl_video_rollouts = 3 * (
+        len(name_to_expl_path_collector_kwargs) * len(train_task_indices)
+    )
     expl_save_video_fn = video.make_save_video_function(
         env=env,
         policy=algorithm.trainer.agent,
-        tag='retroactive_expl',
+        tag='retroactive_expl_3paths',
         create_path_collector=create_expl_path_collector,
         num_steps=n_expl_video_rollouts * algorithm.max_path_length,
         task_indices=train_task_indices,
         max_path_length=algorithm.max_path_length,
         discard_incomplete_paths=False,
+        flatten_paths=True,
+        # merge_every_N=3,
         **save_video_kwargs)
     expl_save_video_fn(algorithm, 0)
 
