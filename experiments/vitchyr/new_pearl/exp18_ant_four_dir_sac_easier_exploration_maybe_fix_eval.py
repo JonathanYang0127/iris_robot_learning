@@ -44,6 +44,8 @@ def main(debug, dry, suffix):
         'save_video': [True, False],
         'logger_config.snapshot_mode': ['gap_and_last'],
         'logger_config.snapshot_gap': [25],
+
+        'save_video_kwargs.video_img_size': [128],
         # 'name_to_expl_path_collector_kwargs': [
         #     dict(
         #         init_from_buffer=dict(

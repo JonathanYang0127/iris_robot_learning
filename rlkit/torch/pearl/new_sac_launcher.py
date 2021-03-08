@@ -274,50 +274,37 @@ def pearl_sac_experiment(
 
     if save_video:
         video_train_tasks = train_task_indices[:n_train_tasks_for_video]
-        video_eval_tasks = list(sorted(
-            set(test_task_indices[:n_test_tasks_for_video]).union(
-                video_train_tasks
-            )
-        ))  # avoid duplicates
-        # TODO: stop hard-coding 3
-        n_expl_video_rollouts = 3 * (
-                len(expl_path_collector.path_collectors)
-                * len(video_train_tasks)
-        )
-        save_expl_video_func = video.make_save_video_function(
-            expl_env,
-            eval_policy,
-            'expl',
-            create_path_collector=create_expl_path_collector,
-            num_steps=n_expl_video_rollouts * algorithm.max_path_length,
-            task_indices=video_train_tasks,
-            max_path_length=algorithm.max_path_length,
-            **save_video_kwargs
-        )
-        algorithm.post_train_funcs.append(save_expl_video_func)
-
-        n_eval_video_rollouts = 3 * (
-                len(eval_path_collector.path_collectors)
-                * len(video_eval_tasks)
-        )
+        video_test_tasks = test_task_indices[:n_test_tasks_for_video]
 
         def create_video_eval_path_collector(env, policy):
             eval_path_collectors = {
                 name: PearlMultiPathCollector(
                     env, policy, train_task_indices, pearl_replay_buffer,
+                    max_num_epoch_paths_saved=0,
                     **kwargs)
                 for name, kwargs in name_to_eval_path_collector_kwargs.items()
             }
             return PearlJointPathCollector(eval_path_collectors)
-        save_eval_video_func = video.make_save_video_function(
-            eval_env,
-            eval_policy,
-            'eval',
-            create_path_collector=create_video_eval_path_collector,
-            num_steps=n_eval_video_rollouts * algorithm.max_path_length,
-            task_indices=video_eval_tasks,
-            max_path_length=algorithm.max_path_length,
-            **save_video_kwargs
-        )
-        algorithm.post_train_funcs.append(save_eval_video_func)
+
+        for tag, video_task_indices, video_policy in (
+            ('expl', video_train_tasks, expl_policy),
+            ('eval_train', video_train_tasks, eval_policy),
+            ('eval_test', video_test_tasks, eval_policy),
+        ):
+            # TODO: stop hard-coding 3
+            n_rollouts = 3 * (
+                    len(eval_path_collector.path_collectors)
+                    * len(video_task_indices)
+            )
+            save_video_func = video.make_save_video_function(
+                eval_env,
+                video_policy,
+                tag,
+                create_path_collector=create_video_eval_path_collector,
+                num_steps=n_rollouts * algorithm.max_path_length,
+                task_indices=video_task_indices,
+                max_path_length=algorithm.max_path_length,
+                **save_video_kwargs
+            )
+            algorithm.post_train_funcs.append(save_video_func)
     algorithm.train()
