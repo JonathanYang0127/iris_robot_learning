@@ -186,10 +186,10 @@ class PearlCqlTrainer(TorchTrainer):
         """
         Policy and Alpha Loss
         """
-        action_distrib, p_z, task_z_not_truncated = self.agent(
+        action_distrib, p_z, task_z_with_grad = self.agent(
             obs, context, return_latent_posterior_and_task_z=True,
         )
-        task_z = task_z_not_truncated.detach()
+        task_z_detached = task_z_with_grad.detach()
         new_obs_actions, log_pi = (
             action_distrib.rsample_and_logprob())
         next_action_distrib = self.agent(next_obs, context)
@@ -214,7 +214,7 @@ class PearlCqlTrainer(TorchTrainer):
             alpha_loss = 0
             alpha = 1
 
-        q_new_actions = self.qf1(obs, new_obs_actions, task_z)
+        q_new_actions = self.qf1(obs, new_obs_actions, task_z_detached)
         if self._num_train_steps < self.policy_eval_start:
             """
             For the initial few epochs, try doing behaivoral cloning, if needed
@@ -231,16 +231,16 @@ class PearlCqlTrainer(TorchTrainer):
         QF Loss
         """
         if self.backprop_q_loss_into_encoder:
-            q1_pred = self.qf1(obs, actions, task_z_not_truncated)
-            q2_pred = self.qf2(obs, actions, task_z_not_truncated)
+            q1_pred = self.qf1(obs, actions, task_z_with_grad)
+            q2_pred = self.qf2(obs, actions, task_z_with_grad)
         else:
-            q1_pred = self.qf1(obs, actions, task_z)
-            q2_pred = self.qf2(obs, actions, task_z)
+            q1_pred = self.qf1(obs, actions, task_z_detached)
+            q2_pred = self.qf2(obs, actions, task_z_detached)
 
         if not self.max_q_backup:
             target_q_values = torch.min(
-                self.target_qf1(next_obs, new_next_actions, task_z),
-                self.target_qf2(next_obs, new_next_actions, task_z),
+                self.target_qf1(next_obs, new_next_actions, task_z_detached),
+                self.target_qf2(next_obs, new_next_actions, task_z_detached),
             )
 
             if not self.deterministic_backup:
@@ -248,16 +248,16 @@ class PearlCqlTrainer(TorchTrainer):
         else:
             """when using max q backup"""
             next_actions_temp, _ = self._get_policy_actions(
-                next_obs, task_z, num_actions=10,
+                next_obs, task_z_detached, num_actions=10,
             )
             target_qf1_values = (
                 self._get_tensor_values(
-                    next_obs, next_actions_temp, task_z,
+                    next_obs, next_actions_temp, task_z_detached,
                     network=self.target_qf1).max(1)[0].view(-1, 1)
             )
             target_qf2_values = (
                 self._get_tensor_values(
-                    next_obs, next_actions_temp, task_z,
+                    next_obs, next_actions_temp, task_z_detached,
                     network=self.target_qf2).max(1)[0].view(-1, 1)
             )
             target_q_values = torch.min(
@@ -274,21 +274,21 @@ class PearlCqlTrainer(TorchTrainer):
             q2_pred.shape[0] * self.num_random, actions.shape[-1]
         ).uniform_(-1, 1)
         curr_actions_tensor, curr_log_pis = self._get_policy_actions(
-            obs, task_z, num_actions=self.num_random)
+            obs, task_z_detached, num_actions=self.num_random)
         new_curr_actions_tensor, new_log_pis = self._get_policy_actions(
-            next_obs, task_z, num_actions=self.num_random)
+            next_obs, task_z_detached, num_actions=self.num_random)
         q1_rand = self._get_tensor_values(
-            obs, random_actions_tensor, task_z, network=self.qf1)
+            obs, random_actions_tensor, task_z_detached, network=self.qf1)
         q2_rand = self._get_tensor_values(
-            obs, random_actions_tensor, task_z, network=self.qf2)
+            obs, random_actions_tensor, task_z_detached, network=self.qf2)
         q1_curr_actions = self._get_tensor_values(
-            obs, curr_actions_tensor, task_z, network=self.qf1)
+            obs, curr_actions_tensor, task_z_detached, network=self.qf1)
         q2_curr_actions = self._get_tensor_values(
-            obs, curr_actions_tensor, task_z, network=self.qf2)
+            obs, curr_actions_tensor, task_z_detached, network=self.qf2)
         q1_next_actions = self._get_tensor_values(
-            obs, new_curr_actions_tensor, task_z, network=self.qf1)
+            obs, new_curr_actions_tensor, task_z_detached, network=self.qf1)
         q2_next_actions = self._get_tensor_values(
-            obs, new_curr_actions_tensor, task_z, network=self.qf2)
+            obs, new_curr_actions_tensor, task_z_detached, network=self.qf2)
 
         cat_q1 = torch.cat(
             [q1_rand, q1_pred.unsqueeze(1), q1_next_actions, q1_curr_actions], 1
@@ -342,7 +342,7 @@ class PearlCqlTrainer(TorchTrainer):
         kl_loss = self.kl_lambda * kl_div
         if self.train_context_decoder:
             # TODO: change to use a distribution
-            reward_pred = self.context_decoder(obs, actions, task_z)
+            reward_pred = self.context_decoder(obs, actions, task_z_with_grad)
             reward_prediction_loss = ((reward_pred - rewards)**2).mean()
             context_loss = kl_loss + reward_prediction_loss
         else:

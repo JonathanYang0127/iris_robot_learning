@@ -174,9 +174,10 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         # obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
         # run inference in networks
-        action_distrib, p_z, task_z = self.agent(
+        action_distrib, p_z, task_z_with_grad = self.agent(
             obs, context, return_latent_posterior_and_task_z=True,
         )
+        task_z_detached = task_z_with_grad.detach()
         new_actions, log_pi, pre_tanh_value = (
             action_distrib.rsample_logprob_and_pretanh()
         )
@@ -194,15 +195,15 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         # Q and V networks
         # encoder will only get gradients from Q nets
         if self.backprop_q_loss_into_encoder:
-            q1_pred = self.qf1(obs, actions, task_z)
-            q2_pred = self.qf2(obs, actions, task_z)
+            q1_pred = self.qf1(obs, actions, task_z_with_grad)
+            q2_pred = self.qf2(obs, actions, task_z_with_grad)
         else:
-            q1_pred = self.qf1(obs, actions, task_z.detach())
-            q2_pred = self.qf2(obs, actions, task_z.detach())
-        v_pred = self.vf(obs, task_z.detach())
+            q1_pred = self.qf1(obs, actions, task_z_detached)
+            q2_pred = self.qf2(obs, actions, task_z_detached)
+        v_pred = self.vf(obs, task_z_detached)
         # get targets for use in V and Q updates
         with torch.no_grad():
-            target_v_values = self.target_vf(next_obs, task_z)
+            target_v_values = self.target_vf(next_obs, task_z_detached)
 
         """
         QF, Encoder, and Decoder Loss
@@ -216,7 +217,7 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         kl_loss = self.kl_lambda * kl_div
         if self.train_context_decoder:
             # TODO: change to use a distribution
-            reward_pred = self.context_decoder(obs, actions, task_z)
+            reward_pred = self.context_decoder(obs, actions, task_z_with_grad)
             reward_prediction_loss = ((reward_pred - rewards_flat)**2).mean()
             context_loss = kl_loss + reward_prediction_loss
         else:
@@ -235,7 +236,7 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         """
         VF update
         """
-        min_q_new_actions = self._min_q(obs, new_actions, task_z)
+        min_q_new_actions = self._min_q(obs, new_actions, task_z_detached)
         v_target = min_q_new_actions - log_pi
         vf_loss = self.vf_criterion(v_pred, v_target.detach())
         self.vf_optimizer.zero_grad()

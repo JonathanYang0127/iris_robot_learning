@@ -323,14 +323,15 @@ class PearlAwacTrainer(TorchTrainer):
         """
         Policy and Alpha Loss
         """
-        dist, p_z, task_z = self.agent(
+        dist, p_z, task_z_with_grad = self.agent(
             obs, context, return_latent_posterior_and_task_z=True,
         )
+        task_z_detached = task_z_with_grad.detached()
         new_obs_actions, log_pi = dist.rsample_and_logprob()
         next_dist = self.agent(next_obs, context)
 
         if self._debug_ignore_context:
-            task_z = task_z * 0
+            task_z_with_grad = task_z_with_grad * 0
 
         # flattens out the task dimension
         t, b, _ = obs.size()
@@ -355,17 +356,17 @@ class PearlAwacTrainer(TorchTrainer):
         QF Loss
         """
         if self.backprop_q_loss_into_encoder:
-            q1_pred = self.qf1(obs, actions, task_z)
-            q2_pred = self.qf2(obs, actions, task_z)
+            q1_pred = self.qf1(obs, actions, task_z_with_grad)
+            q2_pred = self.qf2(obs, actions, task_z_with_grad)
         else:
-            q1_pred = self.qf1(obs, actions, task_z.detach())
-            q2_pred = self.qf2(obs, actions, task_z.detach())
+            q1_pred = self.qf1(obs, actions, task_z_detached())
+            q2_pred = self.qf2(obs, actions, task_z_detached())
         # Make sure policy accounts for squashing functions like tanh correctly!
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
         with torch.no_grad():
             target_q_values = torch.min(
-                self.target_qf1(next_obs, new_next_actions, task_z),
-                self.target_qf2(next_obs, new_next_actions, task_z),
+                self.target_qf1(next_obs, new_next_actions, task_z_detached),
+                self.target_qf2(next_obs, new_next_actions, task_z_detached),
             ) - alpha * new_log_pi
 
         q_target = rewards_flat + (
@@ -384,7 +385,7 @@ class PearlAwacTrainer(TorchTrainer):
 
         if self.train_context_decoder:
             # TODO: change to use a distribution
-            reward_pred = self.context_decoder(obs, actions, task_z)
+            reward_pred = self.context_decoder(obs, actions, task_z_with_grad)
             reward_prediction_loss = ((reward_pred - rewards_flat)**2).mean()
             context_loss = kl_loss + reward_prediction_loss
         else:
@@ -394,8 +395,8 @@ class PearlAwacTrainer(TorchTrainer):
         """
         Policy Loss
         """
-        qf1_new_actions = self.qf1(obs, new_obs_actions, task_z.detach())
-        qf2_new_actions = self.qf2(obs, new_obs_actions, task_z.detach())
+        qf1_new_actions = self.qf1(obs, new_obs_actions, task_z_detached)
+        qf2_new_actions = self.qf2(obs, new_obs_actions, task_z_detached)
         q_new_actions = torch.min(
             qf1_new_actions,
             qf2_new_actions,
@@ -406,16 +407,16 @@ class PearlAwacTrainer(TorchTrainer):
             vs = []
             for i in range(self.vf_K):
                 u = dist.sample()
-                q1 = self.qf1(obs, u, task_z.detach())
-                q2 = self.qf2(obs, u, task_z.detach())
+                q1 = self.qf1(obs, u, task_z_detached)
+                q2 = self.qf2(obs, u, task_z_detached)
                 v = torch.min(q1, q2)
                 # v = q1
                 vs.append(v)
             v_pi = torch.cat(vs, 1).mean(dim=1)
         else:
             # v_pi = self.qf1(obs, new_obs_actions)
-            v1_pi = self.qf1(obs, new_obs_actions, task_z.detach())
-            v2_pi = self.qf2(obs, new_obs_actions, task_z.detach())
+            v1_pi = self.qf1(obs, new_obs_actions, task_z_detached)
+            v2_pi = self.qf2(obs, new_obs_actions, task_z_detached)
             v_pi = torch.min(v1_pi, v2_pi)
 
         u = actions
