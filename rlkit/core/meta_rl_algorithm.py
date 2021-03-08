@@ -238,9 +238,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             use_predicted_rewards=self.in_unsupervised_phase,
                             discard_incomplete_paths=False,
                         )
-                        self.replay_buffer.add_paths(new_expl_paths)
+                        self.replay_buffer.add_paths(task_idx, new_expl_paths)
                         if not freeze_buffer:
-                            self.env_replay_buffer.add_paths(new_expl_paths)
+                            self.enc_replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_steps_prior,
@@ -263,9 +263,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             use_predicted_rewards=self.in_unsupervised_phase,
                             discard_incomplete_paths=False,
                         )
-                        self.replay_buffer.add_paths(new_expl_paths)
+                        self.replay_buffer.add_paths(task_idx, new_expl_paths)
                         if not freeze_buffer:
-                            self.env_replay_buffer.add_paths(new_expl_paths)
+                            self.enc_replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_steps_posterior,

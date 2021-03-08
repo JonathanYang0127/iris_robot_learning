@@ -142,11 +142,7 @@ def pearl_awac_experiment(
         output_size=1,
         **context_decoder_kwargs
     )
-    reward_predictor = ConcatMlp(
-        input_size=obs_dim + action_dim + latent_dim,
-        output_size=1,
-        hidden_sizes=[200, 200, 200],
-    )
+    reward_predictor = context_decoder
     agent = PEARLAgent(
         latent_dim,
         context_encoder,
@@ -176,9 +172,15 @@ def pearl_awac_experiment(
         # raise NotImplementedError()
         eval_env.tasks = expl_env.tasks  # does this work?
         eval_policy = MakeDeterministic(policy)
-        eval_path_collector = PearlPathCollector(eval_env, eval_policy)
+        eval_path_collector = PearlPathCollector(
+            eval_env, eval_policy, eval_task_idxs,
+            replay_buffer,
+        )
         expl_policy = policy
-        expl_path_collector = PearlPathCollector(expl_env, expl_policy)
+        expl_path_collector = PearlPathCollector(
+            expl_env, expl_policy, train_task_idxs,
+            replay_buffer,
+        )
         algo_kwargs.pop('save_replay_buffer')
         algo_kwargs.pop('num_iterations_with_reward_supervision')
         algorithm = TorchBatchRLAlgorithm(
@@ -231,15 +233,15 @@ def pearl_awac_experiment(
         )
         path_loader.load_demos()
 
-    pretrain_algo = OfflineMetaRLAlgorithm(
-        replay_buffer=algorithm.replay_buffer,
-        task_embedding_replay_buffer=algorithm.enc_replay_buffer,
-        trainer=trainer,
-        train_tasks=train_task_idxs,
-        **pretrain_offline_algo_kwargs
-    )
-    pretrain_algo.to(ptu.device)
     if pretrain_rl:
+        pretrain_algo = OfflineMetaRLAlgorithm(
+            replay_buffer=algorithm.replay_buffer,
+            task_embedding_replay_buffer=algorithm.enc_replay_buffer,
+            trainer=trainer,
+            train_tasks=train_task_idxs,
+            **pretrain_offline_algo_kwargs
+        )
+        pretrain_algo.to(ptu.device)
         logger.remove_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True
         )
