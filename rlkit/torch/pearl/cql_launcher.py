@@ -135,11 +135,7 @@ def pearl_cql_experiment(
         output_size=1,
         **context_decoder_kwargs
     )
-    reward_predictor = ConcatMlp(
-        input_size=obs_dim + action_dim + latent_dim,
-        output_size=1,
-        hidden_sizes=[200, 200, 200],
-    )
+    reward_predictor = context_decoder
     agent = PEARLAgent(
         latent_dim,
         context_encoder,
