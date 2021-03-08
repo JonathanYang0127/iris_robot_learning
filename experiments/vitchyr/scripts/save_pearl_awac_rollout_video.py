@@ -255,6 +255,7 @@ def simulate_policy(args):
         global counter
         if counter in counter_to_init_train_task:
             task_idx = counter_to_init_train_task[counter]
+            text_renderer.prefix = 'train\n'
             init_context = pearl_replay_buffer.sample_context(task_idx)
             init_context = ptu.from_numpy(init_context)
             path = rollout_multiple_and_flatten(
