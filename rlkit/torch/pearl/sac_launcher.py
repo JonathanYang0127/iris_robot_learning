@@ -14,7 +14,7 @@ from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.networks import ConcatMlp
-from rlkit.torch.pearl.agent import PEARLAgent
+from rlkit.torch.pearl.agent import PEARLAgent, MakePEARLAgentDeterministic
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
 from rlkit.torch.pearl.diagnostics import (
     DebugInsertImagesEnv,
@@ -83,13 +83,19 @@ def pearl_sac_experiment(
         tasks = task_data['tasks']
         train_task_indices = task_data['train_task_indices']
         eval_task_indices = task_data['eval_task_indices']
+        train_tasks = task_data['train_task']
+        eval_tasks = task_data['eval_task']
         base_env.tasks = tasks
         task_indices = base_env.get_all_task_idx()
+        # train_tasks = tasks[:n_train_tasks]
+        # eval_tasks = tasks[-n_eval_tasks:]
     else:
         tasks = base_env.tasks
         task_indices = base_env.get_all_task_idx()
         train_task_indices = list(task_indices[:n_train_tasks])
         eval_task_indices = list(task_indices[-n_eval_tasks:])
+        train_tasks = tasks[:n_train_tasks]
+        eval_tasks = tasks[-n_eval_tasks:]
     expl_env = NormalizedBoxEnv(base_env)
     eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     eval_env.tasks = expl_env.tasks
@@ -189,12 +195,15 @@ def pearl_sac_experiment(
             evaluation_data_collector=None,
             train_task_indices=train_task_indices,
             eval_task_indices=eval_task_indices,
+            train_tasks=train_tasks,
+            eval_tasks=eval_tasks,
             # nets=[agent, qf1, qf2, vf],
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
             **algo_kwargs
         )
-        eval_policy = MakeDeterministic(policy)
+        expl_policy = agent
+        eval_policy = MakePEARLAgentDeterministic(agent)
         pearl_replay_buffer = PearlReplayBuffer(
             replay_buffer=algorithm.replay_buffer,
             encoder_replay_buffer=algorithm.enc_replay_buffer,
@@ -202,12 +211,17 @@ def pearl_sac_experiment(
             train_task_indices=train_task_indices,
             meta_batch_size=algorithm.meta_batch,
         )
-        algorithm.eval_path_collector = PearlPathCollector(
-            eval_env, eval_policy, eval_task_indices, pearl_replay_buffer,
+        algorithm.eval_data_collector = PearlPathCollector(
+            env=eval_env,
+            policy=eval_policy,
+            task_indices=eval_task_indices,
+            replay_buffer=pearl_replay_buffer,
         )
-        expl_policy = policy
-        algorithm.expl_path_collector = PearlPathCollector(
-            expl_env, expl_policy, train_task_indices, pearl_replay_buffer,
+        algorithm.expl_data_collector = PearlPathCollector(
+            env=expl_env,
+            policy=expl_policy,
+            task_indices=train_task_indices,
+            replay_buffer=pearl_replay_buffer,
         )
     else:
         algorithm = MetaRLAlgorithm(
@@ -216,8 +230,8 @@ def pearl_sac_experiment(
             trainer=trainer,
             train_task_indices=train_task_indices,
             eval_task_indices=eval_task_indices,
-            train_tasks=tasks[:n_train_tasks],
-            eval_tasks=tasks[-n_eval_tasks:],
+            train_tasks=train_tasks,
+            eval_tasks=eval_tasks,
             use_next_obs_in_context=use_next_obs_in_context,
             **algo_kwargs
         )
@@ -226,8 +240,8 @@ def pearl_sac_experiment(
             tasks=expl_env.tasks,
             train_task_indices=train_task_indices,
             eval_task_indices=eval_task_indices,
-            train_tasks=tasks[:n_train_tasks],
-            eval_tasks=tasks[-n_eval_tasks:],
+            train_tasks=train_tasks,
+            eval_tasks=eval_tasks,
         ),
         file_name='tasks',
     )

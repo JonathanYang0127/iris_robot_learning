@@ -196,10 +196,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 for task_idx in self.train_task_indices:
                     if self.expl_data_collector:
                         init_expl_paths = self.expl_data_collector.collect_new_paths(
-                            task_idx,
-                            self.max_path_length,
-                            self.min_num_steps_before_training,
+                            max_path_length=self.max_path_length,
+                            num_steps=self.num_initial_steps,
                             discard_incomplete_paths=False,
+                            task_idx=task_idx,
                         )
                         self.replay_buffer.add_paths(task_idx, init_expl_paths)
                         self.enc_replay_buffer.add_paths(task_idx, init_expl_paths)
@@ -219,23 +219,21 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
-                # task_idx = np.random.randint(len(self.train_task_indices))
-                idx = np.random.randint(len(self.train_task_indices))
-                if not self.in_unsupervised_phase:
+                task_idx = np.random.randint(len(self.train_task_indices))
+                if not self.in_unsupervised_phase and not freeze_buffer:
                     # Just keep the latest version if not in supervised phase
-                    self.enc_replay_buffer.task_buffers[idx].clear()
+                    self.enc_replay_buffer.task_buffers[task_idx].clear()
                 # collect some trajectories with z ~ prior
-                # task_idx = idx
                 if self.num_steps_prior > 0:
                     if self.expl_data_collector:
                         # TODO: implement
                         new_expl_paths = self.expl_data_collector.collect_new_paths(
                             task_idx=task_idx,
                             max_path_length=self.max_path_length,
-                            resample_z_rate=1,
+                            resample_latent_period=1,
                             update_posterior_period=np.inf,
                             num_steps=self.num_steps_prior,
-                            use_predicted_rewards=self.in_unsupervised_phase,
+                            use_predicted_reward=self.in_unsupervised_phase,
                             discard_incomplete_paths=False,
                         )
                         self.replay_buffer.add_paths(task_idx, new_expl_paths)
@@ -248,7 +246,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             update_posterior_period=np.inf,
                             add_to_enc_buffer=not freeze_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
-                            task_idx=idx,
+                            task_idx=task_idx,
                         )
                 # collect some trajectories with z ~ posterior
                 if self.num_steps_posterior > 0:
@@ -257,10 +255,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         new_expl_paths = self.expl_data_collector.collect_new_paths(
                             task_idx=task_idx,
                             max_path_length=self.max_path_length,
-                            resample_z_rate=1,
+                            resample_latent_period=1,
                             update_posterior_period=self.update_post_train,
                             num_steps=self.num_steps_posterior,
-                            use_predicted_rewards=self.in_unsupervised_phase,
+                            use_predicted_reward=self.in_unsupervised_phase,
                             discard_incomplete_paths=False,
                         )
                         self.replay_buffer.add_paths(task_idx, new_expl_paths)
@@ -273,7 +271,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             update_posterior_period=self.update_post_train,
                             add_to_enc_buffer=not freeze_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
-                            task_idx=idx,
+                            task_idx=task_idx,
                         )
                 # even if encoder is trained only on samples from the prior, the policy needs to learn to handle z ~ posterior
                 if self.num_extra_rl_steps_posterior > 0:
@@ -282,13 +280,13 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         new_expl_paths = self.expl_data_collector.collect_new_paths(
                             task_idx=task_idx,
                             max_path_length=self.max_path_length,
-                            resample_z_rate=1,
+                            resample_latent_period=1,
                             update_posterior_period=self.update_post_train,
                             num_steps=self.num_extra_rl_steps_posterior,
-                            use_predicted_rewards=self.in_unsupervised_phase,
+                            use_predicted_reward=self.in_unsupervised_phase,
                             discard_incomplete_paths=False,
                         )
-                        self.replay_buffer.add_paths(new_expl_paths)
+                        self.replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_extra_rl_steps_posterior,
@@ -296,8 +294,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             update_posterior_period=self.update_post_train,
                             add_to_enc_buffer=False,
                             use_predicted_reward=self.in_unsupervised_phase,
-                            task_idx=idx,
+                            task_idx=task_idx,
                         )
+            gt.stamp('sample')
 
             # Sample train tasks and compute gradient updates on parameters.
             for train_step in range(self.num_train_steps_per_itr):
@@ -394,7 +393,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 # self.agent.clear_z()
                 # HACK: try just resampling from the prior
         self._n_env_steps_total += num_transitions
-        gt.stamp('sample')
 
     def _try_to_eval(self, epoch):
         if epoch in self.save_extra_manual_epoch_list:
@@ -633,7 +631,14 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 )
                 if self.eval_data_collector:
                     self.eval_data_collector.collect_new_paths(
-                        idx,
+                        num_steps=self.max_path_length,  # TODO: also cap num trajs
+                        max_path_length=self.max_path_length,
+                        discard_incomplete_paths=False,
+                        accum_context=False,
+                        resample_latent_period=0,
+                        update_posterior_period=0,
+                        initial_context=init_context,
+                        task_idx=idx,
                     )
                 else:
                     init_context = ptu.from_numpy(init_context)

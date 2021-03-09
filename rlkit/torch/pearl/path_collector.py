@@ -1,6 +1,7 @@
 from typing import Union
 
 import numpy as np
+from gym import Env
 
 from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.policies.base import Policy
@@ -14,18 +15,18 @@ from rlkit.torch.pearl.sampler import (
     rollout_multiple,
     merge_paths,
 )
-from rlkit.torch.pearl.agent import PEARLAgent
+from rlkit.torch.pearl.agent import PEARLAgent, MakePEARLAgentDeterministic
 import math
 
 
 class PearlPathCollector(MdpPathCollector):
     def __init__(
             self,
-            env: PEARLAgent,
-            policy: Policy,
+            env: Env,
+            policy: Union[PEARLAgent, MakePEARLAgentDeterministic],
             task_indices,
-            replay_buffer: Union[PearlReplayBuffer, MultiTaskReplayBuffer],
-            rollout_fn=rollout_multiple,
+            replay_buffer: PearlReplayBuffer,
+            rollout_fn=rollout,
             sample_initial_context=False,
             accum_context_across_rollouts=False,
             **kwargs
@@ -46,8 +47,10 @@ class PearlPathCollector(MdpPathCollector):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
+            initial_context=None,
             task_idx=None,
             task_indices_for_rollout=None,
+            **kwargs
     ):
         """
 
@@ -74,7 +77,7 @@ class PearlPathCollector(MdpPathCollector):
         #         initial_context = None
         # else:
         #     initial_context = None
-        init_context_this_loop = None
+        init_context_this_loop = initial_context
         loop_i = 0
         while num_steps_collected < num_steps:
             if task_indices_for_rollout is None:
@@ -97,6 +100,7 @@ class PearlPathCollector(MdpPathCollector):
                 max_path_length=max_path_length_this_loop,
                 initial_context=init_context_this_loop,
                 task_idx=task_idx_this_loop,
+                **kwargs
             )
             if self.accum_context_across_rollouts:
                 init_context_this_loop = path['context']
@@ -105,7 +109,7 @@ class PearlPathCollector(MdpPathCollector):
             path_len = len(path['actions'])
             if (
                     path_len != max_path_length
-                    and not path['terminals'][-1]
+                    and not path['terminals'][1]
                     and discard_incomplete_paths
             ):
                 continue
@@ -141,7 +145,12 @@ class PearlPathCollector(MdpPathCollector):
     def collect_new_paths(self, max_path_length, num_steps,
                           discard_incomplete_paths,
                           **kwargs):
-        raise NotImplementedError()
+        return self.collect_new_paths_and_indices(
+            max_path_length=max_path_length,
+            num_steps=num_steps,
+            discard_incomplete_paths=discard_incomplete_paths,
+            **kwargs
+        )[0]
 
 
 class PearlMultiPathCollector(MdpPathCollector):

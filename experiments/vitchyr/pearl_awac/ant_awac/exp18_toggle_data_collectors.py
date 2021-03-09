@@ -48,18 +48,6 @@ def main(debug, dry, suffix, nseeds):
     exp_id = 0
 
     def run_sweep(search_space, variant, xid):
-        for k, v in {
-            'trainer_kwargs.train_context_decoder': [
-                True,
-            ],
-            'trainer_kwargs.backprop_q_loss_into_encoder': [
-                False,
-            ],
-            'algo_kwargs.num_iterations_with_reward_supervision': [
-                0, None,
-            ],
-        }.items():
-            search_space[k] = v
         sweeper = hyp.DeterministicHyperparameterSweeper(
             search_space, default_parameters=variant,
         )
@@ -78,51 +66,28 @@ def main(debug, dry, suffix, nseeds):
                 )
         return xid
 
-    def cql_sweep(xid):
+    def sac_sweep(xid):
         configs = [
-            base_dir / 'configs/default_cql.conf',
-            base_dir / 'configs/offline_pretraining.conf',
-            base_dir / 'configs/short_fine_tuning.conf',
-            base_dir / 'configs/ant_four_dir_offline.conf',
+            base_dir / 'configs/default_sac.conf',
+            base_dir / 'configs/ant_four_dir.conf',
         ]
         if debug:
             configs.append(base_dir / 'configs/debug.conf')
         variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
+
         search_space = {
-            'trainer_kwargs.with_lagrange': [
+            'trainer_kwargs.train_context_decoder': [
                 True,
+                False,
             ],
-            'trainer_kwargs.min_q_weight': [
-                10.0,
-            ],
-            'algo_kwargs.freeze_encoder_buffer_in_unsupervised_phase': [
-                True, False
-            ],
-        }
-        return run_sweep(search_space, variant, xid)
-
-    def awac_sweep(xid):
-        configs = [
-            base_dir / 'configs/default_awac.conf',
-            base_dir / 'configs/offline_pretraining.conf',
-            base_dir / 'configs/short_fine_tuning.conf',
-            base_dir / 'configs/ant_four_dir_offline.conf',
-        ]
-        if debug:
-            configs.append(base_dir / 'configs/debug.conf')
-        variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
-        search_space = {
-            'trainer_kwargs.beta': [
-                100,
-            ],
-            'algo_kwargs.freeze_encoder_buffer_in_unsupervised_phase': [
-                True, False
+            'use_data_collectors': [
+                True,
+                False,
             ],
         }
         return run_sweep(search_space, variant, xid)
 
-    exp_id = cql_sweep(exp_id)
-    exp_id = awac_sweep(exp_id)
+    exp_id = sac_sweep(exp_id)
     print(exp_name, exp_id)
 
 

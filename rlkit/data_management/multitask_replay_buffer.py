@@ -60,7 +60,11 @@ class MultiTaskReplayBuffer(object):
         if sequence:
             batch = self.task_buffers[task].random_sequence(batch_size)
         else:
-            batch = self.task_buffers[task].random_batch(batch_size)
+            try:
+                batch = self.task_buffers[task].random_batch(batch_size)
+            except KeyError:
+                import ipdb; ipdb.set_trace()
+                print(task)
         return batch
 
     def num_steps_can_sample(self, task):
@@ -122,6 +126,7 @@ class MultiTaskReplayBuffer(object):
             for idx in indices
         ]
         if any(b is None for b in batches):
+            import ipdb; ipdb.set_trace()
             return None
         if self.use_ground_truth_context:
             return np.array([self.ground_truth_tasks[i] for i in indices])

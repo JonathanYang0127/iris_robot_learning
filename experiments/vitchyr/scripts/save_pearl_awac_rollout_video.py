@@ -40,9 +40,9 @@ def simulate_policy(args):
     ptu.set_gpu_mode(True)
     data = torch.load(snapshot_path, map_location=ptu.device)
     pearl_replay_buffer = None
-    if 'evaluation/test/posterior_live_update/policy' in data:
-        policy = data['evaluation/test/posterior_live_update/policy']
-        env = data['evaluation/test/posterior_live_update/env']
+    if 'evaluation/test/init_from_buffer/policy' in data:
+        policy = data['evaluation/test/init_from_buffer/policy']
+        env = data['evaluation/test/init_from_buffer/env']
         extra_snapshot_path = Path(snapshot_path).parent / 'extra_snapshot.cpkl'
         if extra_snapshot_path.exists():
             buffer_data = cloudpickle.load(
