@@ -15,6 +15,7 @@ from rlkit.envs.wrappers.flat_to_dict import FlatToDictEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
+from rlkit.torch.pearl.buffer import PearlReplayBuffer
 from rlkit.torch.pearl.diagnostics import (
     DebugInsertImagesEnv,
     FlatToDictPearlPolicy,
@@ -80,15 +81,15 @@ def pearl_sac_experiment(
         task_data = load_local_or_remote_file(
             saved_tasks_path, file_type='joblib')
         tasks = task_data['tasks']
-        train_task_idxs = task_data['train_task_indices']
-        eval_task_idxs = task_data['eval_task_indices']
+        train_task_indices = task_data['train_task_indices']
+        eval_task_indices = task_data['eval_task_indices']
         base_env.tasks = tasks
         task_indices = base_env.get_all_task_idx()
     else:
         tasks = base_env.tasks
         task_indices = base_env.get_all_task_idx()
-        train_task_idxs = list(task_indices[:n_train_tasks])
-        eval_task_idxs = list(task_indices[-n_eval_tasks:])
+        train_task_indices = list(task_indices[:n_train_tasks])
+        eval_task_indices = list(task_indices[-n_eval_tasks:])
     expl_env = NormalizedBoxEnv(base_env)
     eval_env = NormalizedBoxEnv(ENVS[env_name](**env_params))
     eval_env.tasks = expl_env.tasks
@@ -169,13 +170,7 @@ def pearl_sac_experiment(
     )
     task_indices = expl_env.get_all_task_idx()
     tasks = expl_env.tasks
-    train_task_indices = list(task_indices[:n_train_tasks])
-    eval_task_indices = list(task_indices[-n_eval_tasks:])
     if use_data_collectors:
-        eval_policy = MakeDeterministic(policy)
-        eval_path_collector = PearlPathCollector(eval_env, eval_policy)
-        expl_policy = policy
-        expl_path_collector = PearlPathCollector(expl_env, expl_policy)
         # algorithm = TorchBatchRLAlgorithm(
         #     trainer=trainer,
         #     exploration_env=expl_env,
@@ -190,14 +185,29 @@ def pearl_sac_experiment(
             trainer=trainer,
             # exploration_env=expl_env,
             # evaluation_env=eval_env,
-            exploration_data_collector=expl_path_collector,
-            evaluation_data_collector=eval_path_collector,
+            exploration_data_collector=None,  # TODO: fix hack
+            evaluation_data_collector=None,
             train_task_indices=train_task_indices,
             eval_task_indices=eval_task_indices,
             # nets=[agent, qf1, qf2, vf],
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
             **algo_kwargs
+        )
+        eval_policy = MakeDeterministic(policy)
+        pearl_replay_buffer = PearlReplayBuffer(
+            replay_buffer=algorithm.replay_buffer,
+            encoder_replay_buffer=algorithm.enc_replay_buffer,
+            embedding_batch_size=algorithm.embedding_batch_size,
+            train_task_indices=train_task_indices,
+            meta_batch_size=algorithm.meta_batch,
+        )
+        algorithm.eval_path_collector = PearlPathCollector(
+            eval_env, eval_policy, eval_task_indices, pearl_replay_buffer,
+        )
+        expl_policy = policy
+        algorithm.expl_path_collector = PearlPathCollector(
+            expl_env, expl_policy, train_task_indices, pearl_replay_buffer,
         )
     else:
         algorithm = MetaRLAlgorithm(

@@ -1,5 +1,8 @@
+from typing import Union
+
 import numpy as np
 
+from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.policies.base import Policy
 import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector import MdpPathCollector
@@ -21,7 +24,7 @@ class PearlPathCollector(MdpPathCollector):
             env: PEARLAgent,
             policy: Policy,
             task_indices,
-            replay_buffer: PearlReplayBuffer,
+            replay_buffer: Union[PearlReplayBuffer, MultiTaskReplayBuffer],
             rollout_fn=rollout_multiple,
             sample_initial_context=False,
             accum_context_across_rollouts=False,
