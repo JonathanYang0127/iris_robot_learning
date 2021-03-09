@@ -56,7 +56,8 @@ def main(debug, dry, suffix, nseeds):
                 False,
             ],
             'algo_kwargs.num_iterations_with_reward_supervision': [
-                0, None,
+                0,
+                None,
             ],
         }.items():
             search_space[k] = v
@@ -82,7 +83,6 @@ def main(debug, dry, suffix, nseeds):
         configs = [
             base_dir / 'configs/default_cql.conf',
             base_dir / 'configs/offline_pretraining.conf',
-            base_dir / 'configs/short_fine_tuning.conf',
             base_dir / 'configs/ant_four_dir_offline.conf',
         ]
         if debug:
@@ -105,7 +105,6 @@ def main(debug, dry, suffix, nseeds):
         configs = [
             base_dir / 'configs/default_awac.conf',
             base_dir / 'configs/offline_pretraining.conf',
-            base_dir / 'configs/short_fine_tuning.conf',
             base_dir / 'configs/ant_four_dir_offline.conf',
         ]
         if debug:
