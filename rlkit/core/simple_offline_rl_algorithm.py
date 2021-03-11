@@ -67,6 +67,7 @@ class OfflineMetaRLAlgorithm(object):
             meta_batch_size,
             num_batches,
             task_embedding_batch_size,
+            extra_eval_fns=(),
     ):
         self.trainer = trainer
         self.replay_buffer = replay_buffer
@@ -77,6 +78,7 @@ class OfflineMetaRLAlgorithm(object):
         self.logging_period = logging_period
         self.train_tasks = train_tasks
         self.meta_batch_size = meta_batch_size
+        self._extra_eval_fns = extra_eval_fns
 
     def train(self):
         # first train only the Q function
@@ -109,6 +111,10 @@ class OfflineMetaRLAlgorithm(object):
                     self.trainer.eval_statistics, prefix="trainer/")
                 self.trainer.end_epoch(iteration)
                 logger.record_dict(stats_with_prefix)
+                for fn in self._extra_eval_fns:
+                    extra_stats = fn()
+                    logger.record_dict(extra_stats)
+
 
                 # TODO: evaluate during offline RL
                 # eval_stats = self.get_eval_statistics()

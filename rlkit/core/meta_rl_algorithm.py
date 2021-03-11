@@ -574,7 +574,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             path['goal'] = goal # goal
 
         # save the paths for visualization, only useful for point mass
-        if self.dump_eval_paths:
+        if self.dump_eval_paths and epoch >= 0:
             logger.save_extra_data(paths, file_name='eval_trajectories/task{}-epoch{}-run{}'.format(idx, epoch, run))
 
         return paths
@@ -684,9 +684,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         avg_test_return = np.mean(test_final_returns)
         avg_train_online_return = np.mean(np.stack(train_online_returns), axis=0)
         avg_test_online_return = np.mean(np.stack(test_online_returns), axis=0)
-        self.eval_statistics['AverageTrainReturn_all_train_tasks'] = train_returns
-        self.eval_statistics['AverageReturn_all_train_tasks'] = avg_train_return
-        self.eval_statistics['AverageReturn_all_test_tasks'] = avg_test_return
+        self.eval_statistics['eval/init_from_buffer/train_tasks/all_returns Mean'] = train_returns
+        self.eval_statistics['eval/adaptation/train_tasks/final_returns Mean'] = avg_train_return
+        self.eval_statistics['eval/adaptation/test_tasks/final_returns Mean'] = avg_test_return
+        self.eval_statistics['eval/adaptation/train_tasks/all_returns Mean'] = np.mean(avg_train_online_return)
+        self.eval_statistics['eval/adaptation/test_tasks/all_returns Mean'] = np.mean(avg_test_online_return)
         logger.save_extra_data(avg_train_online_return, file_name='online-train-epoch{}'.format(epoch))
         logger.save_extra_data(avg_test_online_return, file_name='online-test-epoch{}'.format(epoch))
 

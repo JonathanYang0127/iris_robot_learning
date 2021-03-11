@@ -5,8 +5,6 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
 from rlkit.core.simple_offline_rl_algorithm import OfflineMetaRLAlgorithm
-from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
-from rlkit.demos.source.mdp_path_loader import MDPPathLoader
 from rlkit.envs.images import GymEnvRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
@@ -20,7 +18,7 @@ from rlkit.torch.pearl.diagnostics import (
     FlatToDictPearlPolicy,
 )
 from rlkit.torch.pearl.networks import MlpEncoder, MlpDecoder
-from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo
+from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo, EvalPearl
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_cql import PearlCqlTrainer
 from rlkit.torch.pearl.sampler import rollout
@@ -334,11 +332,15 @@ def pearl_cql_experiment(
         logger.add_tabular_output(
             'pretrain.csv', relative_to_snapshot_dir=True
         )
+        eval_pearl_fn = EvalPearl(
+            algorithm, train_task_indices, eval_task_indices
+        )
         pretrain_algo = OfflineMetaRLAlgorithm(
             replay_buffer=algorithm.replay_buffer,
             task_embedding_replay_buffer=algorithm.enc_replay_buffer,
             trainer=trainer,
             train_tasks=train_task_indices,
+            extra_eval_fns=[eval_pearl_fn],
             **pretrain_offline_algo_kwargs
         )
         pretrain_algo.to(ptu.device)

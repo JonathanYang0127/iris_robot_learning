@@ -15,6 +15,7 @@ from rlkit.torch.pearl.networks import MlpEncoder, DummyMlpEncoder, MlpDecoder
 from rlkit.torch.pearl.launcher_util import (
     policy_class_from_str,
     load_buffer_onto_algo,
+    EvalPearl,
 )
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
@@ -234,11 +235,13 @@ def pearl_awac_experiment(
         path_loader.load_demos()
 
     if pretrain_rl:
+        eval_pearl_fn = EvalPearl(algorithm, train_task_idxs, eval_task_idxs)
         pretrain_algo = OfflineMetaRLAlgorithm(
             replay_buffer=algorithm.replay_buffer,
             task_embedding_replay_buffer=algorithm.enc_replay_buffer,
             trainer=trainer,
             train_tasks=train_task_idxs,
+            extra_eval_fns=[eval_pearl_fn],
             **pretrain_offline_algo_kwargs
         )
         pretrain_algo.to(ptu.device)

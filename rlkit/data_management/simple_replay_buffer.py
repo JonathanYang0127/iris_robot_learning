@@ -123,6 +123,8 @@ class SimpleReplayBuffer(ReplayBuffer):
                 raise ValueError("nothing to copy!")
         if end_idx < 0 or end_idx <= start_idx:
             raise ValueError("end_idx must be larger than start_idx")
+        if end_idx > other_buffer._top:
+            raise IndexError("Indexing into uninitialized region.")
         num_new_steps = end_idx - start_idx
         end_i = self._top + num_new_steps
         this_slc = slice(self._top, end_i)

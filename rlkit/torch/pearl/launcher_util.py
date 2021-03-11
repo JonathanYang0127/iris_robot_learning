@@ -1,5 +1,13 @@
+from collections import OrderedDict
+from typing import Dict, List
+
+import numpy as np
+
+from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
+from rlkit.misc import eval_util
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.sac.policies import GaussianPolicy, TanhGaussianPolicy
+import rlkit.torch.pytorch_util as ptu
 
 ENV_PARAMS = {
     'HalfCheetah-v2': {
@@ -137,6 +145,8 @@ def load_buffer_onto_algo(
         pretrain_buffer_path,
         start_idx=0,
         end_idx=None,
+        start_idx_enc=0,
+        end_idx_enc=None,
 ):
     data = load_local_or_remote_file(
         pretrain_buffer_path,
@@ -159,6 +169,54 @@ def load_buffer_onto_algo(
             continue
         encoder_replay_buffer.task_buffers[k].copy_data(
             saved_enc_replay_buffer.task_buffers[k],
-            start_idx=start_idx,
-            end_idx=end_idx,
+            start_idx=start_idx_enc,
+            end_idx=end_idx_enc,
         )
+
+
+class EvalPearl(object):
+    def __init__(
+            self,
+            algorithm: MetaRLAlgorithm,
+            train_task_indices: List[int],
+            test_task_indices: List[int],
+    ):
+        self.algorithm = algorithm
+        self.train_task_indices = train_task_indices
+        self.test_task_indices = test_task_indices
+
+    def __call__(self):
+        results = OrderedDict()
+        for name, indices in [
+            ('train_tasks', self.train_task_indices),
+            ('test_tasks', self.test_task_indices),
+        ]:
+            final_returns, online_returns = self.algorithm._do_eval(indices, -1)
+            results['eval/adaptation/{}/final_returns Mean'.format(name)] = np.mean(final_returns)
+            results['eval/adaptation/{}/all_returns Mean'.format(name)] = np.mean(online_returns)
+
+            paths = []
+        for idx in self.train_task_indices:
+            paths += self._get_init_from_buffer_path(idx)
+        results['eval/init_from_buffer/train_tasks/all_returns Mean'] = np.mean(
+            eval_util.get_average_returns(paths)
+        )
+        return results
+
+    def _get_init_from_buffer_path(self, idx):
+        init_context = self.algorithm.enc_replay_buffer.sample_context(
+            idx,
+            self.algorithm.embedding_batch_size
+        )
+        init_context = ptu.from_numpy(init_context)
+        p, _ = self.algorithm.sampler.obtain_samples(
+            deterministic=self.algorithm.eval_deterministic,
+            max_samples=self.algorithm.max_path_length,
+            accum_context=False,
+            max_trajs=1,
+            resample_latent_period=0,
+            update_posterior_period=0,
+            initial_context=init_context,
+            task_idx=idx,
+        )
+        return p

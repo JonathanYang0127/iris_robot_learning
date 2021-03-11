@@ -21,7 +21,7 @@ from rlkit.torch.pearl.diagnostics import (
     FlatToDictPearlPolicy,
 )
 from rlkit.torch.pearl.networks import MlpEncoder, MlpDecoder
-from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo
+from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo, EvalPearl
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_sac import PEARLSoftActorCriticTrainer
 from rlkit.torch.pearl.sampler import rollout
@@ -368,11 +368,15 @@ def pearl_sac_experiment(
         logger.add_tabular_output(
             'pretrain.csv', relative_to_snapshot_dir=True
         )
+        eval_pearl_fn = EvalPearl(
+            algorithm, train_task_indices, eval_task_indices
+        )
         pretrain_algo = OfflineMetaRLAlgorithm(
             replay_buffer=algorithm.replay_buffer,
             task_embedding_replay_buffer=algorithm.enc_replay_buffer,
             trainer=trainer,
             train_tasks=train_task_indices,
+            extra_eval_fns=[eval_pearl_fn],
             **pretrain_offline_algo_kwargs
         )
         pretrain_algo.to(ptu.device)
