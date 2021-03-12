@@ -126,6 +126,7 @@ class PEARLAgent(nn.Module):
             # copy context encoder on switch
             self.context_encoder_rp = copy.deepcopy(self.context_encoder)
             self.context_encoder_rp.to(ptu.device)
+            self.reward_predictor = copy.deepcopy(self.reward_predictor)
         self._use_context_encoder_snapshot_for_reward_pred = value
 
     def detach_z(self):

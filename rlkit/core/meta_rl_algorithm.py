@@ -62,6 +62,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             use_ground_truth_context=False,
             exploration_data_collector=None,
             evaluation_data_collector=None,
+            use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
     ):
         """
         :param env: training env
@@ -73,7 +74,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         """
         self._save_extra_every_epoch = save_extra_every_epoch
         self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
-        self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = False
+        self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = (
+            use_encoder_snapshot_for_reward_pred_in_unsupervised_phase
+        )
         self.env = env
         self.agent = agent
         self.trainer = trainer
