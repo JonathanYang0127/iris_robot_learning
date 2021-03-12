@@ -56,11 +56,13 @@ def pearl_awac_experiment(
         use_data_collectors=False,
         use_next_obs_in_context=False,
         tags=None,
+        online_trainer_kwargs=None,
 ):
     del tags
     pretrain_buffer_kwargs = pretrain_buffer_kwargs or {}
     context_decoder_kwargs = context_decoder_kwargs or {}
     pretrain_offline_algo_kwargs = pretrain_offline_algo_kwargs or {}
+    online_trainer_kwargs = online_trainer_kwargs or {}
     register_pearl_envs()
     env_params = env_params or {}
     context_encoder_kwargs = context_encoder_kwargs or {}
@@ -258,8 +260,9 @@ def pearl_awac_experiment(
         logger.add_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True,
         )
-    algorithm.to(ptu.device)
 
+    algorithm.trainer.configure(**online_trainer_kwargs)
+    algorithm.to(ptu.device)
     algorithm.train()
 
 

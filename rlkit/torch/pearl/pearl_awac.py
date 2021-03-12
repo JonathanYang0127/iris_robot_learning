@@ -87,9 +87,6 @@ class PearlAwacTrainer(TorchTrainer):
             reparam_weight=1.0,
             awr_weight=1.0,
 
-            post_pretrain_hyperparams=None,
-            post_bc_pretrain_hyperparams=None,
-
             awr_use_mle_for_vf=False,
             vf_K=1,
             awr_sample_actions=False,
@@ -277,8 +274,6 @@ class PearlAwacTrainer(TorchTrainer):
 
         self.reparam_weight = reparam_weight
         self.awr_weight = awr_weight
-        self.post_pretrain_hyperparams = post_pretrain_hyperparams
-        self.post_bc_pretrain_hyperparams = post_bc_pretrain_hyperparams
         self.update_policy = True
         self.pretraining_logging_period = pretraining_logging_period
         self.normalize_over_batch = normalize_over_batch
@@ -586,6 +581,12 @@ class PearlAwacTrainer(TorchTrainer):
                 })
 
         self._n_train_steps_total += 1
+
+    def configure(self, **params):
+        for k, v in params.items():
+            if k not in self.__dict__:
+                raise KeyError('Member {} is not in {}'.format(k, self))
+            self.__dict__[k] = v
 
     #### Trainer ####
     def get_snapshot(self):
