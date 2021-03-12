@@ -240,6 +240,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             discard_incomplete_paths=False,
                         )
                         self.replay_buffer.add_paths(task_idx, new_expl_paths)
+                        self._n_env_steps_total += sum(
+                            len(p['actions']) for p in new_expl_paths
+                        )
+                        self._n_rollouts_total += len(new_expl_paths)
                         if not freeze_buffer:
                             self.enc_replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
@@ -265,6 +269,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             discard_incomplete_paths=False,
                         )
                         self.replay_buffer.add_paths(task_idx, new_expl_paths)
+                        self._n_env_steps_total += sum(
+                            len(p['actions']) for p in new_expl_paths
+                        )
+                        self._n_rollouts_total += len(new_expl_paths)
                         if not freeze_buffer:
                             self.enc_replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
@@ -290,6 +298,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             discard_incomplete_paths=False,
                         )
                         self.replay_buffer.add_paths(task_idx, new_expl_paths)
+                        self._n_env_steps_total += sum(
+                            len(p['actions']) for p in new_expl_paths
+                        )
+                        self._n_rollouts_total += len(new_expl_paths)
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_extra_rl_steps_posterior,
@@ -633,7 +645,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     self.embedding_batch_size
                 )
                 if self.eval_data_collector:
-                    self.eval_data_collector.collect_new_paths(
+                    p = self.eval_data_collector.collect_new_paths(
                         num_steps=self.max_path_length,  # TODO: also cap num trajs
                         max_path_length=self.max_path_length,
                         discard_incomplete_paths=False,
@@ -657,7 +669,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         initial_context=init_context,
                         task_idx=idx,
                     )
-                    paths += p
+                paths += p
 
             if self.sparse_rewards:
                 for p in paths:
