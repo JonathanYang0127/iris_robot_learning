@@ -49,9 +49,12 @@ def main(debug, dry, suffix, nseeds):
 
     def run_sweep(search_space, variant, xid):
         for k, v in {
+            'load_buffer_kwargs.start_idx': [
+                99000,
+                90000,
+                0,
+            ],
             'load_buffer_kwargs.end_idx': [
-                5000,
-                10000,
                 100000,
             ],
             'trainer_kwargs.train_context_decoder': [
@@ -118,7 +121,7 @@ def main(debug, dry, suffix, nseeds):
         }
         return run_sweep(search_space, variant, xid)
 
-    exp_id = cql_sweep(exp_id)
+    # exp_id = cql_sweep(exp_id)
     exp_id = awac_sweep(exp_id)
     print(exp_name, exp_id)
 
