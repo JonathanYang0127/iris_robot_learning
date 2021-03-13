@@ -49,14 +49,6 @@ def main(debug, dry, suffix, nseeds):
 
     def run_sweep(search_space, variant, xid):
         for k, v in {
-            'load_buffer_kwargs.start_idx': [
-                99000,
-                90000,
-                0,
-            ],
-            'load_buffer_kwargs.end_idx': [
-                100000,
-            ],
             'trainer_kwargs.train_context_decoder': [
                 True,
             ],
@@ -66,14 +58,6 @@ def main(debug, dry, suffix, nseeds):
             'algo_kwargs.num_iterations_with_reward_supervision': [
                 None,
             ],
-            'online_trainer_kwargs.awr_weight': [
-                1.0,
-                0.1,
-                0.0,
-            ],
-            'online_trainer_kwargs.reparam_weight': [
-                1.0,
-            ]
         }.items():
             search_space[k] = v
         sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -116,6 +100,7 @@ def main(debug, dry, suffix, nseeds):
     def awac_sweep(xid):
         configs = [
             base_dir / 'configs/default_awac.conf',
+            base_dir / 'configs/short_fine_tuning.conf',
             base_dir / 'configs/offline_pretraining.conf',
             base_dir / 'configs/ant_four_dir_offline.conf',
         ]

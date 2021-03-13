@@ -50,8 +50,8 @@ def main(debug, dry, suffix, nseeds):
     def run_sweep(search_space, variant, xid):
         for k, v in {
             'load_buffer_kwargs.start_idx': [
-                99000,
-                90000,
+                # 99000,
+                # 90000,
                 0,
             ],
             'load_buffer_kwargs.end_idx': [
@@ -66,14 +66,6 @@ def main(debug, dry, suffix, nseeds):
             'algo_kwargs.num_iterations_with_reward_supervision': [
                 None,
             ],
-            'online_trainer_kwargs.awr_weight': [
-                1.0,
-                0.1,
-                0.0,
-            ],
-            'online_trainer_kwargs.reparam_weight': [
-                1.0,
-            ]
         }.items():
             search_space[k] = v
         sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -125,6 +117,12 @@ def main(debug, dry, suffix, nseeds):
         search_space = {
             'trainer_kwargs.beta': [
                 100,
+            ],
+            'online_trainer_kwargs.beta': [
+                0.1,
+                1.0,
+                10.,
+                50.
             ],
         }
         return run_sweep(search_space, variant, xid)
