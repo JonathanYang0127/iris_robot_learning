@@ -85,6 +85,7 @@ class PearlAwacTrainer(TorchTrainer):
             bc_weight=0.0,
             rl_weight=1.0,
             reparam_weight=1.0,
+            reparam_weight_schedule_kwargs=None,
             awr_weight=1.0,
 
             awr_use_mle_for_vf=False,
@@ -273,6 +274,8 @@ class PearlAwacTrainer(TorchTrainer):
         self.weight_loss = weight_loss
 
         self.reparam_weight = reparam_weight
+        self.reparam_weight_schedule = None
+        self.reparam_weight_schedule_kwargs = reparam_weight_schedule_kwargs
         self.awr_weight = awr_weight
         self.update_policy = True
         self.pretraining_logging_period = pretraining_logging_period
@@ -300,6 +303,19 @@ class PearlAwacTrainer(TorchTrainer):
         self.num_buffer_policy_train_steps_on_reset = num_buffer_policy_train_steps_on_reset
         self.advantage_weighted_buffer_loss = advantage_weighted_buffer_loss
         self._debug_use_ground_truth_context = _debug_use_ground_truth_context
+
+    @property
+    def train_reparam_weight(self):
+        if self.reparam_weight_schedule_kwargs is not None and self.reparam_weight_schedule is None:
+            self.reparam_weight_schedule = ml_util.create_schedule(
+                **self.reparam_weight_schedule_kwargs
+            )
+        if self.reparam_weight_schedule is None:
+            return self.reparam_weight
+        else:
+            return self.reparam_weight_schedule.get_value(
+                self._n_train_steps_total
+            )
 
     ##### Training #####
     def train_from_torch(self, batch):
@@ -471,7 +487,7 @@ class PearlAwacTrainer(TorchTrainer):
             policy_loss = policy_loss + self.awr_weight * (-policy_logpp).mean()
 
         if self.use_reparam_update:
-            policy_loss = policy_loss + self.reparam_weight * (
+            policy_loss = policy_loss + self.train_reparam_weight * (
                 -q_new_actions).mean()
 
         policy_loss = self.rl_weight * policy_loss
@@ -569,6 +585,7 @@ class PearlAwacTrainer(TorchTrainer):
                 'Advantage Score',
                 ptu.get_numpy(score),
             ))
+            self.eval_statistics['reparam_weight'] = self.train_reparam_weight
 
             if self.use_automatic_entropy_tuning:
                 self.eval_statistics['Alpha'] = alpha.item()

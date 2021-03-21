@@ -51,7 +51,7 @@ def main(debug, dry, suffix, nseeds):
         for k, v in {
             'load_buffer_kwargs.start_idx': [
                 -10000,
-                -100000,
+                # -100000,
             ],
             'load_buffer_kwargs.end_idx': [
                 200000
@@ -73,11 +73,14 @@ def main(debug, dry, suffix, nseeds):
             ],
             'online_trainer_kwargs.use_reparam_update': [
                 True,
-                False,
+                # False,
             ],
             'online_trainer_kwargs.use_awr_update': [
                 True,
-                False,
+                # False,
+            ],
+            'algo_kwargs.num_iterations': [
+                30,
             ],
         }.items():
             search_space[k] = v
@@ -104,29 +107,11 @@ def main(debug, dry, suffix, nseeds):
                 )
         return xid
 
-    def cql_sweep(xid):
-        configs = [
-            base_dir / 'configs/default_cql.conf',
-            base_dir / 'configs/offline_pretraining.conf',
-            base_dir / 'configs/ant_four_dir_offline.conf',
-        ]
-        if debug:
-            configs.append(base_dir / 'configs/debug.conf')
-        variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
-        search_space = {
-            'trainer_kwargs.with_lagrange': [
-                True,
-            ],
-            'trainer_kwargs.min_q_weight': [
-                10.0,
-            ],
-        }
-        return run_sweep(search_space, variant, xid)
-
     def awac_sweep(xid):
         configs = [
             base_dir / 'configs/default_awac.conf',
             base_dir / 'configs/offline_pretraining.conf',
+            base_dir / 'configs/short_fine_tuning.conf',
             base_dir / 'configs/ant_four_dir_offline.conf',
         ]
         if debug:
@@ -139,7 +124,6 @@ def main(debug, dry, suffix, nseeds):
         }
         return run_sweep(search_space, variant, xid)
 
-    # exp_id = cql_sweep(exp_id)
     exp_id = awac_sweep(exp_id)
     print(exp_name, exp_id)
 
