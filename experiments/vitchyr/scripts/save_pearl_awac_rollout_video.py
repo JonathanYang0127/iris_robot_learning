@@ -70,8 +70,10 @@ def simulate_policy(args):
 
         variant_path = Path(snapshot_path).parent / 'variant.json'
         variant = json.load(open(variant_path, 'rb'))
-        load_buffer_kwargs = variant['load_buffer_kwargs']
-        saved_tasks_path = variant['saved_tasks_path']
+        load_buffer_kwargs = variant.get('load_buffer_kwargs', None)
+        saved_tasks_path = variant.get('saved_tasks_path', None)
+        if saved_tasks_path is None:
+            saved_tasks_path = str(Path(snapshot_path).parent / 'tasks.pkl')
         use_ground_truth_context = variant.get('use_ground_truth_context', False)
 
         task_data = load_local_or_remote_file(

@@ -586,7 +586,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         goal = self.env._goal
         for path in paths:
-            path['goal'] = goal # goal
+            path['goal'] = goal  # goal
 
         # save the paths for visualization, only useful for point mass
         if self.dump_eval_paths and epoch >= 0:
