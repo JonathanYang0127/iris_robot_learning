@@ -58,13 +58,6 @@ def main(debug, dry, suffix, nseeds):
             'trainer_kwargs.train_context_decoder': [
                 True,
             ],
-            'trainer_kwargs.kl_lambda': [
-                100.,
-                10.,
-                5.,
-                2.,
-                1.,
-            ],
             'trainer_kwargs.backprop_q_loss_into_encoder': [
                 False,
             ],
@@ -82,6 +75,7 @@ def main(debug, dry, suffix, nseeds):
             ],
             'online_trainer_kwargs.use_awr_update': [
                 True,
+                False,
             ],
         }.items():
             search_space[k] = v
@@ -108,12 +102,31 @@ def main(debug, dry, suffix, nseeds):
                 )
         return xid
 
+    def cql_sweep(xid):
+        configs = [
+            base_dir / 'configs/default_cql.conf',
+            base_dir / 'configs/offline_pretraining.conf',
+            base_dir / 'configs/ant_four_dir_offline.conf',
+            ]
+        if debug:
+            configs.append(base_dir / 'configs/debug.conf')
+        variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
+        search_space = {
+            'trainer_kwargs.with_lagrange': [
+                True,
+            ],
+            'trainer_kwargs.min_q_weight': [
+                10.0,
+            ],
+        }
+        return run_sweep(search_space, variant, xid)
+
     def awac_sweep(xid):
         configs = [
             base_dir / 'configs/default_awac.conf',
             base_dir / 'configs/offline_pretraining.conf',
             base_dir / 'configs/ant_four_dir_offline.conf',
-        ]
+            ]
         if debug:
             configs.append(base_dir / 'configs/debug.conf')
         variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))

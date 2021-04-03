@@ -58,6 +58,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             num_iterations_with_reward_supervision=np.inf,
             freeze_encoder_buffer_in_unsupervised_phase=True,
             save_extra_manual_epoch_list=(),
+            save_extra_manual_beginning_epoch_list=(),
             save_extra_every_epoch=False,
             use_ground_truth_context=False,
             exploration_data_collector=None,
@@ -74,6 +75,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         """
         self._save_extra_every_epoch = save_extra_every_epoch
         self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
+        self.save_extra_manual_beginning_epoch_list = save_extra_manual_beginning_epoch_list
         self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = (
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase
         )
@@ -507,6 +509,12 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self._exploration_paths = []
         self._do_train_time = 0
         logger.push_prefix('Iteration #%d | ' % epoch)
+        if epoch in self.save_extra_manual_beginning_epoch_list:
+            logger.save_extra_data(
+                self.get_extra_data_to_save(epoch),
+                file_name='extra_snapshot_beginning_itr{}'.format(epoch),
+                mode='cloudpickle',
+            )
 
     def _end_epoch(self, epoch):
         for post_train_func in self.post_train_funcs:
@@ -567,7 +575,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 accum_context=True,
                 initial_context=init_context,
                 task_idx=idx,
-                resample_latent_period=0,  # following PEARL protocol
+                resample_latent_period=1,  # following PEARL protocol
                 update_posterior_period=0,  # following PEARL protocol
                 infer_posterior_at_start=infer_posterior_at_start,
             )

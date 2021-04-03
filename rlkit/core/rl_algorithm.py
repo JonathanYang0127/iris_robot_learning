@@ -39,6 +39,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             save_replay_buffer=False,
             save_logger=False,
             save_extra_manual_epoch_list=(),
+            save_extra_manual_beginning_epoch_list=(),
             keep_only_last_extra=True,
     ):
         self.trainer = trainer
@@ -55,6 +56,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         self.save_algorithm = save_algorithm
         self.save_replay_buffer = save_replay_buffer
         self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
+        self.save_extra_manual_beginning_epoch_list = save_extra_manual_beginning_epoch_list
         self.save_logger = save_logger
         self.keep_only_last_extra = keep_only_last_extra
         if exploration_get_diagnostic_functions is None:
@@ -98,6 +100,8 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
 
     def _begin_epoch(self):
         timer.reset()
+        if self.epoch in self.save_extra_manual_beginning_epoch_list:
+            self.save_extra_snapshot()
 
     def _end_epoch(self):
         for post_train_func in self.post_train_funcs:
@@ -112,25 +116,28 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             post_epoch_func(self, self.epoch)
 
         if self.epoch in self.save_extra_manual_epoch_list:
-            if self.keep_only_last_extra:
-                file_name = 'extra_snapshot'
-                info_lines = [
-                    'extra_snapshot_itr = {}'.format(self.epoch),
-                    'snapshot_dir = {}'.format(logger.get_snapshot_dir())
-                ]
-                logger.save_extra_data(
-                    '\n'.join(info_lines),
-                    file_name='snapshot_info',
-                    mode='txt',
-                )
-            else:
-                file_name = 'extra_snapshot_itr{}'.format(self.epoch)
-            logger.save_extra_data(
-                self.get_extra_data_to_save(self.epoch),
-                file_name=file_name,
-                mode='cloudpickle',
-            )
+            self.save_extra_snapshot()
         self.epoch += 1
+
+    def save_extra_snapshot(self, tag=''):
+        if self.keep_only_last_extra:
+            file_name = 'extra_snapshot' + tag
+            info_lines = [
+                'extra_snapshot_itr = {}'.format(self.epoch),
+                'snapshot_dir = {}'.format(logger.get_snapshot_dir())
+            ]
+            logger.save_extra_data(
+                '\n'.join(info_lines),
+                file_name='snapshot_info',
+                mode='txt',
+            )
+        else:
+            file_name = 'extra_snapshot_itr{}'.format(self.epoch)
+        logger.save_extra_data(
+            self.get_extra_data_to_save(self.epoch),
+            file_name=file_name,
+            mode='cloudpickle',
+        )
 
     def _get_snapshot(self):
         snapshot = {}
