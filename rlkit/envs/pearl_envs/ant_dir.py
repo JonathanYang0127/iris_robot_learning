@@ -52,6 +52,7 @@ class AntDirEnv(MultitaskAntEnv):
             reward_contact=-contact_cost,
             reward_survive=survive_reward,
             torso_velocity=torso_velocity,
+            torso_xy=self.sim.data.qpos.flat[:2].copy(),
         )
 
     def sample_tasks(self, num_tasks):

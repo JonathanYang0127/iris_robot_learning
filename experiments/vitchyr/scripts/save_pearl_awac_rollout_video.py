@@ -34,7 +34,7 @@ def simulate_policy(args):
     # buffer_data = cloudpickle.load(
     #     open(buffer_path, 'rb'))
     # replay_buffer = buffer_data['replay_buffer']
-    prefix = 'cumsum_'
+    prefix = 'dither_'
     # prefix = 'online_update_context'
 
     snapshot_path = args.file
@@ -172,7 +172,7 @@ def simulate_policy(args):
         horizon = 200
         img_renderer = GymEnvRenderer(width=256, height=256)
     elif isinstance(base_env, AntDirEnv):
-        n_repeats = 3
+        n_repeats = 2  # I should only use 2 because the encoder sucks whenever I condition it on optimal data
         counter_to_init_train_task = {
             0: 0,
             3: 1,
@@ -292,14 +292,14 @@ def simulate_policy(args):
                 **kwargs)
         elif counter in counter_to_eval_on_train_task:
             task_idx = counter_to_eval_on_train_task[counter]
-            text_renderer.prefix = 'eval on train\n'
+            text_renderer.prefix = 'eval on train, dither\n'
             path = rollout_multiple_and_flatten(
                 *args,
                 task_idx=task_idx,
                 initial_context=None,
-                resample_latent_period=0,
+                resample_latent_period=1,  # 1 = dither, 0 = don't dither
                 accum_context=True,
-                update_posterior_period=1,
+                update_posterior_period=0,
                 max_path_length=int(max_path_length//n_repeats),
                 num_repeats=n_repeats,
                 **kwargs)
@@ -333,15 +333,15 @@ def simulate_policy(args):
         #         **kwargs)
         elif counter in counter_to_eval_on_test_task:
             task_idx = counter_to_eval_on_test_task[counter]
-            text_renderer.prefix = 'eval on test\n'
+            text_renderer.prefix = 'eval on test, dither\n'
             init_context = None
             path = rollout_multiple_and_flatten(
                 *args,
                 task_idx=task_idx,
                 initial_context=init_context,
-                resample_latent_period=0,
+                resample_latent_period=1,
                 accum_context=True,
-                update_posterior_period=1,
+                update_posterior_period=0,
                 max_path_length=int(max_path_length//n_repeats),
                 num_repeats=n_repeats,
                 **kwargs)

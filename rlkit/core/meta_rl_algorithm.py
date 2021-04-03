@@ -61,6 +61,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             save_extra_manual_beginning_epoch_list=(),
             save_extra_every_epoch=False,
             use_ground_truth_context=False,
+            exploration_resample_latent_period=0,
+            exploration_update_posterior_period=0,
             exploration_data_collector=None,
             evaluation_data_collector=None,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
@@ -128,6 +130,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.dump_eval_paths = dump_eval_paths
         self.plotter = plotter
 
+        self.exploration_resample_latent_period = exploration_resample_latent_period
+        self.exploration_update_posterior_period = exploration_update_posterior_period
         self.sampler = PEARLInPlacePathSampler(
             env=env,
             policy=agent,
@@ -235,7 +239,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         new_expl_paths = self.expl_data_collector.collect_new_paths(
                             task_idx=task_idx,
                             max_path_length=self.max_path_length,
-                            resample_latent_period=1,
+                            resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=np.inf,
                             num_steps=self.num_steps_prior,
                             use_predicted_reward=self.in_unsupervised_phase,
@@ -251,7 +255,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_steps_prior,
-                            resample_z_rate=1,
+                            resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=np.inf,
                             add_to_enc_buffer=not freeze_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
@@ -264,7 +268,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         new_expl_paths = self.expl_data_collector.collect_new_paths(
                             task_idx=task_idx,
                             max_path_length=self.max_path_length,
-                            resample_latent_period=1,
+                            resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
                             num_steps=self.num_steps_posterior,
                             use_predicted_reward=self.in_unsupervised_phase,
@@ -280,7 +284,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_steps_posterior,
-                            resample_z_rate=1,
+                            resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
                             add_to_enc_buffer=not freeze_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
@@ -293,7 +297,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         new_expl_paths = self.expl_data_collector.collect_new_paths(
                             task_idx=task_idx,
                             max_path_length=self.max_path_length,
-                            resample_latent_period=1,
+                            resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
                             num_steps=self.num_extra_rl_steps_posterior,
                             use_predicted_reward=self.in_unsupervised_phase,
@@ -307,7 +311,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_extra_rl_steps_posterior,
-                            resample_z_rate=1,
+                            resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
                             add_to_enc_buffer=False,
                             use_predicted_reward=self.in_unsupervised_phase,
@@ -364,14 +368,14 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         pass
 
     def collect_exploration_data(self, num_samples,
-                                 resample_z_rate, update_posterior_period, task_idx, add_to_enc_buffer=True, use_predicted_reward=False):
+                                 resample_latent_period, update_posterior_period, task_idx, add_to_enc_buffer=True, use_predicted_reward=False):
         '''
         get trajectories from current env in batch mode with given policy
         collect complete trajectories until the number of collected transitions >= num_samples
 
         :param agent: policy to rollout
         :param num_samples: total number of transitions to sample
-        :param resample_z_rate: how often to resample latent context z (in units of trajectories)
+        :param resample_latent_period: how often to resample latent context z (in units of trajectories)
         :param update_posterior_period: how often to update q(z | c) from which z is sampled (in units of trajectories)
         :param add_to_enc_buffer: whether to add collected data to encoder replay buffer
         :param use_predicted_reward: whether to replace the env reward with the predicted reward to simulate not having access to rewards.
@@ -387,8 +391,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 max_samples=num_samples - num_transitions,
                 max_trajs=update_posterior_period,
                 accum_context=False,
-                resample_latent_period=resample_z_rate,
-                update_posterior_period=0,
+                resample_latent_period=resample_latent_period,
+                update_posterior_period=self.exploration_update_posterior_period,
                 use_predicted_reward=use_predicted_reward,
                 task_idx=task_idx,
                 initial_context=init_context,
@@ -405,10 +409,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     self.embedding_batch_size
                 )
                 init_context = ptu.from_numpy(init_context)
-            # else:
-            #     init_context = []  # recreate list to avoid pass-by-ref bug
-                # self.agent.clear_z()
-                # HACK: try just resampling from the prior
         self._n_env_steps_total += num_transitions
 
     def _try_to_eval(self, epoch):
@@ -575,7 +575,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 accum_context=True,
                 initial_context=init_context,
                 task_idx=idx,
-                resample_latent_period=1,  # following PEARL protocol
+                resample_latent_period=self.exploration_resample_latent_period,  # PEARL had this=0.
                 update_posterior_period=0,  # following PEARL protocol
                 infer_posterior_at_start=infer_posterior_at_start,
             )
@@ -633,8 +633,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     deterministic=self.eval_deterministic,
                     max_samples=self.max_path_length * 20,
                     accum_context=False,
-                    resample_latent_period=1,
-                    update_posterior_period=0,
+                    resample_latent_period=self.exploration_resample_latent_period,
+                    update_posterior_period=self.exploration_update_posterior_period,  # following PEARL protocol
             )
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
         ### train tasks
