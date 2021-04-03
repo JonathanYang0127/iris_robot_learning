@@ -386,6 +386,13 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         num_transitions = 0
         init_context = None
         while num_transitions < num_samples:
+            if use_predicted_reward:
+                initial_reward_context = self.enc_replay_buffer.sample_context(
+                    task_idx,
+                    self.embedding_batch_size
+                )
+            else:
+                initial_reward_context = None
             # TODO: replace with sampler
             paths, n_samples = self.sampler.obtain_samples(
                 max_samples=num_samples - num_transitions,
@@ -396,6 +403,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 use_predicted_reward=use_predicted_reward,
                 task_idx=task_idx,
                 initial_context=init_context,
+                initial_reward_context=initial_reward_context,
             )
             num_transitions += n_samples
             self.replay_buffer.add_paths(task_idx, paths)

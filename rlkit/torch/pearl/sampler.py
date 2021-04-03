@@ -76,6 +76,7 @@ def rollout(
         resample_latent_period=0,
         update_posterior_period=0,
         initial_context=None,
+        initial_reward_context=None,
         infer_posterior_at_start=True,
     ):
     """
@@ -133,6 +134,10 @@ def rollout(
     else:
         z_dist = agent.latent_prior
 
+    if use_predicted_reward:
+        z_reward_dist = agent.latent_posterior(initial_reward_context, squeeze=True)
+        z_reward = ptu.get_numpy(z_reward_dist.sample())
+
     z = ptu.get_numpy(z_dist.sample())
     for path_length in range(max_path_length):
         if resample_latent_period != 0 and path_length % resample_latent_period == 0:
@@ -140,7 +145,7 @@ def rollout(
         a, agent_info = agent.get_action(o, z)
         next_o, r, d, env_info = env.step(a)
         if use_predicted_reward:
-            r = agent.infer_reward(o, a, z)
+            r = agent.infer_reward(o, a, z_reward)
         if accum_context:
             context = agent.update_context(
                 context,
