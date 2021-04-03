@@ -122,6 +122,7 @@ class PearlAwacTrainer(TorchTrainer):
         super().__init__()
 
         self.train_context_decoder = train_context_decoder
+        self.train_encoder_decoder = True
         self.backprop_q_loss_into_encoder = backprop_q_loss_into_encoder
         self.reward_scale = reward_scale
         self.discount = discount
@@ -496,7 +497,8 @@ class PearlAwacTrainer(TorchTrainer):
         Update networks
         """
         if self._n_train_steps_total % self.q_update_period == 0:
-            self.context_optimizer.zero_grad()
+            if self.train_encoder_decoder:
+                self.context_optimizer.zero_grad()
             self.qf1_optimizer.zero_grad()
             self.qf2_optimizer.zero_grad()
             context_loss.backward(retain_graph=True)
@@ -505,7 +507,8 @@ class PearlAwacTrainer(TorchTrainer):
             qf2_loss.backward()
             self.qf1_optimizer.step()
             self.qf2_optimizer.step()
-            self.context_optimizer.step()
+            if self.train_encoder_decoder:
+                self.context_optimizer.step()
 
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()

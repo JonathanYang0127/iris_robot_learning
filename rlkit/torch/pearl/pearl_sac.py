@@ -81,6 +81,7 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         self.use_information_bottleneck = use_information_bottleneck
         self.sparse_rewards = sparse_rewards
         self.use_next_obs_in_context = use_next_obs_in_context
+        self.train_encoder_decoder = True
         self.train_context_decoder = train_context_decoder
         self.backprop_q_loss_into_encoder = backprop_q_loss_into_encoder
 
@@ -226,12 +227,14 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
 
         self.qf1_optimizer.zero_grad()
         self.qf2_optimizer.zero_grad()
-        self.context_optimizer.zero_grad()
+        if self.train_encoder_decoder:
+            self.context_optimizer.zero_grad()
         context_loss.backward(retain_graph=True)
         qf_loss.backward()
         self.qf1_optimizer.step()
         self.qf2_optimizer.step()
-        self.context_optimizer.step()
+        if self.train_encoder_decoder:
+            self.context_optimizer.step()
 
         """
         VF update

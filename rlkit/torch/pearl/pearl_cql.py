@@ -73,6 +73,7 @@ class PearlCqlTrainer(TorchTrainer):
     ):
         super().__init__()
 
+        self.train_encoder_decoder = True
         self.train_context_decoder = train_context_decoder
         self.reward_scale = reward_scale
         self.discount = discount
@@ -358,12 +359,14 @@ class PearlCqlTrainer(TorchTrainer):
 
         self.qf1_optimizer.zero_grad()
         self.qf2_optimizer.zero_grad()
-        self.context_optimizer.zero_grad()
+        if self.train_encoder_decoder:
+            self.context_optimizer.zero_grad()
         context_loss.backward(retain_graph=True)
         qf_loss.backward()
         self.qf1_optimizer.step()
         self.qf2_optimizer.step()
-        self.context_optimizer.step()
+        if self.train_encoder_decoder:
+            self.context_optimizer.step()
         """
         Soft Updates
         """

@@ -226,6 +226,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     self.in_unsupervised_phase
                     and self.freeze_encoder_buffer_in_unsupervised_phase
             )
+            # TODO: propogate unsupervised mode elegantly
+            self.trainer.train_encoder_decoder = not self.in_unsupervised_phase
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
                 task_idx = np.random.randint(len(self.train_task_indices))
