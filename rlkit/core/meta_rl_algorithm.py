@@ -7,6 +7,8 @@ import numpy as np
 import torch
 
 from rlkit.core import logger
+from rlkit.data_management.meta_learning_replay_buffer import \
+    MetaLearningReplayBuffer
 from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.data_management.path_builder import PathBuilder
 from rlkit.misc import eval_util
@@ -323,33 +325,41 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
             # Sample train tasks and compute gradient updates on parameters.
             for train_step in range(self.num_train_steps_per_itr):
-                indices = np.random.choice(self.train_task_indices, self.meta_batch)
-
-                mb_size = self.embedding_mini_batch_size
-                num_updates = self.embedding_batch_size // mb_size
-
-                # sample context batch
-                # context_batch = self.sample_context(indices)
-                context_batch = self.enc_replay_buffer.sample_context(
-                    indices,
-                    self.embedding_batch_size
-                )
-
-                # zero out context and hidden encoder state
-                # self.agent.clear_z(num_tasks=len(indices))
-
-                # do this in a loop so we can truncate backprop in the recurrent encoder
-                for i in range(num_updates):
-                    if self._debug_use_ground_truth_context:
-                        context = context_batch
-                    else:
-                        context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
-                    # batch = self.sample_batch(indices)
-                    batch = self.replay_buffer.sample_batch(indices, self.batch_size)
-                    batch['context'] = context
-                    batch['task_indices'] = indices
+                if isinstance(self.replay_buffer, MetaLearningReplayBuffer):
+                    batch = self.replay_buffer.sample_meta_batch(
+                        rl_batch_size=self.batch_size,
+                        meta_batch_size=self.meta_batch,
+                        embedding_batch_size=self.embedding_batch_size,
+                    )
                     self.trainer.train(batch)
-                    self._n_train_steps_total += 1
+                else:
+                    indices = np.random.choice(self.train_task_indices, self.meta_batch)
+
+                    mb_size = self.embedding_mini_batch_size
+                    num_updates = self.embedding_batch_size // mb_size
+
+                    # sample context batch
+                    # context_batch = self.sample_context(indices)
+                    context_batch = self.enc_replay_buffer.sample_context(
+                        indices,
+                        self.embedding_batch_size
+                    )
+
+                    # zero out context and hidden encoder state
+                    # self.agent.clear_z(num_tasks=len(indices))
+
+                    # do this in a loop so we can truncate backprop in the recurrent encoder
+                    for i in range(num_updates):
+                        if self._debug_use_ground_truth_context:
+                            context = context_batch
+                        else:
+                            context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
+                        # batch = self.sample_batch(indices)
+                        batch = self.replay_buffer.sample_batch(indices, self.batch_size)
+                        batch['context'] = context
+                        batch['task_indices'] = indices
+                        self.trainer.train(batch)
+                        self._n_train_steps_total += 1
 
                     # stop backprop
                     # self.agent.detach_z()
