@@ -68,6 +68,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             exploration_data_collector=None,
             evaluation_data_collector=None,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
+            encoder_buffer_matches_rl_buffer=False,
     ):
         """
         :param env: training env
@@ -77,6 +78,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self.encoder_buffer_matches_rl_buffer = encoder_buffer_matches_rl_buffer
         self._save_extra_every_epoch = save_extra_every_epoch
         self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
         self.save_extra_manual_beginning_epoch_list = save_extra_manual_beginning_epoch_list
@@ -233,7 +235,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
                 task_idx = np.random.randint(len(self.train_task_indices))
-                if not self.in_unsupervised_phase and not freeze_buffer:
+                if (
+                        not self.in_unsupervised_phase
+                        and not freeze_buffer
+                        and not self.encoder_buffer_matches_rl_buffer
+                ):
                     # Just keep the latest version if not in supervised phase
                     self.enc_replay_buffer.task_buffers[task_idx].clear()
                 # collect some trajectories with z ~ prior
@@ -261,7 +267,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             num_samples=self.num_steps_prior,
                             resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=np.inf,
-                            add_to_enc_buffer=not freeze_buffer,
+                            add_to_enc_buffer=not freeze_buffer or self.encoder_buffer_matches_rl_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
                             task_idx=task_idx,
                         )
@@ -290,7 +296,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             num_samples=self.num_steps_posterior,
                             resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
-                            add_to_enc_buffer=not freeze_buffer,
+                            add_to_enc_buffer=not freeze_buffer or self.encoder_buffer_matches_rl_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
                             task_idx=task_idx,
                         )
@@ -317,7 +323,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             num_samples=self.num_extra_rl_steps_posterior,
                             resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
-                            add_to_enc_buffer=False,
+                            add_to_enc_buffer=False or self.encoder_buffer_matches_rl_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
                             task_idx=task_idx,
                         )
