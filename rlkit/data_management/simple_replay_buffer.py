@@ -134,6 +134,7 @@ class SimpleReplayBuffer(ReplayBuffer):
         this_slc = slice(self._top, end_i)
         other_slc = slice(start_idx, end_idx)
         if end_i > self._max_replay_buffer_size:
+            import ipdb; ipdb.set_trace()
             raise NotImplementedError()
         self._observations[this_slc] = (
             other_buffer._observations[other_slc].copy()

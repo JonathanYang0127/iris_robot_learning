@@ -134,7 +134,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.eval_statistics = None
         self.render_eval_paths = render_eval_paths
         self.dump_eval_paths = dump_eval_paths
-        self.plotter = plottern
+        self.plotter = plotter
 
         self.exploration_resample_latent_period = exploration_resample_latent_period
         self.exploration_update_posterior_period = exploration_update_posterior_period
@@ -147,39 +147,35 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.meta_replay_buffer = None
         self.replay_buffer = None
         self.enc_replay_buffer = None
-        if self.use_meta_learning_buffer:
-            self.meta_replay_buffer = MetaLearningReplayBuffer(
-                self.replay_buffer_size,
-                env,
-                self.train_task_indices,
-                use_next_obs_in_context=use_next_obs_in_context,
-                sparse_rewards=sparse_rewards,
-                mini_buffer_max_size=self.max_path_length + max(
-                    self.num_steps_prior,
-                    self.num_steps_posterior,
-                    self.num_extra_rl_steps_posterior,
-                )
-            )
-        else:
-            # separate replay buffers for
-            # - training RL update
-            # - training encoder update
-            self.replay_buffer = MultiTaskReplayBuffer(
-                self.replay_buffer_size,
-                env,
-                self.train_task_indices,
-                use_next_obs_in_context=use_next_obs_in_context,
-                sparse_rewards=sparse_rewards,
-            )
-            self.enc_replay_buffer = MultiTaskReplayBuffer(
-                self.replay_buffer_size,
-                env,
-                self.train_task_indices,
-                use_next_obs_in_context=use_next_obs_in_context,
-                sparse_rewards=sparse_rewards,
-                use_ground_truth_context=use_ground_truth_context,
-                ground_truth_tasks=train_tasks,
-            )
+        self.meta_replay_buffer = MetaLearningReplayBuffer(
+            self.replay_buffer_size,
+            env,
+            self.train_task_indices,
+            use_next_obs_in_context=use_next_obs_in_context,
+            sparse_rewards=sparse_rewards,
+            mini_buffer_max_size=self.replay_buffer_size,
+            # mini_buffer_max_size=self.max_path_length + max(
+            #     self.num_steps_prior,
+            #     self.num_steps_posterior,
+            #     self.num_extra_rl_steps_posterior,
+            # )
+        )
+        self.replay_buffer = MultiTaskReplayBuffer(
+            self.replay_buffer_size,
+            env,
+            self.train_task_indices,
+            use_next_obs_in_context=use_next_obs_in_context,
+            sparse_rewards=sparse_rewards,
+        )
+        self.enc_replay_buffer = MultiTaskReplayBuffer(
+            self.replay_buffer_size,
+            env,
+            self.train_task_indices,
+            use_next_obs_in_context=use_next_obs_in_context,
+            sparse_rewards=sparse_rewards,
+            use_ground_truth_context=use_ground_truth_context,
+            ground_truth_tasks=train_tasks,
+        )
 
         self._n_env_steps_total = 0
         self._n_train_steps_total = 0
@@ -691,8 +687,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
         ### train tasks
-        # eval on a subset of train tasks for speed
-        indices = np.random.choice(self.train_task_indices, len(self.eval_task_indices))
+        if len(self.eval_task_indices) <= len(self.train_task_indices):
+            indices = self.train_task_indices
+        else:
+            # eval on a subset of train tasks in case num train tasks is huge
+            indices = np.random.choice(self.train_task_indices, len(self.eval_task_indices))
         # logger.log('evaluating on {} train tasks'.format(len(indices)))
         ### eval train tasks with posterior sampled from the training replay buffer
         train_returns = []
@@ -701,10 +700,16 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             paths = []
             for _ in range(self.num_steps_per_eval // self.max_path_length):
                 # init_context = self.sample_context(idx)
-                init_context = self.enc_replay_buffer.sample_context(
-                    idx,
-                    self.embedding_batch_size
-                )
+                if self.use_meta_learning_buffer:
+                    init_context = self.meta_replay_buffer._sample_contexts(
+                        [idx],
+                        self.embedding_batch_size
+                    )
+                else:
+                    init_context = self.enc_replay_buffer.sample_context(
+                        idx,
+                        self.embedding_batch_size
+                    )
                 if self.eval_data_collector:
                     p = self.eval_data_collector.collect_new_paths(
                         num_steps=self.max_path_length,  # TODO: also cap num trajs

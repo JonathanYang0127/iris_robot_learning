@@ -1,11 +1,9 @@
 import numpy as np
 import random
 
-from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.simple_replay_buffer import (
     SimpleReplayBuffer as RLKitSimpleReplayBuffer
 )
-from gym.spaces import Box, Discrete, Tuple
 
 from rlkit.envs.env_utils import get_dim
 
@@ -43,7 +41,7 @@ class MetaLearningReplayBuffer(object):
         self.mini_buffer_max_size = mini_buffer_max_size
         self._num_steps_can_sample = 0
 
-    def _create_buffer(self):
+    def create_buffer(self):
         return RLKitSimpleReplayBuffer(
             max_replay_buffer_size=self.mini_buffer_max_size,
             observation_dim=get_dim(self._ob_space),
@@ -56,12 +54,14 @@ class MetaLearningReplayBuffer(object):
         return self._num_steps_can_sample
 
     def add_paths(self, paths):
-        new_buffer = self._create_buffer()
+        new_buffer = self.create_buffer()
         for path in paths:
             new_buffer.add_path(path)
         self._num_steps_can_sample += new_buffer.num_steps_can_sample()
-        self.task_buffers.append(new_buffer)
+        self.append_buffer(new_buffer)
 
+    def append_buffer(self, new_buffer):
+        self.task_buffers.append(new_buffer)
         while self.num_steps_can_sample > self.max_replay_buffer_size:
             self._remove_task_buffer()
 
@@ -129,6 +129,17 @@ class MetaLearningReplayBuffer(object):
         else:
             context = np.concatenate(context[:-2], axis=2)
         return context
+
+    def random_batch(self, task, batch_size, sequence=False):
+        if sequence:
+            batch = self.task_buffers[task].random_sequence(batch_size)
+        else:
+            try:
+                batch = self.task_buffers[task].random_batch(batch_size)
+            except KeyError:
+                import ipdb; ipdb.set_trace()
+                print(task)
+        return batch
 
     def sample_meta_batch(self, meta_batch_size, rl_batch_size, embedding_batch_size):
         possible_indices = np.arange(len(self.task_buffers))

@@ -140,8 +140,7 @@ def policy_class_from_str(policy_class):
 
 
 def load_buffer_onto_algo(
-        rl_replay_buffer,
-        encoder_replay_buffer,
+        algo: MetaRLAlgorithm,
         pretrain_buffer_path,
         start_idx=0,
         end_idx=None,
@@ -154,24 +153,39 @@ def load_buffer_onto_algo(
     )
     saved_replay_buffer = data['replay_buffer']
     saved_enc_replay_buffer = data['enc_replay_buffer']
-    for k in rl_replay_buffer.task_buffers:
-        if k not in saved_replay_buffer.task_buffers:
-            print("No saved buffer for task {}. Skipping.".format(k))
-            continue
-        rl_replay_buffer.task_buffers[k].copy_data(
-            saved_replay_buffer.task_buffers[k],
-            start_idx=start_idx,
-            end_idx=end_idx,
-        )
-    for k in encoder_replay_buffer.task_buffers:
-        if k not in saved_enc_replay_buffer.task_buffers:
-            print("No saved buffer for task {}. Skipping.".format(k))
-            continue
-        encoder_replay_buffer.task_buffers[k].copy_data(
-            saved_enc_replay_buffer.task_buffers[k],
-            start_idx=start_idx_enc,
-            end_idx=end_idx_enc,
-        )
+    if algo.use_meta_learning_buffer:
+        for k in saved_replay_buffer.task_buffers:
+            if k not in saved_replay_buffer.task_buffers:
+                print("No saved buffer for task {}. Skipping.".format(k))
+                continue
+            new_buffer = algo.meta_replay_buffer.create_buffer()
+            new_buffer.copy_data(
+                saved_replay_buffer.task_buffers[k],
+                start_idx=start_idx,
+                end_idx=end_idx,
+            )
+            algo.meta_replay_buffer.append_buffer(new_buffer)
+    else:
+        rl_replay_buffer = algo.replay_buffer
+        encoder_replay_buffer = algo.enc_replay_buffer
+        for k in rl_replay_buffer.task_buffers:
+            if k not in saved_replay_buffer.task_buffers:
+                print("No saved buffer for task {}. Skipping.".format(k))
+                continue
+            rl_replay_buffer.task_buffers[k].copy_data(
+                saved_replay_buffer.task_buffers[k],
+                start_idx=start_idx,
+                end_idx=end_idx,
+            )
+        for k in encoder_replay_buffer.task_buffers:
+            if k not in saved_enc_replay_buffer.task_buffers:
+                print("No saved buffer for task {}. Skipping.".format(k))
+                continue
+            encoder_replay_buffer.task_buffers[k].copy_data(
+                saved_enc_replay_buffer.task_buffers[k],
+                start_idx=start_idx_enc,
+                end_idx=end_idx_enc,
+            )
 
 
 class EvalPearl(object):
@@ -204,10 +218,16 @@ class EvalPearl(object):
         return results
 
     def _get_init_from_buffer_path(self, idx):
-        init_context = self.algorithm.enc_replay_buffer.sample_context(
-            idx,
-            self.algorithm.embedding_batch_size
-        )
+        if self.algorithm.use_meta_learning_buffer:
+            init_context = self.algorithm.meta_replay_buffer._sample_contexts(
+                [idx],
+                self.algorithm.embedding_batch_size
+            )
+        else:
+            init_context = self.algorithm.enc_replay_buffer.sample_context(
+                idx,
+                self.algorithm.embedding_batch_size
+            )
         init_context = ptu.from_numpy(init_context)
         p, _ = self.algorithm.sampler.obtain_samples(
             deterministic=self.algorithm.eval_deterministic,

@@ -218,10 +218,7 @@ def pearl_awac_experiment(
         )
 
     if load_buffer_kwargs:
-        load_buffer_onto_algo(
-            algorithm.replay_buffer,
-            algorithm.enc_replay_buffer,
-            **load_buffer_kwargs)
+        load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
     if path_loader_kwargs:
         replay_buffer = algorithm.replay_buffer.task_buffers[0]
         enc_replay_buffer = algorithm.enc_replay_buffer.task_buffers[0]
@@ -239,11 +236,13 @@ def pearl_awac_experiment(
     if pretrain_rl:
         eval_pearl_fn = EvalPearl(algorithm, train_task_idxs, eval_task_idxs)
         pretrain_algo = OfflineMetaRLAlgorithm(
+            meta_replay_buffer=algorithm.meta_replay_buffer,
             replay_buffer=algorithm.replay_buffer,
             task_embedding_replay_buffer=algorithm.enc_replay_buffer,
             trainer=trainer,
             train_tasks=train_task_idxs,
             extra_eval_fns=[eval_pearl_fn],
+            use_meta_learning_buffer=algorithm.use_meta_learning_buffer,
             **pretrain_offline_algo_kwargs
         )
         pretrain_algo.to(ptu.device)
