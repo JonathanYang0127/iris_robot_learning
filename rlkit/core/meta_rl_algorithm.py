@@ -153,12 +153,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self.train_task_indices,
             use_next_obs_in_context=use_next_obs_in_context,
             sparse_rewards=sparse_rewards,
-            mini_buffer_max_size=self.replay_buffer_size,
-            # mini_buffer_max_size=self.max_path_length + max(
-            #     self.num_steps_prior,
-            #     self.num_steps_posterior,
-            #     self.num_extra_rl_steps_posterior,
-            # )
+            mini_buffer_max_size=self.max_path_length + max(
+                self.num_steps_prior,
+                self.num_steps_posterior,
+                self.num_extra_rl_steps_posterior,
+            )
         )
         self.replay_buffer = MultiTaskReplayBuffer(
             self.replay_buffer_size,
@@ -743,7 +742,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                     p['rewards'] = sparse_rewards
 
             train_returns.append(eval_util.get_average_returns(paths))
-        train_returns = np.mean(train_returns)
+        # train_returns = np.mean(train_returns)
         ### eval train tasks with on-policy data to match eval of test tasks
         train_final_returns, train_online_returns = self._do_eval(indices, epoch)
         # logger.log('train online returns')
@@ -761,15 +760,35 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         if hasattr(self.env, "log_diagnostics"):
             self.env.log_diagnostics(paths, prefix=None)
 
-        avg_train_return = np.mean(train_final_returns)
-        avg_test_return = np.mean(test_final_returns)
         avg_train_online_return = np.mean(np.stack(train_online_returns), axis=0)
         avg_test_online_return = np.mean(np.stack(test_online_returns), axis=0)
-        self.eval_statistics['eval/init_from_buffer/train_tasks/all_returns Mean'] = train_returns
-        self.eval_statistics['eval/adaptation/train_tasks/final_returns Mean'] = avg_train_return
-        self.eval_statistics['eval/adaptation/test_tasks/final_returns Mean'] = avg_test_return
-        self.eval_statistics['eval/adaptation/train_tasks/all_returns Mean'] = np.mean(avg_train_online_return)
-        self.eval_statistics['eval/adaptation/test_tasks/all_returns Mean'] = np.mean(avg_test_online_return)
+        self.eval_statistics.update(eval_util.create_stats_ordered_dict(
+            'eval/init_from_buffer/train_tasks/all_returns',
+            train_returns,
+        ))
+        self.eval_statistics.update(eval_util.create_stats_ordered_dict(
+            'eval/adaptation/train_tasks/final_returns',
+            train_final_returns,
+        ))
+        self.eval_statistics.update(eval_util.create_stats_ordered_dict(
+            'eval/adaptation/test_tasks/final_returns',
+            test_final_returns,
+        ))
+        self.eval_statistics.update(eval_util.create_stats_ordered_dict(
+            'eval/adaptation/train_tasks/all_returns',
+            avg_train_online_return,
+        ))
+        self.eval_statistics.update(eval_util.create_stats_ordered_dict(
+            'eval/adaptation/test_tasks/all_returns',
+            avg_test_online_return,
+        ))
+        try:
+            import os
+            import psutil
+            process = psutil.Process(os.getpid())
+            self.eval_statistics['RAM Usage (Mb)'] = int(process.memory_info().rss / 1000000)
+        except ImportError:
+            pass
         logger.save_extra_data(avg_train_online_return, file_name='online-train-epoch{}'.format(epoch))
         logger.save_extra_data(avg_test_online_return, file_name='online-test-epoch{}'.format(epoch))
 

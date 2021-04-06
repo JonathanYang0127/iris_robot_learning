@@ -135,6 +135,13 @@ class OfflineMetaRLAlgorithm(object):
 
                 logger.record_tabular('iteration', iteration)
                 logger.record_dict(_get_epoch_timings())
+                try:
+                    import os
+                    import psutil
+                    process = psutil.Process(os.getpid())
+                    logger.record_tabular('RAM Usage (Mb)', int(process.memory_info().rss / 1000000))
+                except ImportError:
+                    pass
                 logger.dump_tabular(with_prefix=True, with_timestamp=False)
                 iteration += 1
 
