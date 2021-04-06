@@ -235,7 +235,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 task_idx = np.random.randint(len(self.train_task_indices))
                 if (
                         not self.in_unsupervised_phase
-                        and not freeze_buffer
+                        and not freeze_buffer  # technically unnecessary for now, but leaving it in case freeze_buffer condition changes
                         and not self.encoder_buffer_matches_rl_buffer
                 ):
                     # Just keep the latest version if not in supervised phase
