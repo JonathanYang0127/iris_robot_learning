@@ -69,6 +69,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             evaluation_data_collector=None,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
             encoder_buffer_matches_rl_buffer=False,
+            use_meta_learning_buffer=False,
     ):
         """
         :param env: training env
@@ -79,6 +80,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         see default experiment config file for descriptions of the rest of the arguments
         """
         self.encoder_buffer_matches_rl_buffer = encoder_buffer_matches_rl_buffer
+        self.use_meta_learning_buffer = use_meta_learning_buffer
         self._save_extra_every_epoch = save_extra_every_epoch
         self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
         self.save_extra_manual_beginning_epoch_list = save_extra_manual_beginning_epoch_list
@@ -132,7 +134,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.eval_statistics = None
         self.render_eval_paths = render_eval_paths
         self.dump_eval_paths = dump_eval_paths
-        self.plotter = plotter
+        self.plotter = plottern
 
         self.exploration_resample_latent_period = exploration_resample_latent_period
         self.exploration_update_posterior_period = exploration_update_posterior_period
@@ -142,26 +144,42 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             max_path_length=self.max_path_length,
         )
 
-        # separate replay buffers for
-        # - training RL update
-        # - training encoder update
-        self.replay_buffer = MultiTaskReplayBuffer(
-            self.replay_buffer_size,
-            env,
-            self.train_task_indices,
-            use_next_obs_in_context=use_next_obs_in_context,
-            sparse_rewards=sparse_rewards,
-        )
-
-        self.enc_replay_buffer = MultiTaskReplayBuffer(
-            self.replay_buffer_size,
-            env,
-            self.train_task_indices,
-            use_next_obs_in_context=use_next_obs_in_context,
-            sparse_rewards=sparse_rewards,
-            use_ground_truth_context=use_ground_truth_context,
-            ground_truth_tasks=train_tasks,
-        )
+        self.meta_replay_buffer = None
+        self.replay_buffer = None
+        self.enc_replay_buffer = None
+        if self.use_meta_learning_buffer:
+            self.meta_replay_buffer = MetaLearningReplayBuffer(
+                self.replay_buffer_size,
+                env,
+                self.train_task_indices,
+                use_next_obs_in_context=use_next_obs_in_context,
+                sparse_rewards=sparse_rewards,
+                mini_buffer_max_size=self.max_path_length + max(
+                    self.num_steps_prior,
+                    self.num_steps_posterior,
+                    self.num_extra_rl_steps_posterior,
+                )
+            )
+        else:
+            # separate replay buffers for
+            # - training RL update
+            # - training encoder update
+            self.replay_buffer = MultiTaskReplayBuffer(
+                self.replay_buffer_size,
+                env,
+                self.train_task_indices,
+                use_next_obs_in_context=use_next_obs_in_context,
+                sparse_rewards=sparse_rewards,
+            )
+            self.enc_replay_buffer = MultiTaskReplayBuffer(
+                self.replay_buffer_size,
+                env,
+                self.train_task_indices,
+                use_next_obs_in_context=use_next_obs_in_context,
+                sparse_rewards=sparse_rewards,
+                use_ground_truth_context=use_ground_truth_context,
+                ground_truth_tasks=train_tasks,
+            )
 
         self._n_env_steps_total = 0
         self._n_train_steps_total = 0
@@ -331,8 +349,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
             # Sample train tasks and compute gradient updates on parameters.
             for train_step in range(self.num_train_steps_per_itr):
-                if isinstance(self.replay_buffer, MetaLearningReplayBuffer):
-                    batch = self.replay_buffer.sample_meta_batch(
+                if self.use_meta_learning_buffer:
+                    batch = self.meta_replay_buffer.sample_meta_batch(
                         rl_batch_size=self.batch_size,
                         meta_batch_size=self.meta_batch,
                         embedding_batch_size=self.embedding_batch_size,
@@ -405,10 +423,15 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         init_context = None
         while num_transitions < num_samples:
             if use_predicted_reward:
-                initial_reward_context = self.enc_replay_buffer.sample_context(
-                    task_idx,
-                    self.embedding_batch_size
-                )
+                if self.use_meta_learning_buffer:
+                    initial_reward_context = self.meta_replay_buffer.sample_context(
+                        self.embedding_batch_size
+                    )
+                else:
+                    initial_reward_context = self.enc_replay_buffer.sample_context(
+                        task_idx,
+                        self.embedding_batch_size
+                    )
             else:
                 initial_reward_context = None
             # TODO: replace with sampler
@@ -424,17 +447,20 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 initial_reward_context=initial_reward_context,
             )
             num_transitions += n_samples
-            self.replay_buffer.add_paths(task_idx, paths)
             self._n_rollouts_total += len(paths)
-            if add_to_enc_buffer:
-                self.enc_replay_buffer.add_paths(task_idx, paths)
-            if update_posterior_period != np.inf:
-                # init_context = self.sample_context(task_idx)
-                init_context = self.enc_replay_buffer.sample_context(
-                    task_idx,
-                    self.embedding_batch_size
-                )
-                init_context = ptu.from_numpy(init_context)
+            if self.use_meta_learning_buffer:
+                self.meta_replay_buffer.add_paths(paths)
+            else:
+                self.replay_buffer.add_paths(task_idx, paths)
+                if add_to_enc_buffer:
+                    self.enc_replay_buffer.add_paths(task_idx, paths)
+                if update_posterior_period != np.inf:
+                    # init_context = self.sample_context(task_idx)
+                    init_context = self.enc_replay_buffer.sample_context(
+                        task_idx,
+                        self.embedding_batch_size
+                    )
+                    init_context = ptu.from_numpy(init_context)
         self._n_env_steps_total += num_transitions
 
     def _try_to_eval(self, epoch):
@@ -581,6 +607,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         if self.save_replay_buffer:
             data_to_save['replay_buffer'] = self.replay_buffer
             data_to_save['enc_replay_buffer'] = self.enc_replay_buffer
+            data_to_save['meta_replay_buffer'] = self.meta_replay_buffer
         if self.save_algorithm:
             data_to_save['algorithm'] = self
         return data_to_save

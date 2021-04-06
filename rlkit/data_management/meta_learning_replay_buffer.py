@@ -99,7 +99,7 @@ class MetaLearningReplayBuffer(object):
             'terminals': terms,
         }
 
-    def sample_context(self, indices, batch_size):
+    def _sample_contexts(self, indices, batch_size):
         ''' sample batch of context from a list of tasks from the replay buffer '''
         # make method work given a single task index
         if not hasattr(indices, '__iter__'):
@@ -134,9 +134,14 @@ class MetaLearningReplayBuffer(object):
         possible_indices = np.arange(len(self.task_buffers))
         indices = np.random.choice(possible_indices, meta_batch_size)
         batch = self.sample_batch(indices, rl_batch_size)
-        context = self.sample_context(indices, embedding_batch_size)
+        context = self._sample_contexts(indices, embedding_batch_size)
         batch['context'] = context
         return batch
+
+    def sample_context(self, batch_size):
+        possible_indices = np.arange(len(self.task_buffers))
+        index = np.random.choice(possible_indices)
+        return self._sample_contexts([index], batch_size)
 
     def unpack_batch(self, batch):
         ''' unpack a batch and return individual elements '''
