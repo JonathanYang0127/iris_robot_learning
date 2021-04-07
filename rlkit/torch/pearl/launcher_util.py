@@ -168,6 +168,8 @@ def load_buffer_onto_algo(
     else:
         rl_replay_buffer = algo.replay_buffer
         encoder_replay_buffer = algo.enc_replay_buffer
+        if algo.encoder_buffer_matches_rl_buffer:
+            saved_enc_replay_buffer = saved_replay_buffer
         for k in rl_replay_buffer.task_buffers:
             if k not in saved_replay_buffer.task_buffers:
                 print("No saved buffer for task {}. Skipping.".format(k))
