@@ -350,7 +350,8 @@ class PearlAwacTrainer(TorchTrainer):
         obs = obs.view(t * b, -1)
         actions = actions.view(t * b, -1)
         next_obs = next_obs.view(t * b, -1)
-        rewards_flat = rewards.view(t * b, 1) * self.reward_scale
+        unscaled_rewards_flat = rewards.view(t * b, 1)
+        rewards_flat = unscaled_rewards_flat * self.reward_scale
         terms_flat = terminals.view(t * b, 1)
 
         if self.use_automatic_entropy_tuning:
@@ -398,7 +399,7 @@ class PearlAwacTrainer(TorchTrainer):
         if self.train_context_decoder:
             # TODO: change to use a distribution
             reward_pred = self.context_decoder(obs, actions, task_z_with_grad)
-            reward_prediction_loss = ((reward_pred - rewards_flat)**2).mean()
+            reward_prediction_loss = ((reward_pred - unscaled_rewards_flat)**2).mean()
             context_loss = kl_loss + reward_prediction_loss
         else:
             context_loss = kl_loss

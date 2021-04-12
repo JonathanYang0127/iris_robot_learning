@@ -16,6 +16,7 @@ from rlkit.misc import eval_util
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.core import np_to_pytorch_batch
 from rlkit.torch.pearl.sampler import PEARLInPlacePathSampler
+import copy
 
 
 class MetaRLAlgorithm(metaclass=abc.ABCMeta):
@@ -58,7 +59,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             sparse_rewards=False,
             use_next_obs_in_context=False,
             num_iterations_with_reward_supervision=np.inf,
-            freeze_encoder_buffer_in_unsupervised_phase=True,
             save_extra_manual_epoch_list=(),
             save_extra_manual_beginning_epoch_list=(),
             save_extra_every_epoch=False,
@@ -68,8 +68,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             exploration_data_collector=None,
             evaluation_data_collector=None,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
-            encoder_buffer_matches_rl_buffer=False,
             use_meta_learning_buffer=False,
+            # encoder buffer parameters
+            encoder_buffer_matches_rl_buffer=False,
+            freeze_encoder_buffer_in_unsupervised_phase=True,
+            clear_encoder_buffer_before_every_update=True,
     ):
         """
         :param env: training env
@@ -127,6 +130,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.num_iterations_with_reward_supervision = num_iterations_with_reward_supervision
         self.freeze_encoder_buffer_in_unsupervised_phase = (
             freeze_encoder_buffer_in_unsupervised_phase
+        )
+        self.clear_encoder_buffer_before_every_update = (
+            clear_encoder_buffer_before_every_update
         )
         self.expl_data_collector = exploration_data_collector
         self.eval_data_collector = evaluation_data_collector
@@ -188,6 +194,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.in_unsupervised_phase = False
         self._debug_use_ground_truth_context = use_ground_truth_context
 
+        self._reward_decoder_buffer = self.enc_replay_buffer
+
     def sample_task(self, is_eval=False):
         '''
         sample task randomly
@@ -234,26 +242,28 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         self.collect_exploration_data(
                             self.num_initial_steps, 1, np.inf, task_idx)
             self.in_unsupervised_phase = (it_ >= self.num_iterations_with_reward_supervision)
+            if it_ == self.num_iterations_with_reward_supervision:
+                self._transition_to_unsupervised()
             self.agent.use_context_encoder_snapshot_for_reward_pred = (
                     self.in_unsupervised_phase
                     and
                     self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase
             )
-            freeze_buffer = (
+            update_encoder_buffer = not (
                     self.in_unsupervised_phase
                     and self.freeze_encoder_buffer_in_unsupervised_phase
+                    and not self.encoder_buffer_matches_rl_buffer
+            )
+            clear_encoder_buffer = update_encoder_buffer and (
+                self.clear_encoder_buffer_before_every_update
+                and not self.encoder_buffer_matches_rl_buffer
             )
             # TODO: propogate unsupervised mode elegantly
             self.trainer.train_encoder_decoder = not self.in_unsupervised_phase
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
                 task_idx = np.random.randint(len(self.train_task_indices))
-                if (
-                        not self.in_unsupervised_phase
-                        and not freeze_buffer  # technically unnecessary for now, but leaving it in case freeze_buffer condition changes
-                        and not self.encoder_buffer_matches_rl_buffer
-                ):
-                    # Just keep the latest version if not in supervised phase
+                if clear_encoder_buffer:
                     self.enc_replay_buffer.task_buffers[task_idx].clear()
                 # collect some trajectories with z ~ prior
                 if self.num_steps_prior > 0:
@@ -273,16 +283,20 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             len(p['actions']) for p in new_expl_paths
                         )
                         self._n_rollouts_total += len(new_expl_paths)
-                        if not freeze_buffer:
+                        if update_encoder_buffer:
                             self.enc_replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_steps_prior,
                             resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=np.inf,
-                            add_to_enc_buffer=not freeze_buffer or self.encoder_buffer_matches_rl_buffer,
+                            add_to_enc_buffer=update_encoder_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
                             task_idx=task_idx,
+                            # TODO: figure out if I want to replace this?
+                            # it's only used when `clear_encoder_buffer_before_every_update` is True
+                            # and when `freeze_encoder_buffer_in_unsupervised_phase` is False
+                            # and when we're in unsupervised phase
                         )
                 # collect some trajectories with z ~ posterior
                 if self.num_steps_posterior > 0:
@@ -302,14 +316,14 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             len(p['actions']) for p in new_expl_paths
                         )
                         self._n_rollouts_total += len(new_expl_paths)
-                        if not freeze_buffer:
+                        if update_encoder_buffer:
                             self.enc_replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_steps_posterior,
                             resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
-                            add_to_enc_buffer=not freeze_buffer or self.encoder_buffer_matches_rl_buffer,
+                            add_to_enc_buffer=update_encoder_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
                             task_idx=task_idx,
                         )
@@ -331,12 +345,14 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                             len(p['actions']) for p in new_expl_paths
                         )
                         self._n_rollouts_total += len(new_expl_paths)
+                        if self.encoder_buffer_matches_rl_buffer:
+                            self.enc_replay_buffer.add_paths(task_idx, new_expl_paths)
                     else:
                         self.collect_exploration_data(
                             num_samples=self.num_extra_rl_steps_posterior,
                             resample_latent_period=self.exploration_resample_latent_period,
                             update_posterior_period=self.update_post_train,
-                            add_to_enc_buffer=False or self.encoder_buffer_matches_rl_buffer,
+                            add_to_enc_buffer=self.encoder_buffer_matches_rl_buffer,
                             use_predicted_reward=self.in_unsupervised_phase,
                             task_idx=task_idx,
                         )
@@ -392,6 +408,9 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
             self._end_epoch(it_)
 
+    def _transition_to_unsupervised(self):
+        self._reward_decoder_buffer = copy.deepcopy(self.enc_replay_buffer)
+
     def pretrain(self):
         """
         Do anything before the main training phase.
@@ -399,7 +418,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         pass
 
     def collect_exploration_data(self, num_samples,
-                                 resample_latent_period, update_posterior_period, task_idx, add_to_enc_buffer=True, use_predicted_reward=False):
+                                 resample_latent_period, update_posterior_period, task_idx, add_to_enc_buffer=True, use_predicted_reward=False,
+                                 ):
         '''
         get trajectories from current env in batch mode with given policy
         collect complete trajectories until the number of collected transitions >= num_samples
@@ -423,7 +443,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                         self.embedding_batch_size
                     )
                 else:
-                    initial_reward_context = self.enc_replay_buffer.sample_context(
+                    initial_reward_context = self._reward_decoder_buffer.sample_context(
                         task_idx,
                         self.embedding_batch_size
                     )
