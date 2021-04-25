@@ -33,9 +33,15 @@ class AutoSetup:
         save_doodad_config(doodad_config)
         variant_to_save = variant.copy()
         variant_to_save['doodad_info'] = doodad_config.extra_launch_info
-        seed = variant.pop('seed', None)
         exp_name = doodad_config.extra_launch_info['exp_name']
+        mode = doodad_config.extra_launch_info['mode']
+        seed = variant.pop('seed', 0)
         set_seed(seed)
+        # Reopening the files is nececessary because blobfuse only syncs files
+        # when they're closed. For details, see
+        # https://github.com/Azure/azure-storage-fuse#if-your-workload-is-not-read-only
+        logger.reopen_files_on_flush = mode == 'azure'
+        ptu.set_gpu_mode(doodad_config.use_gpu)
         setup_logger(
             logger,
             exp_name=exp_name,
@@ -75,6 +81,6 @@ def run_experiment(
         mode=mode,
         log_path=exp_name,
         add_time_to_run_id='in_front',
-        extra_launch_info={'exp_name': exp_name},
+        extra_launch_info={'exp_name': exp_name, 'mode': mode},
         **kwargs
     )
