@@ -26,6 +26,11 @@ from rlkit.core.tabulate import tabulate
 from rlkit import pythonplusplus as ppp
 
 
+def reopen(f):
+    f.close()
+    return open(f.name, 'a')
+
+
 def add_prefix(log_dict: OrderedDict, prefix: str, divider=''):
     with_prefix = OrderedDict()
     for key, val in log_dict.items():
@@ -88,6 +93,7 @@ def mkdir_p(path):
 
 class Logger(object):
     def __init__(self):
+        self.reopen_files_on_flush = False  # useful for Azure blobfuse
         self._prefixes = []
         self._prefix_str = ''
 
@@ -207,6 +213,10 @@ class Logger(object):
             for fd in list(self._text_fds.values()):
                 fd.write(out + '\n')
                 fd.flush()
+            if self.reopen_files_on_flush:
+                self._text_fds = {
+                    k: reopen(fd) for k, fd in self._text_fds.items()
+                }
             sys.stdout.flush()
 
     def record_tabular(self, key, val):
@@ -312,6 +322,15 @@ class Logger(object):
                     self._tabular_header_written.add(tabular_fd)
                 writer.writerow(tabular_dict)
                 tabular_fd.flush()
+            if self.reopen_files_on_flush:
+                new_tabular_fds = {}
+                for k, fd in self._tabular_fds.items():
+                    new_fd = reopen(fd)
+                    new_tabular_fds[k] = new_fd
+                    if fd in self._tabular_header_written:
+                        self._tabular_header_written.remove(fd)
+                        self._tabular_header_written.add(new_fd)
+                self._tabular_fds = new_tabular_fds
             del self._tabular[:]
 
     def pop_prefix(self, ):
@@ -377,6 +396,7 @@ def setup_logger(
         git_infos=None,
         script_name=None,
         run_id=None,
+        first_time=True,
         **create_log_dir_kwargs
 ):
     """
@@ -401,8 +421,7 @@ def setup_logger(
     variant = variant or {}
     unique_id = unique_id or str(uuid.uuid4())
 
-    first_time = log_dir is None
-    if first_time:
+    if log_dir is None:
         log_dir = create_log_dir(
             exp_name=exp_name,
             base_log_dir=base_log_dir,
