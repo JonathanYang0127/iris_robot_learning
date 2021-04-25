@@ -30,11 +30,12 @@ def load_buffer_onto_algo(
 def convert_buffer(buffer):
     size = buffer._top
     data = {
-        'observations': buffer._observations[:size],
+        'obs': buffer._observations[:size],
         'actions': buffer._actions[:size],
         'rewards': buffer._rewards[:size],
-        'next_observations': buffer._next_obs[:size],
+        'next_obs': buffer._next_obs[:size],
         'terminals': buffer._terminals[:size],
+        'discount_factor': discount_factor,
     }
 
     add_trajectory_data_to_buffer(buffer, data)
@@ -68,7 +69,7 @@ def yield_trajectories(buffer):
 
 def add_trajectory_data_to_buffer(buffer, data):
     write_loc = 0
-    all_terminal_obs = np.zeros_like(data['observations'])
+    all_terminal_obs = np.zeros_like(data['obs'])
     all_terminal_discounts = np.zeros_like(data['terminals'])
     all_mc_rewards = np.zeros_like(data['rewards'])
     for trajectory in yield_trajectories(buffer):
@@ -84,7 +85,7 @@ def add_trajectory_data_to_buffer(buffer, data):
             all_terminal_discounts[write_loc] = terminal_factor
             all_mc_rewards[write_loc] = mc_reward
 
-    data['terminal_observations'] = all_terminal_obs
+    data['terminal_obs'] = all_terminal_obs
     data['terminal_discounts'] = all_terminal_discounts
     data['mc_rewards'] = all_mc_rewards
     return data
