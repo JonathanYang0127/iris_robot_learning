@@ -94,7 +94,6 @@ def mkdir_p(path):
 class Logger(object):
     def __init__(self):
         self.reopen_files_on_flush = False  # useful for Azure blobfuse
-        # self._tabular_fds_to_reopen = {}
         self._prefixes = []
         self._prefix_str = ''
 
@@ -214,10 +213,10 @@ class Logger(object):
             for fd in list(self._text_fds.values()):
                 fd.write(out + '\n')
                 fd.flush()
-            # if self.reopen_files_on_flush:
-            #     self._text_fds = {
-            #         k: reopen(fd) for k, fd in self._text_fds.items()
-            #     }
+            if self.reopen_files_on_flush:
+                self._text_fds = {
+                    k: reopen(fd) for k, fd in self._text_fds.items()
+                }
             sys.stdout.flush()
 
     def record_tabular(self, key, val):
@@ -299,14 +298,6 @@ class Logger(object):
     def dump_tabular(self, *args, **kwargs):
         self.epoch += 1
         wh = kwargs.pop("write_header", None)
-        # if len(self._tabular_fds_to_reopen) > 0:
-        #     self._tabular_fds = {}
-        #     for k, fd in self._tabular_fds_to_reopen.items():
-        #         new_fd = open(fd.name, 'a')
-        #         self._tabular_fds[k] = new_fd
-        #         if fd in self._tabular_header_written:
-        #             self._tabular_header_written.remove(fd)
-        #             self._tabular_header_written.add(new_fd)
 
         if len(self._tabular) > 0:
             if self._log_tabular_only:
@@ -333,29 +324,14 @@ class Logger(object):
                 writer.writerow(tabular_dict)
                 tabular_fd.flush()
             if self.reopen_files_on_flush:
-                # self._tabular_fds_to_reopen = {}
                 new_tabular_fds = {}
                 for k, fd in self._tabular_fds.items():
-                    # import shutil
-                    # from pathlib import Path
-                    # base_path = Path(fd.name)
-                    # copy_path = str(
-                    #     base_path.parent / '{}{}'.format(
-                    #         base_path.stem + '_copy',
-                    #         base_path.suffix
-                    #     )
-                    # )
-                    # shutil.copy(fd.name, copy_path)
-
                     new_fd = reopen(fd)
                     new_tabular_fds[k] = new_fd
                     if fd in self._tabular_header_written:
                         self._tabular_header_written.remove(fd)
                         self._tabular_header_written.add(new_fd)
-                    # fd.close()
-                    # self._tabular_fds_to_reopen[k] = fd
                 self._tabular_fds = new_tabular_fds
-                # self._tabular_fds_to_reopen = {}
             del self._tabular[:]
 
     def pop_prefix(self, ):

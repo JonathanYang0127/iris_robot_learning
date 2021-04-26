@@ -34,13 +34,16 @@ class AutoSetup:
         variant_to_save = variant.copy()
         variant_to_save['doodad_info'] = doodad_config.extra_launch_info
         exp_name = doodad_config.extra_launch_info['exp_name']
-        mode = doodad_config.extra_launch_info['mode']
         seed = variant.pop('seed', 0)
         set_seed(seed)
+        ptu.set_gpu_mode(doodad_config.use_gpu)
         # Reopening the files is nececessary because blobfuse only syncs files
         # when they're closed. For details, see
         # https://github.com/Azure/azure-storage-fuse#if-your-workload-is-not-read-only
-        ptu.set_gpu_mode(doodad_config.use_gpu)
+        reopen_files_on_flush = True
+        # might as well always have it on, but if I didn't want to, you could:
+        # mode = doodad_config.extra_launch_info['mode']
+        # reopen_files_on_flush = mode == 'azure'
         setup_logger(
             logger,
             exp_name=exp_name,
@@ -48,7 +51,7 @@ class AutoSetup:
             log_dir=doodad_config.output_directory,
             seed=seed,
             variant=variant,
-            reopen_files_on_flush=True,  # mode == 'azure'
+            reopen_files_on_flush=reopen_files_on_flush,
         )
         variant.pop('logger_config', None)
         variant.pop('exp_id', None)
