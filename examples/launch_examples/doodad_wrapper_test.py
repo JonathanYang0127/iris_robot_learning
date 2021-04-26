@@ -12,6 +12,10 @@ def example_function(x, y, z):
     logger.record_tabular('y', y)
     logger.record_tabular('z', z)
     logger.dump_tabular()
+    logger.record_tabular('x', x*2)
+    logger.record_tabular('y', y*2)
+    logger.record_tabular('z', z*2)
+    logger.dump_tabular()
 
 
 if __name__ == "__main__":
@@ -23,8 +27,8 @@ if __name__ == "__main__":
         'z': 10,
     }
     for mode in [
-        # 'here_no_doodad',
-        'local',
+        'here_no_doodad',
+        # 'local',
         # 'azure',
     ]:
         run_experiment(

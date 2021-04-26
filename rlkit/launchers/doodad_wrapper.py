@@ -40,7 +40,6 @@ class AutoSetup:
         # Reopening the files is nececessary because blobfuse only syncs files
         # when they're closed. For details, see
         # https://github.com/Azure/azure-storage-fuse#if-your-workload-is-not-read-only
-        logger.reopen_files_on_flush = mode == 'azure'
         ptu.set_gpu_mode(doodad_config.use_gpu)
         setup_logger(
             logger,
@@ -49,6 +48,7 @@ class AutoSetup:
             log_dir=doodad_config.output_directory,
             seed=seed,
             variant=variant,
+            reopen_files_on_flush=True,  # mode == 'azure'
         )
         variant.pop('logger_config', None)
         variant.pop('exp_id', None)
