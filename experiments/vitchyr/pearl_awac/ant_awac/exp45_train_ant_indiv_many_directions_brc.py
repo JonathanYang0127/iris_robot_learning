@@ -6,18 +6,11 @@ import click
 from pathlib import Path
 
 from rlkit.launchers.launcher_util import load_pyhocon_configs
-from rlkit.launchers.doodad_wrapper import run_experiment
+from rlkit.launchers.launcher_util import run_experiment
 import rlkit.pythonplusplus as ppp
-from rlkit.torch.pearl.cql_launcher import pearl_cql_experiment
 from rlkit.torch.pearl.sac_launcher import pearl_sac_experiment
-from rlkit.torch.pearl.awac_launcher import pearl_awac_experiment
+import rlkit.misc.hyperparameter as hyp
 
-
-name_to_exp = {
-    'CQL': pearl_cql_experiment,
-    'AWAC': pearl_awac_experiment,
-    'SAC': pearl_sac_experiment,
-}
 
 
 @click.command()
@@ -55,6 +48,9 @@ def main(debug, dry, suffix, nseeds, mode):
         variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
 
         search_space = {
+            'algo_kwargs.meta_batch': [2],
+            'algo_kwargs.embedding_batch_size': [2],
+            'algo_kwargs.embedding_mini_batch_size': [2],
             'algo_kwargs.num_iterations': [
                 50,
             ],
@@ -109,16 +105,30 @@ def main(debug, dry, suffix, nseeds, mode):
             ],
             'seed': list(range(nseeds)),
         }
-        run_experiment(
-            method_call=pearl_sac_experiment,
-            params=search_space,
-            default_params=variant,
-            exp_name=exp_name,
-            mode=mode,
-            use_gpu=gpu,
-            start_run_id=0,
-            azure_region='westus',
+        # run_experiment(
+        #     method_call=pearl_sac_experiment,
+        #     params=search_space,
+        #     default_params=variant,
+        #     exp_name=exp_name,
+        #     mode=mode,
+        #     use_gpu=gpu,
+        #     start_run_id=0,
+        #     azure_region='westus',
+        # )
+        sweeper = hyp.DeterministicHyperparameterSweeper(
+            search_space, default_parameters=variant,
         )
+        for _, variant in enumerate(sweeper.iterate_hyperparameters()):
+            for _ in range(nseeds):
+                run_experiment(
+                    method_call=pearl_sac_experiment,
+                    unpack_variant=True,
+                    exp_name=exp_name,
+                    mode=mode,
+                    variant=variant,
+                    time_in_mins=3 * 24 * 60 - 1,
+                    use_gpu=gpu,
+                )
 
     sac_sweep()
 
