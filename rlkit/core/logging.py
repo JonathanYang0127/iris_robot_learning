@@ -326,6 +326,17 @@ class Logger(object):
             if self.reopen_files_on_flush:
                 new_tabular_fds = {}
                 for k, fd in self._tabular_fds.items():
+                    import shutil
+                    from pathlib import Path
+                    base_path = Path(fd.name)
+                    copy_path = str(
+                        base_path.parent / '{}{}'.format(
+                            base_path.stem + '_copy',
+                            base_path.suffix
+                        )
+                    )
+                    shutil.copy(fd.name, copy_path)
+
                     new_fd = reopen(fd)
                     new_tabular_fds[k] = new_fd
                     if fd in self._tabular_header_written:
