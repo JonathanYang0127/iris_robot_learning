@@ -298,6 +298,7 @@ class Logger(object):
     def dump_tabular(self, *args, **kwargs):
         self.epoch += 1
         wh = kwargs.pop("write_header", None)
+
         if len(self._tabular) > 0:
             if self._log_tabular_only:
                 self.table_printer.print_tabular(self._tabular)
@@ -397,6 +398,7 @@ def setup_logger(
         script_name=None,
         run_id=None,
         first_time=True,
+        reopen_files_on_flush=False,
         **create_log_dir_kwargs
 ):
     """
@@ -460,6 +462,7 @@ def setup_logger(
     logger.set_snapshot_mode(snapshot_mode)
     logger.set_snapshot_gap(snapshot_gap)
     logger.set_log_tabular_only(log_tabular_only)
+    logger.reopen_files_on_flush = reopen_files_on_flush
     exp_name = log_dir.split("/")[-1]
     logger.push_prefix("[%s] " % exp_name)
 
