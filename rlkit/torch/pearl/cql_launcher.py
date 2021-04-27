@@ -16,6 +16,7 @@ from rlkit.torch.pearl.agent import PEARLAgent
 from rlkit.torch.pearl.diagnostics import (
     DebugInsertImagesEnv,
     FlatToDictPearlPolicy,
+    get_env_info_sizes,
 )
 from rlkit.torch.pearl.networks import MlpEncoder, MlpDecoder
 from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo, EvalPearl
@@ -197,6 +198,7 @@ def pearl_cql_experiment(
             train_tasks=tasks[:n_train_tasks],
             eval_tasks=tasks[-n_eval_tasks:],
             use_next_obs_in_context=use_next_obs_in_context,
+            env_info_sizes=get_env_info_sizes(expl_env),
             **algo_kwargs
         )
     saved_path = logger.save_extra_data(

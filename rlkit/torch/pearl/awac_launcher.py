@@ -11,6 +11,7 @@ from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
+from rlkit.torch.pearl.diagnostics import get_env_info_sizes
 from rlkit.torch.pearl.networks import MlpEncoder, DummyMlpEncoder, MlpDecoder
 from rlkit.torch.pearl.launcher_util import (
     policy_class_from_str,
@@ -214,6 +215,7 @@ def pearl_awac_experiment(
             # latent_dim=latent_dim,
             use_next_obs_in_context=use_next_obs_in_context,
             use_ground_truth_context=use_ground_truth_context,
+            env_info_sizes=get_env_info_sizes(expl_env),
             **algo_kwargs
         )
 
