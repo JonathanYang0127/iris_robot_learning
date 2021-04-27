@@ -8,7 +8,7 @@ from rlkit.misc.asset_loader import (
 import numpy as np
 import json
 from rlkit.data_management.offline_dataset.util import (
-    rlkit_buffer_to_macaw_format,
+    rlkit_buffer_to_borel_format,
 )
 
 
@@ -55,7 +55,7 @@ def many_buffers_to_macaw_format(
     :return:
     """
     exps_path = Path(exps_path)
-    save_dir = Path(save_dir) / 'macaw_buffer'
+    save_dir = Path(save_dir) / 'borel_buffer'
     save_dir.mkdir(exist_ok=True)
     tasks = pickle.load(open(tasks_path, 'rb'))
     pickle.dump(tasks, open(save_dir / 'tasks.pkl', 'wb'))
@@ -76,9 +76,9 @@ def many_buffers_to_macaw_format(
         snapshot = joblib.load(snapshot_path)
         saved_replay_buffer = snapshot['replay_buffer']
         buffer = saved_replay_buffer.task_buffers[0]
-        macaw_buffer = rlkit_buffer_to_macaw_format(buffer, discount_factor, path_length=path_length)
+        macaw_buffer = rlkit_buffer_to_borel_format(buffer, discount_factor, path_length=path_length)
         save_path = str(
-            save_dir / 'macaw_buffer_task_{}.npy'.format(task_idx)
+            save_dir / 'borel_buffer_task_{}.npy'.format(task_idx)
         )
         print('saving to', save_path)
         np.save(save_path, macaw_buffer)
@@ -87,7 +87,8 @@ def many_buffers_to_macaw_format(
 if __name__ == '__main__':
     path_length = 200
     discount_factor = 0.99
-    exps_dir = '/home/vitchyr/mnt2/log2/21-04-27-pearl-awac-ant-awac--exp47-train-ant-indiv-many-directions-brc-every-10/'
+    pretrain_buffer_path = "21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-sac-to-get-buffer-longer/21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-sac-to-get-buffer-longer_2021_02_23_06_09_23_id000--s270987/extra_snapshot_itr400.cpkl"
+    exps_dir = '/home/vitchyr/mnt2/log2/21-04-26-pearl-awac-ant-awac--exp45-train-ant-indiv-many-directions-brc--take2/'
     tasks_path = '/home/vitchyr/mnt2/log2/demos/ant_dir/tasks/ant_32_tasks.pkl'
     save_dir = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/'
     snapshot_iteration = 0

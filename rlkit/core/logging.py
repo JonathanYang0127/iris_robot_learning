@@ -351,7 +351,7 @@ class Logger(object):
 
     def _save_params_to_file(self, params, file_name, mode):
         if mode == 'joblib':
-            joblib.dump(params, file_name + ".pkl", compress=3)
+            joblib.dump(params, file_name + ".joblib", compress=3)
         elif mode == 'pickle':
             pickle.dump(params, open(file_name + ".pkl", "wb"))
         elif mode == 'cloudpickle':
