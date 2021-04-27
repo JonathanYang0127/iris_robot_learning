@@ -52,7 +52,7 @@ def main(debug, dry, suffix, nseeds, mode):
             'algo_kwargs.embedding_batch_size': [2],
             'algo_kwargs.embedding_mini_batch_size': [2],
             'algo_kwargs.num_iterations': [
-                50,
+                51,
             ],
             'use_data_collectors': [
                 False,
@@ -131,6 +131,7 @@ def main(debug, dry, suffix, nseeds, mode):
                 )
 
     sac_sweep()
+    print(exp_name)
 
 
 

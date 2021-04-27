@@ -85,7 +85,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.encoder_buffer_matches_rl_buffer = encoder_buffer_matches_rl_buffer
         self.use_meta_learning_buffer = use_meta_learning_buffer
         self._save_extra_every_epoch = save_extra_every_epoch
-        self.save_extra_manual_epoch_list = save_extra_manual_epoch_list
+        self.save_extra_manual_epoch_set = set(save_extra_manual_epoch_list)
+        if len(self.save_extra_manual_epoch_set) > 0:
+            # always add the last epoch in case user had an OBO error
+            self.save_extra_manual_epoch_set.add(num_iterations - 1)
+
         self.save_extra_manual_beginning_epoch_list = save_extra_manual_beginning_epoch_list
         self.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase = (
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase
@@ -479,7 +483,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self._n_env_steps_total += num_transitions
 
     def _try_to_eval(self, epoch):
-        if epoch in self.save_extra_manual_epoch_list:
+        if epoch in self.save_extra_manual_epoch_set:
             logger.save_extra_data(
                 self.get_extra_data_to_save(epoch),
                 file_name='extra_snapshot_itr{}'.format(epoch),
