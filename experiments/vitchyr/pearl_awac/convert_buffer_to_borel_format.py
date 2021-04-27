@@ -22,20 +22,30 @@ def load_buffer_onto_algo(
     for k in saved_replay_buffer.task_buffers:
         buffer = saved_replay_buffer.task_buffers[k]
         data = convert_buffer(buffer)
-        save_path = save_dir / 'macaw_buffer' / 'converted_task_{}.npy'.format(k)
+        save_path = save_dir / 'borel_buffer' / 'converted_task_{}.npy'.format(k)
         print('saving to', save_path)
         np.save(save_path, data)
 
 
 def convert_buffer(buffer):
-    size = buffer._top
+    obs, actions, rewards, next_obs, terminals = [], [], [], [], []
+    for traj in yield_trajectories(buffer):
+        if len(traj) != path_length:
+            continue
+        obs.append(np.array([e.state for e in traj]))
+        actions.append(np.array([e.action for e in traj]))
+        next_obs.append(np.array([e.next_state for e in traj]))
+        rewards.append(np.array([e.reward for e in traj]))
+        terminals.append(np.array([e.done for e in traj]))
+        # obs, actions, rewards, next_obs, terminals
     data = {
-        'obs': buffer._observations[:size],
-        'actions': buffer._actions[:size],
-        'rewards': buffer._rewards[:size],
-        'next_obs': buffer._next_obs[:size],
-        'terminals': buffer._terminals[:size],
+        'obs': np.array(obs).transpose(1, 0, 2),
+        'actions': np.array(actions).transpose(1, 0, 2),
+        'rewards': np.array(rewards).transpose(1, 0, 2),
+        'next_obs': np.array(next_obs).transpose(1, 0, 2),
+        'terminals': np.array(terminals).transpose(1, 0, 2),
         'discount_factor': discount_factor,
+        'trajectory_len': path_length,
     }
 
     add_trajectory_data_to_buffer(buffer, data)
