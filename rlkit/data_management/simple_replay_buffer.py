@@ -180,6 +180,7 @@ class SimpleReplayBuffer(ReplayBuffer):
             action_dim = self._action_dim,
             max_replay_buffer_size = self._max_replay_buffer_size,
             env_info_sizes = self.env_info_sizes,
+            env_infos = self._env_infos,
             top = self._top,
             size = self._size,
         )
@@ -200,9 +201,7 @@ class SimpleReplayBuffer(ReplayBuffer):
 
         env_info_sizes = d["env_info_sizes"]
         self.env_info_sizes = env_info_sizes
-        self._env_infos = {}
-        for key, size in env_info_sizes.items():
-            self._env_infos[key] = np.zeros((max_replay_buffer_size, size))
+        self._env_infos = d["env_infos"]
         self._env_info_keys = list(env_info_sizes.keys())
 
         self._top = d["top"]

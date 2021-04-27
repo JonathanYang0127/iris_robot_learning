@@ -9,7 +9,7 @@ from rlkit.core.logging import append_log
 from rlkit.envs.images import InsertImagesEnv
 from rlkit.envs.images.env_renderer import EnvRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
-from rlkit.envs.pearl_envs import HalfCheetahDirEnv
+from rlkit.envs.pearl_envs import HalfCheetahDirEnv, AntDirEnv
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictPolicy
 from rlkit.misc import eval_util
 from rlkit.misc.eval_util import create_stats_ordered_dict
@@ -171,3 +171,18 @@ class FlatToDictPearlPolicy(FlatToDictPolicy):
             info,
         )
         return self._inner.update_context(context, new_inputs)
+
+
+def get_env_info_sizes(env):
+    info_sizes = {}
+    if isinstance(env.wrapped_env, AntDirEnv):
+        info_sizes = dict(
+            reward_forward=1,
+            reward_ctrl=1,
+            reward_contact=1,
+            reward_survive=1,
+            torso_velocity=3,
+            torso_xy=2,
+        )
+
+    return info_sizes

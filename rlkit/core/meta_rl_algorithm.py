@@ -69,6 +69,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             evaluation_data_collector=None,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
             use_meta_learning_buffer=False,
+            env_info_sizes=None,
             # encoder buffer parameters
             encoder_buffer_matches_rl_buffer=False,
             freeze_encoder_buffer_in_unsupervised_phase=True,
@@ -175,6 +176,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             self.train_task_indices,
             use_next_obs_in_context=use_next_obs_in_context,
             sparse_rewards=sparse_rewards,
+            env_info_sizes=env_info_sizes,
         )
         self.enc_replay_buffer = MultiTaskReplayBuffer(
             self.replay_buffer_size,
@@ -184,6 +186,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             sparse_rewards=sparse_rewards,
             use_ground_truth_context=use_ground_truth_context,
             ground_truth_tasks=train_tasks,
+            env_info_sizes=env_info_sizes,
         )
 
         self._n_env_steps_total = 0

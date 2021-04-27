@@ -17,12 +17,15 @@ class MultiTaskReplayBuffer(object):
             sparse_rewards,
             use_ground_truth_context=False,
             ground_truth_tasks=None,
+            env_info_sizes=None,
     ):
         """
         :param max_replay_buffer_size:
         :param env:
         :param task_indices: for multi-task setting
         """
+        if env_info_sizes is None:
+            env_info_sizes = {}
         self.use_next_obs_in_context = use_next_obs_in_context
         self.sparse_rewards = sparse_rewards
         self.env = env
@@ -33,7 +36,6 @@ class MultiTaskReplayBuffer(object):
         self.ground_truth_tasks = ground_truth_tasks
         if use_ground_truth_context:
             assert ground_truth_tasks is not None
-        env_info_sizes = dict()
         if sparse_rewards:
             env_info_sizes['sparse_reward'] = 1
         self.task_buffers = dict([(idx, RLKitSimpleReplayBuffer(
