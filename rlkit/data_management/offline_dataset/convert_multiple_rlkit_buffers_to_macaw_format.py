@@ -1,6 +1,7 @@
 import joblib
 from pathlib import Path
 import pickle
+import sys
 
 from rlkit.misc.asset_loader import (
     load_local_or_remote_file,
@@ -59,6 +60,17 @@ def many_buffers_to_macaw_format(
     save_dir.mkdir(exist_ok=True)
     tasks = pickle.load(open(tasks_path, 'rb'))
     pickle.dump(tasks, open(save_dir / 'tasks.pkl', 'wb'))
+
+    metadata_save_path = save_dir / 'data_generation_info.txt'
+    with open(metadata_save_path, 'w') as f:
+        f.write("script: {}\n".format(' '.join(sys.argv)))
+        f.write("path_length = {}\n".format(path_length))
+        f.write("discount_factor = {}\n".format(discount_factor))
+        f.write("snapshot_iteration = {}\n".format(snapshot_iteration))
+        f.write("exps_dir = '{}'\n".format(exps_dir))
+        f.write("tasks_path = '{}'\n".format(tasks_path))
+        f.write("save_dir = '{}'\n".format(save_dir))
+    print("saved metadata to {}".format(metadata_save_path))
 
     task_idx_to_snapshot_path = {}
     for subdir in exps_path.iterdir():

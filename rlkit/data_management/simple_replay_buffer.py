@@ -201,7 +201,12 @@ class SimpleReplayBuffer(ReplayBuffer):
 
         env_info_sizes = d["env_info_sizes"]
         self.env_info_sizes = env_info_sizes
-        self._env_infos = d["env_infos"]
+        if 'env_infos' in d:
+            self._env_infos = d["env_infos"]
+        else:  # for backwards compatibility
+            self._env_infos = {key: np.zeros(max_replay_buffer_size, size)
+                               for key, size in env_info_sizes.items()}
+
         self._env_info_keys = list(env_info_sizes.keys())
 
         self._top = d["top"]

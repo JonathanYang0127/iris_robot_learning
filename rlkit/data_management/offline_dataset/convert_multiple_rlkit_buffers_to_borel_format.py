@@ -1,6 +1,7 @@
 import joblib
 from pathlib import Path
 import pickle
+import sys
 
 from rlkit.misc.asset_loader import (
     load_local_or_remote_file,
@@ -59,6 +60,16 @@ def many_buffers_to_macaw_format(
     save_dir.mkdir(exist_ok=True)
     tasks = pickle.load(open(tasks_path, 'rb'))
     pickle.dump(tasks, open(save_dir / 'tasks.pkl', 'wb'))
+    metadata_save_path = save_dir / 'data_generation_info.txt'
+    with open(metadata_save_path, 'w') as f:
+        f.write("script: {}\n".format(' '.join(sys.argv)))
+        f.write("path_length = {}\n".format(path_length))
+        f.write("discount_factor = {}\n".format(discount_factor))
+        f.write("snapshot_iteration = {}\n".format(snapshot_iteration))
+        f.write("exps_dir = '{}'\n".format(exps_dir))
+        f.write("tasks_path = '{}'\n".format(tasks_path))
+        f.write("save_dir = '{}'\n".format(save_dir))
+    print("saved metadata to {}".format(metadata_save_path))
 
     task_idx_to_snapshot_path = {}
     for subdir in exps_path.iterdir():
@@ -87,9 +98,8 @@ def many_buffers_to_macaw_format(
 if __name__ == '__main__':
     path_length = 200
     discount_factor = 0.99
-    pretrain_buffer_path = "21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-sac-to-get-buffer-longer/21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-sac-to-get-buffer-longer_2021_02_23_06_09_23_id000--s270987/extra_snapshot_itr400.cpkl"
-    exps_dir = '/home/vitchyr/mnt2/log2/21-04-26-pearl-awac-ant-awac--exp45-train-ant-indiv-many-directions-brc--take2/'
+    exps_dir = '/home/vitchyr/mnt2/log2/21-04-27-pearl-awac-ant-awac--exp47-train-ant-indiv-many-directions-brc-every-10/'
     tasks_path = '/home/vitchyr/mnt2/log2/demos/ant_dir/tasks/ant_32_tasks.pkl'
     save_dir = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/'
-    snapshot_iteration = 0
+    snapshot_iteration = 20
     many_buffers_to_macaw_format(exps_dir, tasks_path, save_dir, snapshot_iteration)

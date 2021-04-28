@@ -23,7 +23,6 @@ def rlkit_buffer_to_macaw_format(buffer, discount_factor, path_length):
 
 
 def rlkit_buffer_to_borel_format(buffer, discount_factor, path_length):
-    path_length=5
     obs, actions, rewards, next_obs, terminals = [], [], [], [], []
     env_infos = defaultdict(list)
     for traj in yield_trajectories(buffer, path_length):

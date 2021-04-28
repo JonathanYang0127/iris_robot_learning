@@ -245,7 +245,7 @@ def pearl_sac_experiment(
             train_tasks=train_tasks,
             eval_tasks=eval_tasks,
         ),
-        file_name='tasks',
+        file_name='tasks_description',
     )
     print('saved tasks to', saved_path)
 
