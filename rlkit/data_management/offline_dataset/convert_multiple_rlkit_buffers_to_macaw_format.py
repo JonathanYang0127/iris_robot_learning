@@ -102,5 +102,5 @@ if __name__ == '__main__':
     exps_dir = '/home/vitchyr/mnt2/log2/21-04-27-pearl-awac-ant-awac--exp47-train-ant-indiv-many-directions-brc-every-10/'
     tasks_path = '/home/vitchyr/mnt2/log2/demos/ant_dir/tasks/ant_32_tasks.pkl'
     save_dir = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/'
-    snapshot_iteration = 0
+    snapshot_iteration = 20
     many_buffers_to_macaw_format(exps_dir, tasks_path, save_dir, snapshot_iteration)

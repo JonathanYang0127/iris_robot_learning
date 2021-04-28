@@ -167,6 +167,28 @@ class SimpleReplayBuffer(ReplayBuffer):
         self._top += num_new_steps
         self._size += num_new_steps
 
+    def reinitialize_from_dict(
+            self,
+            data_dict
+    ):
+        self._size = data_dict['obs'].shape[0]
+        if self._size > self._max_replay_buffer_size:
+            raise ValueError("This data to load from is too big!")
+        self._top = self._size
+        for array, data in [
+            (self._observations, data_dict['obs']),
+            (self._actions, data_dict['actions']),
+            (self._rewards, data_dict['rewards']),
+            (self._terminals, data_dict['terminals']),
+            (self._next_obs, data_dict['next_obs']),
+        ]:
+            array[:] = 0
+            array[:data.shape[0]] = data[:]
+        for k, v in self._env_infos.items():
+            data = data_dict[k]
+            v[:] = 0
+            v[:data.shape[0]] = data[:]
+
     def __getstate__(self):
         # Do not save self.replay_buffer since it's a duplicate and seems to
         # cause joblib recursion issues.

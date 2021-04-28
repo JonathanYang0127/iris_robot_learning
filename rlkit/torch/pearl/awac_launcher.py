@@ -1,3 +1,5 @@
+import pickle
+
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
@@ -17,6 +19,7 @@ from rlkit.torch.pearl.launcher_util import (
     policy_class_from_str,
     load_buffer_onto_algo,
     EvalPearl,
+    load_macaw_buffer_onto_algo,
 )
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
@@ -51,6 +54,9 @@ def pearl_awac_experiment(
         pretrain_buffer_kwargs=None,
         load_buffer_kwargs=None,
         saved_tasks_path=None,
+        macaw_format_base_path=None,  # overrides saved_tasks_path and load_buffer_kwargs
+        train_task_idxs=None,
+        eval_task_idxs=None,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -71,14 +77,17 @@ def pearl_awac_experiment(
     path_loader_kwargs = path_loader_kwargs or {}
 
     base_env = ENVS[env_name](**env_params)
-    if saved_tasks_path:
+    if macaw_format_base_path is not None:
+        tasks = pickle.load(
+            open('{}/tasks.pkl'.format(macaw_format_base_path), 'rb'))
+        base_env.tasks = tasks
+    elif saved_tasks_path:
         task_data = load_local_or_remote_file(
             saved_tasks_path, file_type='joblib')
         tasks = task_data['tasks']
         train_task_idxs = task_data['train_task_indices']
         eval_task_idxs = task_data['eval_task_indices']
         base_env.tasks = tasks
-        task_indices = base_env.get_all_task_idx()
     else:
         tasks = base_env.tasks
         task_indices = base_env.get_all_task_idx()
@@ -219,7 +228,13 @@ def pearl_awac_experiment(
             **algo_kwargs
         )
 
-    if load_buffer_kwargs:
+    if macaw_format_base_path:
+        load_macaw_buffer_onto_algo(
+            algo=algorithm,
+            base_directory=macaw_format_base_path,
+            train_task_idxs=train_task_idxs,
+        )
+    elif load_buffer_kwargs:
         load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
     if path_loader_kwargs:
         replay_buffer = algorithm.replay_buffer.task_buffers[0]

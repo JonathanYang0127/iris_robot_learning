@@ -1,13 +1,16 @@
+import glob
+import re
 from collections import OrderedDict
-from typing import Dict, List
+from pathlib import Path
+from typing import List
 
 import numpy as np
 
+import rlkit.torch.pytorch_util as ptu
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
 from rlkit.misc import eval_util
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.sac.policies import GaussianPolicy, TanhGaussianPolicy
-import rlkit.torch.pytorch_util as ptu
 
 ENV_PARAMS = {
     'HalfCheetah-v2': {
@@ -139,9 +142,29 @@ def policy_class_from_str(policy_class):
         raise ValueError(policy_class)
 
 
+def load_macaw_buffer_onto_algo(
+        algo: MetaRLAlgorithm,
+        base_directory: str,
+        train_task_idxs
+):
+    base_dir = Path(base_directory)
+    task_idx_to_path = {}
+    for buffer_path in glob.glob(str(base_dir / 'macaw_buffer*')):
+        pattern = re.compile('macaw_buffer_task_(\d+).npy')
+        match = pattern.search(buffer_path)
+        task_idx = int(match.group(1))
+        task_idx_to_path[task_idx] = buffer_path
+
+    for task_idx in train_task_idxs:
+        dataset_path = task_idx_to_path[task_idx]
+        data = np.load(dataset_path, allow_pickle=True).item()
+        algo.replay_buffer.task_buffers[task_idx].reinitialize_from_dict(data)
+        algo.enc_replay_buffer.task_buffers[task_idx].reinitialize_from_dict(data)
+
+
 def load_buffer_onto_algo(
         algo: MetaRLAlgorithm,
-        pretrain_buffer_path,
+        pretrain_buffer_path: str,
         start_idx=0,
         end_idx=None,
         start_idx_enc=0,
