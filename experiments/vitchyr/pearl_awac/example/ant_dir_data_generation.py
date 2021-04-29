@@ -32,27 +32,85 @@ def main(debug, dry, suffix, nseeds, mode):
     if debug or dry:
         exp_name = 'dev--' + exp_name
         mode = 'local'
-        # nseeds = 1
+
+    if dry:
+        nseeds = 1
+        mode = 'here_no_doodad'
 
     print(exp_name)
 
     def sac_sweep():
         configs = [
             base_dir / 'configs/default_sac.conf',
-            base_dir / 'configs/ant_four_dir.conf',
-            ]
+            base_dir / 'configs/ant.conf',
+        ]
         if debug:
             configs.append(base_dir / 'configs/debug.conf')
         variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
 
         search_space = {
+            'algo_kwargs.meta_batch': [2],
+            'algo_kwargs.embedding_batch_size': [2],
+            'algo_kwargs.embedding_mini_batch_size': [2],
+            'algo_kwargs.num_iterations': [
+                51,
+            ],
+            'algo_kwargs.save_extra_manual_epoch_list': [
+                [0, 10, 20, 30, 40, 50],
+            ],
+            'n_eval_tasks': [
+                1,
+            ],
+            'n_train_tasks': [
+                1,
+            ],
+            'env_params.n_tasks': [
+                1,
+            ],
+            'env_params.direction_in_degrees': [
+                True,
+            ],
+            'env_params.fixed_tasks': [
+                [0],
+                [90],
+                [180],
+                [270],
+                [45],
+                [135],
+                [225],
+                [315],
+                [22.5],
+                [112.5],
+                [202.5],
+                [292.5],
+                [67.5],
+                [157.5],
+                [247.5],
+                [337.5],
+                [11.25],
+                [101.25],
+                [191.25],
+                [281.25],
+                [56.25],
+                [146.25],
+                [236.25],
+                [326.25],
+                [33.75],
+                [123.75],
+                [213.75],
+                [303.75],
+                [78.75],
+                [168.75],
+                [258.75],
+                [348.75],
+            ],
             'trainer_kwargs.train_context_decoder': [
-                False,
+                # False,
                 True,
             ],
             'trainer_kwargs.backprop_q_loss_into_encoder': [
                 True,
-                False,
+                # False,
             ],
             'use_data_collectors': [
                 False,

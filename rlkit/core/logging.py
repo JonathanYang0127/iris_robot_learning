@@ -247,8 +247,7 @@ class Logger(object):
         :param data: Something pickle'able.
         """
         file_name = osp.join(self._snapshot_dir, file_name)
-        self._save_params_to_file(data, file_name, mode=mode)
-        return file_name
+        return self._save_params_to_file(data, file_name, mode=mode)
 
     def get_table_dict(self, ):
         return dict(self._tabular)
@@ -351,20 +350,25 @@ class Logger(object):
 
     def _save_params_to_file(self, params, file_name, mode):
         if mode == 'joblib':
-            joblib.dump(params, file_name + ".joblib", compress=3)
+            full_filename = file_name + ".joblib"
+            joblib.dump(params, full_filename, compress=3)
         elif mode == 'pickle':
-            pickle.dump(params, open(file_name + ".pkl", "wb"))
+            full_filename = file_name + ".pkl"
+            pickle.dump(params, open(full_filename, "wb"))
         elif mode == 'cloudpickle':
             import cloudpickle
-            cloudpickle.dump(params, open(file_name + ".cpkl", "wb"))
-            print(file_name + ".cpkl", "wb")
+            full_filename = file_name + ".cpkl"
+            cloudpickle.dump(params, open(full_filename, "wb"))
         elif mode == 'torch':
-            torch.save(params, file_name + ".pt")
+            full_filename = file_name + ".pt"
+            torch.save(params, full_filename)
         elif mode == 'txt':
-            with open(file_name + ".txt", "w") as f:
+            full_filename = file_name + ".txt"
+            with open(full_filename, "w") as f:
                 f.write(params)
         else:
             raise ValueError("Invalid mode: {}".format(mode))
+        return full_filename
 
     def save_itr_params(self, itr, params):
         if self._snapshot_dir:

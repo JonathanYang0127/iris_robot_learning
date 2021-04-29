@@ -247,7 +247,13 @@ def pearl_sac_experiment(
         ),
         file_name='tasks_description',
     )
-    print('saved tasks to', saved_path)
+    print('saved tasks description to', saved_path)
+    saved_path = logger.save_extra_data(
+        expl_env.tasks,
+        file_name='tasks',
+        mode='pickle',
+    )
+    print('saved raw tasks to', saved_path)
 
     algorithm.to(ptu.device)
 

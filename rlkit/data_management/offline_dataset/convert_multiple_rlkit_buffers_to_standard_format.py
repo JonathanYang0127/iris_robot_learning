@@ -1,3 +1,4 @@
+import click
 import joblib
 from pathlib import Path
 import pickle
@@ -10,6 +11,7 @@ import numpy as np
 import json
 from rlkit.data_management.offline_dataset.util import (
     rlkit_buffer_to_macaw_format,
+    rlkit_buffer_to_borel_format,
 )
 
 
@@ -23,15 +25,18 @@ def get_task_idx(tasks, variant):
 
 
 def many_buffers_to_macaw_format(
-        exps_path,
+        exps_dir,
         tasks_path,
         save_dir,
         snapshot_iteration,
+        path_length=200,
+        discount_factor=0.99,
+        output_format='macaw',
 ):
     """
     Given a directory of the format
 
-    exps_path/
+    exps_dir/
         exp0/
             extra_snapshot_itrX.cpkl
             variant.json
@@ -49,14 +54,15 @@ def many_buffers_to_macaw_format(
         macaw_buffer_task_1.npy
         ...
 
-    :param exps_path:
+    :param exps_dir:
     :param tasks_path:
     :param save_dir:
     :param snapshot_iteration:
     :return:
     """
-    exps_path = Path(exps_path)
-    save_dir = Path(save_dir) / 'macaw_buffer'
+    exps_path = Path(exps_dir)
+    assert output_format in {'macaw', 'borel'}
+    save_dir = Path(save_dir) / '{}_buffer'.format(output_format)
     save_dir.mkdir(exist_ok=True)
     tasks = pickle.load(open(tasks_path, 'rb'))
     pickle.dump(tasks, open(save_dir / 'tasks.pkl', 'wb'))
@@ -88,19 +94,47 @@ def many_buffers_to_macaw_format(
         snapshot = joblib.load(snapshot_path)
         saved_replay_buffer = snapshot['replay_buffer']
         buffer = saved_replay_buffer.task_buffers[0]
-        macaw_buffer = rlkit_buffer_to_macaw_format(buffer, discount_factor, path_length=path_length)
+        if output_format == 'macaw':
+            buffer = rlkit_buffer_to_macaw_format(buffer, discount_factor, path_length=path_length)
+        else:
+            buffer = rlkit_buffer_to_borel_format(buffer, discount_factor, path_length=path_length)
         save_path = str(
-            save_dir / 'macaw_buffer_task_{}.npy'.format(task_idx)
+            save_dir / '{}_buffer_task_{}.npy'.format(output_format, task_idx)
         )
         print('saving to', save_path)
-        np.save(save_path, macaw_buffer)
+        np.save(save_path, buffer)
+
+
+@click.command()
+@click.option(
+    '--exps_dir',
+    default='/home/vitchyr/mnt2/log2/21-04-27-pearl-awac-ant-awac--exp47-train-ant-indiv-many-directions-brc-every-10/',
+)
+@click.option(
+    '--tasks_path',
+    default='/home/vitchyr/mnt2/log2/demos/ant_dir/tasks/ant_32_tasks.pkl',
+)
+@click.option(
+    '--save_dir',
+    default='/home/vitchyr/mnt2/log2/demos/ant_dir_32/',
+)
+@click.option(
+    '--format',
+    default='macaw',
+)
+@click.option(
+    '--iteration',
+    default=20,
+)
+def main(exps_dir, tasks_path, save_dir, format, iteration):
+    many_buffers_to_macaw_format(
+        exps_dir, tasks_path, save_dir,
+        iteration,
+        output_format=format,
+        path_length=200,
+        discount_factor=0.99,
+    )
 
 
 if __name__ == '__main__':
-    path_length = 200
-    discount_factor = 0.99
-    exps_dir = '/home/vitchyr/mnt2/log2/21-04-27-pearl-awac-ant-awac--exp47-train-ant-indiv-many-directions-brc-every-10/'
-    tasks_path = '/home/vitchyr/mnt2/log2/demos/ant_dir/tasks/ant_32_tasks.pkl'
-    save_dir = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/'
-    snapshot_iteration = 20
-    many_buffers_to_macaw_format(exps_dir, tasks_path, save_dir, snapshot_iteration)
+    main()

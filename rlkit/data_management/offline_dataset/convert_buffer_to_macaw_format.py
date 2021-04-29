@@ -10,7 +10,6 @@ from rlkit.data_management.offline_dataset.util import (
 )
 
 
-
 if __name__ == '__main__':
     path_length = 200
     discount_factor = 0.99
