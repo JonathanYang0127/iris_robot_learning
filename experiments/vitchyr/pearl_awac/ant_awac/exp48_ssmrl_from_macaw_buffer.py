@@ -76,17 +76,17 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             sweeper = hyp.DeterministicHyperparameterSweeper(
                 search_space, default_parameters=variant,
             )
-            for _, variant in enumerate(sweeper.iterate_hyperparameters()):
-                for _ in range(nseeds):
-                    run_experiment(
-                        name_to_exp[variant['tags']['method']],
-                        unpack_variant=True,
-                        exp_name=exp_name,
-                        mode=mode,
-                        variant=variant,
-                        time_in_mins=3 * 24 * 60 - 1,
-                        use_gpu=gpu,
-                    )
+            for exp_id, variant in enumerate(sweeper.iterate_hyperparameters()):
+                variant['expd_id'] = exp_id
+                run_experiment(
+                    name_to_exp[variant['tags']['method']],
+                    unpack_variant=True,
+                    exp_name=exp_name,
+                    mode=mode,
+                    variant=variant,
+                    time_in_mins=3 * 24 * 60 - 1,
+                    use_gpu=gpu,
+                )
 
     configs = [
         base_dir / 'configs/default_awac.conf',
@@ -109,7 +109,8 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         ],
         'macaw_format_base_path': [
             # '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/'
-            '/macaw_data',
+            '/global/scratch/users/vitchyr/doodad-log-since-2021-01-27/demos/ant_dir_32/macaw_buffer',
+            # '/macaw_data',
         ],
         'load_buffer_kwargs.is_macaw_buffer_path': [
             True
@@ -118,6 +119,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             True,
         ],
         'trainer_kwargs.backprop_q_loss_into_encoder': [
+            True,
             False,
         ],
         'train_task_idxs': [
