@@ -5,7 +5,7 @@ PEARL Experiment
 import click
 from pathlib import Path
 
-from rlkit.launchers.launcher_util import run_experiment, load_pyhocon_configs
+from rlkit.launchers.launcher_util import load_pyhocon_configs
 import rlkit.pythonplusplus as ppp
 from rlkit.torch.pearl.cql_launcher import pearl_cql_experiment
 import rlkit.misc.hyperparameter as hyp
@@ -25,8 +25,8 @@ name_to_exp = {
 @click.option('--dry', is_flag=True, default=False)
 @click.option('--suffix', default=None)
 @click.option('--nseeds', default=1)
-def main(debug, dry, suffix, nseeds):
-    mode = 'sss'
+@click.option('--mode', default='local')
+def main(debug, dry, suffix, nseeds, mode):
     gpu = True
 
     base_dir = Path(__file__).parent.parent
@@ -44,11 +44,15 @@ def main(debug, dry, suffix, nseeds):
         mode = 'local'
         nseeds = 1
 
+    if dry:
+        mode = 'here_no_doodad'
+
     print(exp_name)
     exp_id = 0
 
     def run_sweep(search_space, variant, xid):
         for k, v in {
+            'seed': list(range(nseeds)),
             'load_buffer_kwargs.start_idx': [
                 -100000,
             ],
@@ -57,6 +61,7 @@ def main(debug, dry, suffix, nseeds):
             ],
             'macaw_format_base_path': [
                 '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/'
+                # '/macaw_data',
             ],
             'load_buffer_kwargs.is_macaw_buffer_path': [
                 True
@@ -79,6 +84,15 @@ def main(debug, dry, suffix, nseeds):
             'algo_kwargs.exploration_resample_latent_period': [
                 1,
             ],
+            'algo_kwargs.encoder_buffer_matches_rl_buffer': [
+                True,
+            ],
+            'algo_kwargs.freeze_encoder_buffer_in_unsupervised_phase': [
+                False,
+            ],
+            'algo_kwargs.clear_encoder_buffer_before_every_update': [
+                False,
+            ],
             'online_trainer_kwargs.awr_weight': [
                 1.0,
             ],
@@ -92,64 +106,82 @@ def main(debug, dry, suffix, nseeds):
                 True,
             ],
             'tags.encoder_buffer_mode': [
-                # 'frozen',
-                # 'keep_latest_exploration_only',
-                # 'keep_all_exploration',
                 'match_rl',
             ],
         }.items():
             search_space[k] = v
-        sweeper = hyp.DeterministicHyperparameterSweeper(
-            search_space, default_parameters=variant,
+
+        from rlkit.launchers.doodad_wrapper import run_experiment
+        run_experiment(
+            name_to_exp[variant['tags']['method']],
+            params=search_space,
+            default_params=variant,
+            exp_name=exp_name,
+            mode=mode,
+            use_gpu=gpu,
+            non_code_dirs_to_mount=[
+                dict(
+                    local_dir='/home/vitchyr/.mujoco/',
+                    mount_point='/root/.mujoco',
+                ),
+                dict(
+                    local_dir='/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/',
+                    mount_point='/macaw_data',
+                ),
+            ],
         )
-        for _, variant in enumerate(sweeper.iterate_hyperparameters()):
-            for _ in range(nseeds):
-                if (
-                        not variant['online_trainer_kwargs']['use_awr_update']
-                        and not variant['online_trainer_kwargs']['use_reparam_update']
-                ):
-                    continue
-                encoder_buffer_mode = variant['tags']['encoder_buffer_mode']
-                if encoder_buffer_mode == 'frozen':
-                    encoder_buffer_matches_rl_buffer = False
-                    freeze_encoder_buffer_in_unsupervised_phase = True
-                    clear_encoder_buffer_before_every_update = False
-                elif encoder_buffer_mode == 'keep_latest_exploration_only':
-                    encoder_buffer_matches_rl_buffer = False
-                    freeze_encoder_buffer_in_unsupervised_phase = False
-                    clear_encoder_buffer_before_every_update = True
-                elif encoder_buffer_mode == 'keep_all_exploration':
-                    encoder_buffer_matches_rl_buffer = False
-                    freeze_encoder_buffer_in_unsupervised_phase = False
-                    clear_encoder_buffer_before_every_update = False
-                elif encoder_buffer_mode == 'match_rl':
-                    encoder_buffer_matches_rl_buffer = True
-                    freeze_encoder_buffer_in_unsupervised_phase = False
-                    clear_encoder_buffer_before_every_update = False
-                else:
-                    raise ValueError(encoder_buffer_mode)
-                variant['algo_kwargs']['encoder_buffer_matches_rl_buffer'] = encoder_buffer_matches_rl_buffer
-                variant['algo_kwargs']['freeze_encoder_buffer_in_unsupervised_phase'] = freeze_encoder_buffer_in_unsupervised_phase
-                variant['algo_kwargs']['clear_encoder_buffer_before_every_update'] = clear_encoder_buffer_before_every_update
-                variant['exp_id'] = xid
-                xid += 1
-                run_experiment(
-                    name_to_exp[variant['tags']['method']],
-                    unpack_variant=True,
-                    exp_name=exp_name,
-                    mode=mode,
-                    variant=variant,
-                    time_in_mins=3 * 24 * 60 - 1,
-                    use_gpu=gpu,
-                )
-        return xid
+        # from rlkit.launchers.launcher_util import run_experiment
+        # sweeper = hyp.DeterministicHyperparameterSweeper(
+        #     search_space, default_parameters=variant,
+        # )
+        # for _, variant in enumerate(sweeper.iterate_hyperparameters()):
+        #     for _ in range(nseeds):
+        #         if (
+        #                 not variant['online_trainer_kwargs']['use_awr_update']
+        #                 and not variant['online_trainer_kwargs']['use_reparam_update']
+        #         ):
+        #             continue
+        #         encoder_buffer_mode = variant['tags']['encoder_buffer_mode']
+        #         if encoder_buffer_mode == 'frozen':
+        #             encoder_buffer_matches_rl_buffer = False
+        #             freeze_encoder_buffer_in_unsupervised_phase = True
+        #             clear_encoder_buffer_before_every_update = False
+        #         elif encoder_buffer_mode == 'keep_latest_exploration_only':
+        #             encoder_buffer_matches_rl_buffer = False
+        #             freeze_encoder_buffer_in_unsupervised_phase = False
+        #             clear_encoder_buffer_before_every_update = True
+        #         elif encoder_buffer_mode == 'keep_all_exploration':
+        #             encoder_buffer_matches_rl_buffer = False
+        #             freeze_encoder_buffer_in_unsupervised_phase = False
+        #             clear_encoder_buffer_before_every_update = False
+        #         elif encoder_buffer_mode == 'match_rl':
+        #             encoder_buffer_matches_rl_buffer = True
+        #             freeze_encoder_buffer_in_unsupervised_phase = False
+        #             clear_encoder_buffer_before_every_update = False
+        #         else:
+        #             raise ValueError(encoder_buffer_mode)
+        #         variant['algo_kwargs']['encoder_buffer_matches_rl_buffer'] = encoder_buffer_matches_rl_buffer
+        #         variant['algo_kwargs']['freeze_encoder_buffer_in_unsupervised_phase'] = freeze_encoder_buffer_in_unsupervised_phase
+        #         variant['algo_kwargs']['clear_encoder_buffer_before_every_update'] = clear_encoder_buffer_before_every_update
+        #         variant['exp_id'] = xid
+        #         xid += 1
+        #         run_experiment(
+        #             name_to_exp[variant['tags']['method']],
+        #             unpack_variant=True,
+        #             exp_name=exp_name,
+        #             mode=mode,
+        #             variant=variant,
+        #             time_in_mins=3 * 24 * 60 - 1,
+        #             use_gpu=gpu,
+        #         )
+        # return xid
 
     def awac_sweep(xid):
         configs = [
             base_dir / 'configs/default_awac.conf',
             base_dir / 'configs/offline_pretraining.conf',
             base_dir / 'configs/ant_four_dir_offline.conf',
-            ]
+        ]
         if debug:
             configs.append(base_dir / 'configs/debug.conf')
         variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
