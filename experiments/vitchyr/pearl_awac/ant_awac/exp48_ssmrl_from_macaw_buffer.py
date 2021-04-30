@@ -108,8 +108,8 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             200000
         ],
         'macaw_format_base_path': [
-            # '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/'
-            '/global/scratch/users/vitchyr/doodad-log-since-2021-01-27/demos/ant_dir_32/macaw_buffer',
+            '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer_iter50/'
+            # '/global/scratch/users/vitchyr/doodad-log-since-2021-01-27/demos/ant_dir_32/macaw_buffer',
             # '/macaw_data',
         ],
         'load_buffer_kwargs.is_macaw_buffer_path': [
@@ -119,8 +119,8 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             True,
         ],
         'trainer_kwargs.backprop_q_loss_into_encoder': [
-            True,
             False,
+            True,
         ],
         'train_task_idxs': [
             [0, 1, 2, 3],

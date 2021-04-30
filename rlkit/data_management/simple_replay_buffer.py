@@ -155,6 +155,8 @@ class SimpleReplayBuffer(ReplayBuffer):
             SimpleReplayBuffer as OldPearlSimpleReplayBuffer
         )
         for key in self._env_info_keys:
+            if key not in self._env_infos or key not in other_buffer._env_infos:
+                continue
             # TODO: remove this special case
             if key == 'sparse_reward' and isinstance(other_buffer, OldPearlSimpleReplayBuffer):
                     self._env_infos['sparse_reward'][this_slc] = (
