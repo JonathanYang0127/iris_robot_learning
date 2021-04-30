@@ -50,6 +50,28 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
 
     print(exp_name)
 
+    if mode == 'local':
+        remote_mount_configs = [
+             dict(
+                 local_dir='/home/vitchyr/mnt2/log2/demos/',
+                 mount_point='/preloaded_buffer',
+             ),
+        ]
+        macaw_format_base_path = '/preloaded_buffer/ant_dir_32/macaw_buffer_iter50/'
+    elif mode == 'azure':
+        remote_mount_configs = [
+            dict(
+                local_dir='/doodad_tmp/demos/',
+                mount_point='/preloaded_buffer',
+            ),
+        ]
+        macaw_format_base_path = '/preloaded_buffer/ant_dir_32/macaw_buffer_iter50/'
+    elif mode == 'here_no_doodad':
+        remote_mount_configs = []
+        macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer_iter50/'
+    else:
+        raise ValueError(mode)
+
     def run_sweep(search_space, variant):
         if not olddd:
             from rlkit.launchers.doodad_wrapper import run_experiment
@@ -65,11 +87,12 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                         local_dir='/home/vitchyr/.mujoco/',
                         mount_point='/root/.mujoco',
                     ),
-                    dict(
-                        local_dir='/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/',
-                        mount_point='/macaw_data',
-                    ),
+                    # dict(
+                    #     local_dir='/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/',
+                    #     mount_point='/macaw_data',
+                    # ),
                 ],
+                remote_mount_configs=remote_mount_configs,
             )
         else:
             from rlkit.launchers.launcher_util import run_experiment
@@ -86,6 +109,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                     variant=variant,
                     time_in_mins=3 * 24 * 60 - 1,
                     use_gpu=gpu,
+                    mount_point=None,
                 )
 
     configs = [
@@ -108,9 +132,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             200000
         ],
         'macaw_format_base_path': [
-            '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer_iter50/'
-            # '/global/scratch/users/vitchyr/doodad-log-since-2021-01-27/demos/ant_dir_32/macaw_buffer',
-            # '/macaw_data',
+            macaw_format_base_path
         ],
         'load_buffer_kwargs.is_macaw_buffer_path': [
             True
