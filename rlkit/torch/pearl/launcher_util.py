@@ -145,7 +145,9 @@ def policy_class_from_str(policy_class):
 def load_macaw_buffer_onto_algo(
         algo: MetaRLAlgorithm,
         base_directory: str,
-        train_task_idxs
+        train_task_idxs: List[int],
+        start_idx=0,
+        end_idx=None,
 ):
     base_dir = Path(base_directory)
     task_idx_to_path = {}
@@ -158,8 +160,16 @@ def load_macaw_buffer_onto_algo(
     for task_idx in train_task_idxs:
         dataset_path = task_idx_to_path[task_idx]
         data = np.load(dataset_path, allow_pickle=True).item()
-        algo.replay_buffer.task_buffers[task_idx].reinitialize_from_dict(data)
-        algo.enc_replay_buffer.task_buffers[task_idx].reinitialize_from_dict(data)
+        algo.replay_buffer.task_buffers[task_idx].reinitialize_from_dict(
+            data,
+            start_idx=start_idx,
+            end_idx=end_idx,
+        )
+        algo.enc_replay_buffer.task_buffers[task_idx].reinitialize_from_dict(
+            data,
+            start_idx=start_idx,
+            end_idx=end_idx,
+        )
 
 
 def load_buffer_onto_algo(

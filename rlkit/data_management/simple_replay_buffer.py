@@ -171,9 +171,29 @@ class SimpleReplayBuffer(ReplayBuffer):
 
     def reinitialize_from_dict(
             self,
-            data_dict
+            data_dict,
+            start_idx=0,
+            end_idx=None,
     ):
-        self._size = data_dict['obs'].shape[0]
+        num_steps = data_dict['obs'].shape[0]
+        if end_idx is None:
+            end_idx = num_steps
+            if num_steps == start_idx:
+                raise ValueError("nothing to copy!")
+        if end_idx < 0 or end_idx <= start_idx:
+            raise ValueError("end_idx must be larger than start_idx")
+        if end_idx > num_steps:
+            raise IndexError("Indexing into uninitialized region.")
+        if start_idx < 0:
+            start_idx = end_idx + start_idx
+            if start_idx < 0:
+                raise ValueError("start_idx is negative but end_idx is too small")
+        num_new_steps = end_idx - start_idx
+        end_i = num_new_steps
+        this_slc = slice(0, end_i)
+        other_slc = slice(start_idx, end_idx)
+
+        self._size = num_new_steps
         if self._size > self._max_replay_buffer_size:
             raise ValueError("This data to load from is too big!")
         self._top = self._size
@@ -185,11 +205,12 @@ class SimpleReplayBuffer(ReplayBuffer):
             (self._next_obs, data_dict['next_obs']),
         ]:
             array[:] = 0
-            array[:data.shape[0]] = data[:]
-        for k, v in self._env_infos.items():
+            # array[:data.shape[0]] = data[:]
+            array[this_slc] = data[other_slc]
+        for k, array in self._env_infos.items():
             data = data_dict[k]
-            v[:] = 0
-            v[:data.shape[0]] = data[:]
+            array[:] = 0
+            array[this_slc] = data[other_slc]
 
     def __getstate__(self):
         # Do not save self.replay_buffer since it's a duplicate and seems to

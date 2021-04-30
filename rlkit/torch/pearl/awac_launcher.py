@@ -55,6 +55,7 @@ def pearl_awac_experiment(
         load_buffer_kwargs=None,
         saved_tasks_path=None,
         macaw_format_base_path=None,  # overrides saved_tasks_path and load_buffer_kwargs
+        load_macaw_buffer_kwargs=None,
         train_task_idxs=None,
         eval_task_idxs=None,
         # PEARL
@@ -75,6 +76,7 @@ def pearl_awac_experiment(
     context_encoder_kwargs = context_encoder_kwargs or {}
     trainer_kwargs = trainer_kwargs or {}
     path_loader_kwargs = path_loader_kwargs or {}
+    load_macaw_buffer_kwargs = load_macaw_buffer_kwargs or {}
 
     base_env = ENVS[env_name](**env_params)
     if macaw_format_base_path is not None:
@@ -233,6 +235,7 @@ def pearl_awac_experiment(
             algo=algorithm,
             base_directory=macaw_format_base_path,
             train_task_idxs=train_task_idxs,
+            **load_macaw_buffer_kwargs
         )
     elif load_buffer_kwargs:
         load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
