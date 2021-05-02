@@ -9,7 +9,10 @@ from rlkit.core.logging import append_log
 from rlkit.envs.images import InsertImagesEnv
 from rlkit.envs.images.env_renderer import EnvRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
-from rlkit.envs.pearl_envs import HalfCheetahDirEnv, AntDirEnv
+from rlkit.envs.pearl_envs import (
+    HalfCheetahDirEnv, AntDirEnv,
+    HalfCheetahVelEnv,
+)
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictPolicy
 from rlkit.misc import eval_util
 from rlkit.misc.eval_util import create_stats_ordered_dict
@@ -183,6 +186,14 @@ def get_env_info_sizes(env):
             reward_survive=1,
             torso_velocity=3,
             torso_xy=2,
+        )
+    if isinstance(env.wrapped_env, HalfCheetahVelEnv):
+        info_sizes = dict(
+            reward_forward=1,
+            reward_ctrl=1,
+            goal_vel=1,
+            forward_vel=1,
+            xposbefore=1,
         )
 
     return info_sizes

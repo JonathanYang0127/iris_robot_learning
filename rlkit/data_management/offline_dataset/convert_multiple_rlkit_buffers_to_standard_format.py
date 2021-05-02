@@ -62,7 +62,7 @@ def many_buffers_to_macaw_format(
     """
     exps_path = Path(exps_dir)
     assert output_format in {'macaw', 'borel'}
-    save_dir = Path(save_dir) / '{}_buffer'.format(output_format)
+    save_dir = Path(save_dir) / '{}_buffer_iter{}'.format(output_format, snapshot_iteration)
     save_dir.mkdir(exist_ok=True)
     tasks = pickle.load(open(tasks_path, 'rb'))
     pickle.dump(tasks, open(save_dir / 'tasks.pkl', 'wb'))
