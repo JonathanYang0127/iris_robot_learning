@@ -63,7 +63,7 @@ def many_buffers_to_macaw_format(
     exps_path = Path(exps_dir)
     assert output_format in {'macaw', 'borel'}
     save_dir = Path(save_dir) / '{}_buffer_iter{}'.format(output_format, snapshot_iteration)
-    save_dir.mkdir(exist_ok=True)
+    save_dir.mkdir(parents=True, exist_ok=True)
     tasks = pickle.load(open(tasks_path, 'rb'))
     pickle.dump(tasks, open(save_dir / 'tasks.pkl', 'wb'))
 
@@ -92,17 +92,18 @@ def many_buffers_to_macaw_format(
             continue
         snapshot_path = task_idx_to_snapshot_path[task_idx]
         snapshot = joblib.load(snapshot_path)
-        saved_replay_buffer = snapshot['replay_buffer']
-        buffer = saved_replay_buffer.task_buffers[0]
-        if output_format == 'macaw':
-            buffer = rlkit_buffer_to_macaw_format(buffer, discount_factor, path_length=path_length)
-        else:
-            buffer = rlkit_buffer_to_borel_format(buffer, discount_factor, path_length=path_length)
-        save_path = str(
-            save_dir / '{}_buffer_task_{}.npy'.format(output_format, task_idx)
-        )
-        print('saving to', save_path)
-        np.save(save_path, buffer)
+        for key in ['replay_buffer', 'enc_replay_buffer']:
+            saved_replay_buffer = snapshot[key]
+            buffer = saved_replay_buffer.task_buffers[0]
+            if output_format == 'macaw':
+                buffer = rlkit_buffer_to_macaw_format(buffer, discount_factor, path_length=path_length)
+            else:
+                buffer = rlkit_buffer_to_borel_format(buffer, discount_factor, path_length=path_length)
+            save_path = str(
+                save_dir / '{}_{}_task_{}.npy'.format(output_format, key, task_idx)
+            )
+            print('saving to', save_path)
+            np.save(save_path, buffer)
 
 
 @click.command()
@@ -116,7 +117,7 @@ def many_buffers_to_macaw_format(
 )
 @click.option(
     '--save_dir',
-    default='/home/vitchyr/mnt2/log2/demos/ant_dir_32/',
+    default='/home/vitchyr/mnt2/log2/demos/tmp/',
 )
 @click.option(
     '--format',

@@ -148,14 +148,12 @@ def load_macaw_buffer_onto_algo(
         train_task_idxs: List[int],
         start_idx=0,
         end_idx=None,
+        start_idx_enc=0,
+        end_idx_enc=None,
 ):
     base_dir = Path(base_directory)
-    task_idx_to_path = {}
-    for buffer_path in glob.glob(str(base_dir / 'macaw_buffer*')):
-        pattern = re.compile('macaw_buffer_task_(\d+).npy')
-        match = pattern.search(buffer_path)
-        task_idx = int(match.group(1))
-        task_idx_to_path[task_idx] = buffer_path
+    task_idx_to_path = get_task_idx_to_path(base_dir, prefix='macaw_replay_buffer')
+    task_idx_to_enc_path = get_task_idx_to_path(base_dir, prefix='macaw_enc_replay_buffer')
 
     for task_idx in train_task_idxs:
         dataset_path = task_idx_to_path[task_idx]
@@ -165,11 +163,23 @@ def load_macaw_buffer_onto_algo(
             start_idx=start_idx,
             end_idx=end_idx,
         )
+        enc_dataset_path = task_idx_to_enc_path[task_idx]
+        enc_data = np.load(enc_dataset_path, allow_pickle=True).item()
         algo.enc_replay_buffer.task_buffers[task_idx].reinitialize_from_dict(
-            data,
-            start_idx=start_idx,
-            end_idx=end_idx,
+            enc_data,
+            start_idx=start_idx_enc,
+            end_idx=end_idx_enc,
         )
+
+
+def get_task_idx_to_path(base_dir, prefix):
+    task_idx_to_path = {}
+    for buffer_path in glob.glob(str(base_dir / '{}*'.format(prefix))):
+        pattern = re.compile('{}_task_(\d+).npy'.format(prefix))
+        match = pattern.search(buffer_path)
+        task_idx = int(match.group(1))
+        task_idx_to_path[task_idx] = buffer_path
+    return task_idx_to_path
 
 
 def load_buffer_onto_algo(
