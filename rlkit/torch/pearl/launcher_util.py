@@ -203,9 +203,12 @@ def load_buffer_onto_algo(
             if k not in saved_replay_buffer.task_buffers:
                 print("No saved buffer for task {}. Skipping.".format(k))
                 continue
-            new_buffer = algo.meta_replay_buffer.create_buffer()
+            saved_buffer = saved_replay_buffer.task_buffers[k]
+            new_buffer = algo.meta_replay_buffer.create_buffer(
+                size=saved_buffer.num_steps_can_sample()
+            )
             new_buffer.copy_data(
-                saved_replay_buffer.task_buffers[k],
+                saved_buffer,
                 start_idx=start_idx,
                 end_idx=end_idx,
             )

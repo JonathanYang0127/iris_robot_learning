@@ -19,6 +19,7 @@ class MetaLearningReplayBuffer(object):
             mini_buffer_max_size,
             use_ground_truth_context=False,
             ground_truth_tasks=None,
+            sample_buffer_in_proportion_to_size=False,
     ):
         """
         This has a separate mini-replay buffer for each set of tasks
@@ -41,9 +42,15 @@ class MetaLearningReplayBuffer(object):
         self.mini_buffer_max_size = mini_buffer_max_size
         self._num_steps_can_sample = 0
 
-    def create_buffer(self):
+        self.sample_buffer_in_proportion_to_size = (
+            sample_buffer_in_proportion_to_size
+        )
+
+    def create_buffer(self, size=None):
+        if size is None:
+            size = self.mini_buffer_max_size
         return RLKitSimpleReplayBuffer(
-            max_replay_buffer_size=self.mini_buffer_max_size,
+            max_replay_buffer_size=size,
             observation_dim=get_dim(self._ob_space),
             action_dim=get_dim(self._action_space),
             env_info_sizes=self.env_info_sizes,
@@ -143,7 +150,16 @@ class MetaLearningReplayBuffer(object):
 
     def sample_meta_batch(self, meta_batch_size, rl_batch_size, embedding_batch_size):
         possible_indices = np.arange(len(self.task_buffers))
-        indices = np.random.choice(possible_indices, meta_batch_size)
+        if self.sample_buffer_in_proportion_to_size:
+            sizes = np.array([buffer.num_steps_can_sample() for buffer in self.task_buffers])
+            sample_probs = sizes / np.sum(sizes)
+            indices = np.random.choice(
+                possible_indices,
+                meta_batch_size,
+                p=sample_probs,
+            )
+        else:
+            indices = np.random.choice(possible_indices, meta_batch_size)
         batch = self.sample_batch(indices, rl_batch_size)
         context = self._sample_contexts(indices, embedding_batch_size)
         batch['context'] = context

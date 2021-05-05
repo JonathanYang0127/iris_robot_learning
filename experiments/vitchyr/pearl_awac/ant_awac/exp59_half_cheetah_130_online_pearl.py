@@ -51,6 +51,31 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
 
     print(exp_name)
 
+    def postprocess_config(variant):
+        encoder_buffer_mode = variant['tags']['encoder_buffer_mode']
+        if encoder_buffer_mode == 'frozen':
+            encoder_buffer_matches_rl_buffer = False
+            freeze_encoder_buffer_in_unsupervised_phase = True
+            clear_encoder_buffer_before_every_update = False
+        elif encoder_buffer_mode == 'keep_latest_exploration_only':
+            encoder_buffer_matches_rl_buffer = False
+            freeze_encoder_buffer_in_unsupervised_phase = False
+            clear_encoder_buffer_before_every_update = True
+        elif encoder_buffer_mode == 'keep_all_exploration':
+            encoder_buffer_matches_rl_buffer = False
+            freeze_encoder_buffer_in_unsupervised_phase = False
+            clear_encoder_buffer_before_every_update = False
+        elif encoder_buffer_mode == 'match_rl':
+            encoder_buffer_matches_rl_buffer = True
+            freeze_encoder_buffer_in_unsupervised_phase = False
+            clear_encoder_buffer_before_every_update = False
+        else:
+            raise ValueError(encoder_buffer_mode)
+        variant['algo_kwargs']['encoder_buffer_matches_rl_buffer'] = encoder_buffer_matches_rl_buffer
+        variant['algo_kwargs']['freeze_encoder_buffer_in_unsupervised_phase'] = freeze_encoder_buffer_in_unsupervised_phase
+        variant['algo_kwargs']['clear_encoder_buffer_before_every_update'] = clear_encoder_buffer_before_every_update
+        return variant
+
     def run_sweep(search_space, variant):
         if not olddd:
             from rlkit.launchers.doodad_wrapper import run_experiment
@@ -67,8 +92,10 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                         mount_point='/root/.mujoco',
                     ),
                 ],
+                postprocess_config=postprocess_config,
             )
         else:
+            raise NotImplementedError()
             from rlkit.launchers.launcher_util import run_experiment
             sweeper = hyp.DeterministicHyperparameterSweeper(
                 search_space, default_parameters=variant,
@@ -95,23 +122,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
     variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
     tasks = pickle.load(open('/home/vitchyr/mnt2/log2/demos/half_cheetah_vel_130/half_cheetah_vel_130_tasks.pkl', 'rb'))
     search_space = {
-        'trainer_kwargs.beta': [
-            100,
-        ],
         'seed': list(range(nseeds)),
-        # 'load_macaw_buffer_kwargs.start_idx': [
-        #     -2000,
-        #     -600,
-        # ],
-        # 'load_macaw_buffer_kwargs.end_idx': [
-        #     200000
-        # ],
-        'macaw_format_base_path': [
-            macaw_format_base_path
-        ],
-        'load_buffer_kwargs.is_macaw_buffer_path': [
-            True
-        ],
         'trainer_kwargs.train_context_decoder': [
             True,
         ],
@@ -134,21 +145,13 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         'algo_kwargs.exploration_resample_latent_period': [
             1,
         ],
-        'algo_kwargs.encoder_buffer_matches_rl_buffer': [
-            True,
-            False,
-        ],
-        'algo_kwargs.freeze_encoder_buffer_in_unsupervised_phase': [
-            False,
-        ],
-        'algo_kwargs.clear_encoder_buffer_before_every_update': [
-            False,
+        'tags.encoder_buffer_mode': [
+            'keep_latest_exploration_only',
+            'match_rl',
         ],
     }
 
     run_sweep(search_space, variant)
-
-
 
 
 if __name__ == "__main__":

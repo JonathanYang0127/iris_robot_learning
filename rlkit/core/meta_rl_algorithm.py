@@ -70,6 +70,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
             use_meta_learning_buffer=False,
             env_info_sizes=None,
+            sample_buffer_in_proportion_to_size=False,
             # encoder buffer parameters
             encoder_buffer_matches_rl_buffer=False,
             freeze_encoder_buffer_in_unsupervised_phase=True,
@@ -168,7 +169,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 self.num_steps_prior,
                 self.num_steps_posterior,
                 self.num_extra_rl_steps_posterior,
-            )
+            ),
+            sample_buffer_in_proportion_to_size=sample_buffer_in_proportion_to_size,
         )
         self.replay_buffer = MultiTaskReplayBuffer(
             self.replay_buffer_size,
