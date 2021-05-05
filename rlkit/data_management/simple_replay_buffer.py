@@ -189,8 +189,7 @@ class SimpleReplayBuffer(ReplayBuffer):
             if start_idx < 0:
                 raise ValueError("start_idx is negative but end_idx is too small")
         num_new_steps = end_idx - start_idx
-        end_i = num_new_steps
-        this_slc = slice(0, end_i)
+        this_slc = slice(0, num_new_steps)
         other_slc = slice(start_idx, end_idx)
 
         self._size = num_new_steps
@@ -204,13 +203,13 @@ class SimpleReplayBuffer(ReplayBuffer):
             (self._terminals, data_dict['terminals']),
             (self._next_obs, data_dict['next_obs']),
         ]:
-            array[:] = 0
+            # array[:] = 0  # this seems to cause OOM errors, presumable because it actually takes up memory
             # array[:data.shape[0]] = data[:]
-            array[this_slc] = data[other_slc]
+            array[this_slc] = data[other_slc].copy()
         for k, array in self._env_infos.items():
             data = data_dict[k]
-            array[:] = 0
-            array[this_slc] = data[other_slc]
+            # array[:] = 0
+            array[this_slc] = data[other_slc].copy()
 
     def __getstate__(self):
         # Do not save self.replay_buffer since it's a duplicate and seems to

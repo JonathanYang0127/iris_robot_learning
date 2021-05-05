@@ -130,6 +130,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         'seed': list(range(nseeds)),
         'load_macaw_buffer_kwargs.start_idx': [
             -2000,
+            -600,
         ],
         # 'load_macaw_buffer_kwargs.end_idx': [
         #     200000
