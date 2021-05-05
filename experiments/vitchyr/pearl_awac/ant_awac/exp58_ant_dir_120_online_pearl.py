@@ -51,28 +51,6 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
 
     print(exp_name)
 
-    if mode == 'local':
-        remote_mount_configs = [
-             dict(
-                 local_dir='/home/vitchyr/mnt2/log2/demos/',
-                 mount_point='/preloaded_buffer',
-             ),
-        ]
-        macaw_format_base_path = '/preloaded_buffer/half_cheetah_vel_130/macaw_buffer_iter50/'
-    elif mode == 'azure':
-        remote_mount_configs = [
-            dict(
-                local_dir='/doodad_tmp/demos/',
-                mount_point='/preloaded_buffer',
-            ),
-        ]
-        macaw_format_base_path = '/preloaded_buffer/half_cheetah_vel_130/macaw_buffer_iter50/'
-    elif mode == 'here_no_doodad':
-        remote_mount_configs = []
-        macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/half_cheetah_vel_130/macaw_buffer_iter50/'
-    else:
-        raise ValueError(mode)
-
     def run_sweep(search_space, variant):
         if not olddd:
             from rlkit.launchers.doodad_wrapper import run_experiment
@@ -88,13 +66,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                         local_dir='/home/vitchyr/.mujoco/',
                         mount_point='/root/.mujoco',
                     ),
-                    # dict(
-                    #     local_dir='/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/',
-                    #     mount_point='/macaw_data',
-                    # ),
                 ],
-                remote_mount_configs=remote_mount_configs,
-                start_run_id=2,
             )
         else:
             from rlkit.launchers.launcher_util import run_experiment
@@ -115,31 +87,18 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                 )
 
     configs = [
-        base_dir / 'configs/default_awac.conf',
-        base_dir / 'configs/half_cheetah_130_offline.conf',
+        base_dir / 'configs/default_sac.conf',
+        base_dir / 'configs/ant_dir_120_offline.conf',
     ]
     if debug:
         configs.append(base_dir / 'configs/debug.conf')
     variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
-    tasks = pickle.load(open('/home/vitchyr/mnt2/log2/demos/half_cheetah_vel_130/half_cheetah_vel_130_tasks.pkl', 'rb'))
+    tasks = pickle.load(open('/home/vitchyr/mnt2/log2/demos/ant_dir_120/ant_dir_120_tasks.pkl', 'rb'))
     search_space = {
         'trainer_kwargs.beta': [
             100,
         ],
         'seed': list(range(nseeds)),
-        'load_macaw_buffer_kwargs.start_idx': [
-            -2000,
-            -600,
-        ],
-        # 'load_macaw_buffer_kwargs.end_idx': [
-        #     200000
-        # ],
-        'macaw_format_base_path': [
-            macaw_format_base_path
-        ],
-        'load_buffer_kwargs.is_macaw_buffer_path': [
-            True
-        ],
         'trainer_kwargs.train_context_decoder': [
             True,
         ],
@@ -151,13 +110,13 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             list(range(100)),
         ],
         'eval_task_idxs': [
-            list(range(100, 130))
+            list(range(100, 120))
         ],
-        'env_params.presampled_tasks': [
-            tasks,
+        'env_params.fixed_tasks': [
+            [t['goal'] for t in tasks],
         ],
         'algo_kwargs.num_iterations_with_reward_supervision': [
-            0,
+            None,
         ],
         'algo_kwargs.exploration_resample_latent_period': [
             1,
@@ -172,26 +131,9 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         'algo_kwargs.clear_encoder_buffer_before_every_update': [
             False,
         ],
-        'online_trainer_kwargs.awr_weight': [
-            1.0,
-        ],
-        'online_trainer_kwargs.reparam_weight': [
-            1.0,
-        ],
-        'online_trainer_kwargs.use_reparam_update': [
-            True,
-        ],
-        'online_trainer_kwargs.use_awr_update': [
-            True,
-        ],
-        'tags.encoder_buffer_mode': [
-            'match_rl',
-        ],
     }
 
     run_sweep(search_space, variant)
-
-
 
 
 if __name__ == "__main__":

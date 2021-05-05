@@ -56,6 +56,8 @@ def pearl_sac_experiment(
         n_eval_tasks=0,
         use_data_collectors=False,
         use_next_obs_in_context=False,
+        train_task_idxs=None,
+        eval_task_idxs=None,
         # Pre-train params
         pretrain_rl=False,
         pretrain_offline_algo_kwargs=None,
@@ -93,8 +95,8 @@ def pearl_sac_experiment(
     else:
         tasks = base_env.tasks
         task_indices = base_env.get_all_task_idx()
-        train_task_indices = list(task_indices[:n_train_tasks])
-        eval_task_indices = list(task_indices[-n_eval_tasks:])
+        train_task_indices = train_task_idxs or list(task_indices[:n_train_tasks])
+        eval_task_indices = eval_task_idxs or list(task_indices[-n_eval_tasks:])
         train_tasks = tasks[:n_train_tasks]
         eval_tasks = tasks[-n_eval_tasks:]
     expl_env = NormalizedBoxEnv(base_env)

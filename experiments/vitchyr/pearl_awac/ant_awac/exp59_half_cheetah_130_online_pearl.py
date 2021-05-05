@@ -51,28 +51,6 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
 
     print(exp_name)
 
-    if mode == 'local':
-        remote_mount_configs = [
-             dict(
-                 local_dir='/home/vitchyr/mnt2/log2/demos/',
-                 mount_point='/preloaded_buffer',
-             ),
-        ]
-        macaw_format_base_path = '/preloaded_buffer/half_cheetah_vel_130/macaw_buffer_iter50/'
-    elif mode == 'azure':
-        remote_mount_configs = [
-            dict(
-                local_dir='/doodad_tmp/demos/',
-                mount_point='/preloaded_buffer',
-            ),
-        ]
-        macaw_format_base_path = '/preloaded_buffer/half_cheetah_vel_130/macaw_buffer_iter50/'
-    elif mode == 'here_no_doodad':
-        remote_mount_configs = []
-        macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/half_cheetah_vel_130/macaw_buffer_iter50/'
-    else:
-        raise ValueError(mode)
-
     def run_sweep(search_space, variant):
         if not olddd:
             from rlkit.launchers.doodad_wrapper import run_experiment
@@ -88,13 +66,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                         local_dir='/home/vitchyr/.mujoco/',
                         mount_point='/root/.mujoco',
                     ),
-                    # dict(
-                    #     local_dir='/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer/',
-                    #     mount_point='/macaw_data',
-                    # ),
                 ],
-                remote_mount_configs=remote_mount_configs,
-                start_run_id=2,
             )
         else:
             from rlkit.launchers.launcher_util import run_experiment
@@ -115,7 +87,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                 )
 
     configs = [
-        base_dir / 'configs/default_awac.conf',
+        base_dir / 'configs/default_sac.conf',
         base_dir / 'configs/half_cheetah_130_offline.conf',
     ]
     if debug:
@@ -127,10 +99,10 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             100,
         ],
         'seed': list(range(nseeds)),
-        'load_macaw_buffer_kwargs.start_idx': [
-            -2000,
-            -600,
-        ],
+        # 'load_macaw_buffer_kwargs.start_idx': [
+        #     -2000,
+        #     -600,
+        # ],
         # 'load_macaw_buffer_kwargs.end_idx': [
         #     200000
         # ],
@@ -157,7 +129,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             tasks,
         ],
         'algo_kwargs.num_iterations_with_reward_supervision': [
-            0,
+            None,
         ],
         'algo_kwargs.exploration_resample_latent_period': [
             1,
@@ -171,21 +143,6 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         ],
         'algo_kwargs.clear_encoder_buffer_before_every_update': [
             False,
-        ],
-        'online_trainer_kwargs.awr_weight': [
-            1.0,
-        ],
-        'online_trainer_kwargs.reparam_weight': [
-            1.0,
-        ],
-        'online_trainer_kwargs.use_reparam_update': [
-            True,
-        ],
-        'online_trainer_kwargs.use_awr_update': [
-            True,
-        ],
-        'tags.encoder_buffer_mode': [
-            'match_rl',
         ],
     }
 
