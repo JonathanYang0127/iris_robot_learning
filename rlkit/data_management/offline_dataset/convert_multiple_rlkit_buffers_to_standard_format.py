@@ -1,3 +1,4 @@
+import os
 import click
 import joblib
 from pathlib import Path
@@ -16,10 +17,17 @@ from rlkit.data_management.offline_dataset.util import (
 
 
 def get_task_idx(tasks, variant):
-    fixed_task = variant['env_params']['fixed_tasks']
-    for i, task in enumerate(tasks):
-        if task['goal'] == fixed_task[0]:
-            return i
+    env_name = variant['env_name']
+    if env_name == 'ant-dir':
+        fixed_task = variant['env_params']['fixed_tasks']
+        for i, task in enumerate(tasks):
+            if task['goal'] == fixed_task[0]:
+                return i
+    elif env_name == 'cheetah-vel':
+        fixed_task = variant['env_params']['presampled_tasks']
+        for i, task in enumerate(tasks):
+            if task['velocity'] == fixed_task[0]['velocity']:
+                return i
     import ipdb; ipdb.set_trace()
     pass
 
@@ -32,6 +40,10 @@ def many_buffers_to_macaw_format(
         path_length=200,
         discount_factor=0.99,
         output_format='macaw',
+        start_idx=0,
+        end_idx=None,
+        start_idx_enc=0,
+        end_idx_enc=None,
 ):
     """
     Given a directory of the format
@@ -91,14 +103,20 @@ def many_buffers_to_macaw_format(
         if task_idx not in task_idx_to_snapshot_path:
             continue
         snapshot_path = task_idx_to_snapshot_path[task_idx]
+        if not os.path.exists(snapshot_path):
+            import ipdb; ipdb.set_trace()
         snapshot = joblib.load(snapshot_path)
         for key in ['replay_buffer', 'enc_replay_buffer']:
             saved_replay_buffer = snapshot[key]
             buffer = saved_replay_buffer.task_buffers[0]
             if output_format == 'macaw':
-                buffer = rlkit_buffer_to_macaw_format(buffer, discount_factor, path_length=path_length)
+                buffer = rlkit_buffer_to_macaw_format(
+                    buffer, discount_factor, path_length=path_length,
+                )
             else:
-                buffer = rlkit_buffer_to_borel_format(buffer, discount_factor, path_length=path_length)
+                buffer = rlkit_buffer_to_borel_format(
+                    buffer, discount_factor, path_length=path_length,
+                )
             save_path = str(
                 save_dir / '{}_{}_task_{}.npy'.format(output_format, key, task_idx)
             )

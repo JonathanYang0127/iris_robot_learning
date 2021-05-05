@@ -158,10 +158,10 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             1,
         ],
         'algo_kwargs.encoder_buffer_matches_rl_buffer': [
-            True,
+            False,
         ],
         'algo_kwargs.freeze_encoder_buffer_in_unsupervised_phase': [
-            False,
+            True,
         ],
         'algo_kwargs.clear_encoder_buffer_before_every_update': [
             False,

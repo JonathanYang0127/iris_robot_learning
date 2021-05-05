@@ -2,6 +2,7 @@
 PEARL Experiment
 """
 
+import pickle
 import click
 from pathlib import Path
 
@@ -57,7 +58,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                  mount_point='/preloaded_buffer',
              ),
         ]
-        macaw_format_base_path = '/preloaded_buffer/ant_dir_32/macaw_buffer_iter50/'
+        macaw_format_base_path = '/preloaded_buffer/half_cheetah_vel_130/macaw_buffer_iter50/'
     elif mode == 'azure':
         remote_mount_configs = [
             dict(
@@ -65,10 +66,10 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                 mount_point='/preloaded_buffer',
             ),
         ]
-        macaw_format_base_path = '/preloaded_buffer/ant_dir_32/macaw_buffer_iter50/'
+        macaw_format_base_path = '/preloaded_buffer/half_cheetah_vel_130/macaw_buffer_iter50/'
     elif mode == 'here_no_doodad':
         remote_mount_configs = []
-        macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer_iter50/'
+        macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/half_cheetah_vel_130/macaw_buffer_iter50/'
     else:
         raise ValueError(mode)
 
@@ -116,18 +117,19 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
     configs = [
         base_dir / 'configs/default_awac.conf',
         base_dir / 'configs/offline_pretraining.conf',
-        base_dir / 'configs/ant_four_dir_offline.conf',
+        base_dir / 'configs/half_cheetah_130.conf',
     ]
     if debug:
         configs.append(base_dir / 'configs/debug.conf')
     variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
+    tasks = pickle.load(open('/home/vitchyr/mnt2/log2/demos/half_cheetah_vel_130/half_cheetah_vel_130_tasks.pkl', 'rb'))
     search_space = {
         'trainer_kwargs.beta': [
             100,
         ],
         'seed': list(range(nseeds)),
         'load_macaw_buffer_kwargs.start_idx': [
-            -100000,
+            -2000,
         ],
         # 'load_macaw_buffer_kwargs.end_idx': [
         #     200000
@@ -146,10 +148,13 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             True,
         ],
         'train_task_idxs': [
-            [0, 1, 2, 3],
+            list(range(100)),
         ],
         'eval_task_idxs': [
-            [4, 5, 6, 7],
+            list(range(100, 130))
+        ],
+        'env_params.presampled_tasks': [
+            tasks,
         ],
         'algo_kwargs.num_iterations_with_reward_supervision': [
             0,
@@ -159,6 +164,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         ],
         'algo_kwargs.encoder_buffer_matches_rl_buffer': [
             True,
+            False,
         ],
         'algo_kwargs.freeze_encoder_buffer_in_unsupervised_phase': [
             False,
