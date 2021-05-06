@@ -20,6 +20,7 @@ from rlkit.torch.pearl.launcher_util import (
     load_buffer_onto_algo,
     EvalPearl,
     load_macaw_buffer_onto_algo,
+    relabel_offline_data,
 )
 from rlkit.torch.pearl.path_collector import PearlPathCollector
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
@@ -58,6 +59,7 @@ def pearl_awac_experiment(
         load_macaw_buffer_kwargs=None,
         train_task_idxs=None,
         eval_task_idxs=None,
+        relabel_offline_dataset=False,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -239,6 +241,12 @@ def pearl_awac_experiment(
         )
     elif load_buffer_kwargs:
         load_buffer_onto_algo(algorithm, **load_buffer_kwargs)
+    if relabel_offline_dataset:
+        relabel_offline_data(
+            algorithm,
+            tasks=tasks,
+            env=expl_env.wrapped_env,
+        )
     if path_loader_kwargs:
         replay_buffer = algorithm.replay_buffer.task_buffers[0]
         enc_replay_buffer = algorithm.enc_replay_buffer.task_buffers[0]

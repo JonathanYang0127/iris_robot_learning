@@ -2,12 +2,13 @@ import glob
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import List
+from typing import List, Any
 
 import numpy as np
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
+from rlkit.envs.pearl_envs import AntDirEnv, HalfCheetahVelEnv
 from rlkit.misc import eval_util
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.sac.policies import GaussianPolicy, TanhGaussianPolicy
@@ -142,14 +143,69 @@ def policy_class_from_str(policy_class):
         raise ValueError(policy_class)
 
 
+def relabel_data(source_data, task, env):
+    new_data = source_data.copy()  # shallow copy
+    if isinstance(env, AntDirEnv):
+        ctrl_cost = - source_data['reward_ctrl']
+        contact_cost = - source_data['reward_contact']
+        survive_reward = source_data['reward_survive']
+        torso_velocity = source_data['torso_velocity']
+
+        goal = task['goal']
+        if env.direction_in_degrees:
+            goal = goal / 180 * np.pi
+        direct = (np.cos(goal), np.sin(goal))
+        new_forward_reward = np.dot((torso_velocity[..., :2]/env.dt), direct).reshape(-1, 1)
+        new_rewards = new_forward_reward - ctrl_cost - contact_cost + survive_reward
+    else:
+        raise TypeError(str(env))
+    new_data['rewards'] = new_rewards
+    return new_data
+
+
+def relabel_offline_data(
+        algo: MetaRLAlgorithm,
+        tasks: List[Any],
+        env,
+):
+    key_to_original_data = {
+        k: buff.to_dict() for k, buff in algo.replay_buffer.task_buffers.items()
+    }
+    for source_task_idx in algo.replay_buffer.task_buffers:
+        source_data = key_to_original_data[source_task_idx]
+        for target_task_idx in algo.replay_buffer.task_buffers:
+            if source_task_idx == target_task_idx:
+                continue
+            target_task = tasks[target_task_idx]
+            relabeled_data = relabel_data(source_data, target_task, env)
+            target_buffer = algo.replay_buffer.task_buffers[target_task_idx]
+            target_buffer.add_from_dict(relabeled_data)
+
+    key_to_original_enc_data = {
+        k: buff.to_dict() for k, buff in algo.enc_replay_buffer.task_buffers.items()
+    }
+    for source_task_idx in algo.enc_replay_buffer.task_buffers:
+        source_data = key_to_original_enc_data[source_task_idx]
+        for target_task_idx in algo.enc_replay_buffer.task_buffers:
+            if source_task_idx == target_task_idx:
+                continue
+            target_task = tasks[target_task_idx]
+            relabeled_data = relabel_data(source_data, target_task, env)
+            target_buffer = algo.enc_replay_buffer.task_buffers[target_task_idx]
+            target_buffer.add_from_dict(relabeled_data)
+
+
 def load_macaw_buffer_onto_algo(
         algo: MetaRLAlgorithm,
         base_directory: str,
         train_task_idxs: List[int],
-        start_idx=0,
-        end_idx=None,
-        start_idx_enc=0,
-        end_idx_enc=None,
+        # start_idx=0,
+        # end_idx=None,
+        rl_buffer_start_end_idxs=((0, None),),
+        encoder_buffer_start_end_idxs=((0, None),),
+        encoder_buffer_matches_rl_buffer=False,
+        # start_idx_enc=0,
+        # end_idx_enc=None,
 ):
     base_dir = Path(base_directory)
     task_idx_to_path = get_task_idx_to_path(base_dir, prefix='macaw_replay_buffer')
@@ -157,19 +213,25 @@ def load_macaw_buffer_onto_algo(
 
     for task_idx in train_task_idxs:
         dataset_path = task_idx_to_path[task_idx]
-        data = np.load(dataset_path, allow_pickle=True).item()
-        algo.replay_buffer.task_buffers[task_idx].add_from_dict(
-            data,
-            start_idx=start_idx,
-            end_idx=end_idx,
-        )
-        enc_dataset_path = task_idx_to_enc_path[task_idx]
-        enc_data = np.load(enc_dataset_path, allow_pickle=True).item()
-        algo.enc_replay_buffer.task_buffers[task_idx].add_from_dict(
-            enc_data,
-            start_idx=start_idx_enc,
-            end_idx=end_idx_enc,
-        )
+        rl_data = np.load(dataset_path, allow_pickle=True).item()
+        for start_idx, end_idx in rl_buffer_start_end_idxs:
+            algo.replay_buffer.task_buffers[task_idx].add_from_dict(
+                rl_data,
+                start_idx=start_idx,
+                end_idx=end_idx,
+            )
+        if encoder_buffer_matches_rl_buffer:
+            encoder_buffer_start_end_idxs = rl_buffer_start_end_idxs
+            enc_data = rl_data
+        else:
+            enc_dataset_path = task_idx_to_enc_path[task_idx]
+            enc_data = np.load(enc_dataset_path, allow_pickle=True).item()
+        for start_idx, end_idx in encoder_buffer_start_end_idxs:
+            algo.enc_replay_buffer.task_buffers[task_idx].add_from_dict(
+                enc_data,
+                start_idx=start_idx,
+                end_idx=end_idx,
+            )
 
 
 def get_task_idx_to_path(base_dir, prefix):
