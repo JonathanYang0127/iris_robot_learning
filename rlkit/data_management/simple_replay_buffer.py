@@ -169,7 +169,7 @@ class SimpleReplayBuffer(ReplayBuffer):
         self._top += num_new_steps
         self._size += num_new_steps
 
-    def reinitialize_from_dict(
+    def add_from_dict(
             self,
             data_dict,
             start_idx=0,
@@ -189,13 +189,13 @@ class SimpleReplayBuffer(ReplayBuffer):
             if start_idx < 0:
                 raise ValueError("start_idx is negative but end_idx is too small")
         num_new_steps = end_idx - start_idx
-        this_slc = slice(0, num_new_steps)
+        this_slc = slice(self._top, num_new_steps)
         other_slc = slice(start_idx, end_idx)
 
-        self._size = num_new_steps
+        self._size += num_new_steps
         if self._size > self._max_replay_buffer_size:
             raise ValueError("This data to load from is too big!")
-        self._top = self._size
+        self._top += self._size
         for array, data in [
             (self._observations, data_dict['obs']),
             (self._actions, data_dict['actions']),
@@ -207,6 +207,8 @@ class SimpleReplayBuffer(ReplayBuffer):
             # array[:data.shape[0]] = data[:]
             array[this_slc] = data[other_slc].copy()
         for k, array in self._env_infos.items():
+            if k not in data_dict:
+                continue
             data = data_dict[k]
             # array[:] = 0
             array[this_slc] = data[other_slc].copy()
