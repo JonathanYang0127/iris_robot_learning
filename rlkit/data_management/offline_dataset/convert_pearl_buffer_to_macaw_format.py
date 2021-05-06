@@ -37,7 +37,7 @@ if __name__ == '__main__':
     for key in ['replay_buffer', 'enc_replay_buffer']:
         saved_replay_buffer = snapshot[key]
         for task_idx in saved_replay_buffer.task_buffers:
-            buffer = saved_replay_buffer.task_buffers[0]
+            buffer = saved_replay_buffer.task_buffers[task_idx]
             if output_format == 'macaw':
                 buffer = rlkit_buffer_to_macaw_format(
                     buffer, discount_factor, path_length=path_length,

@@ -57,7 +57,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                  mount_point='/preloaded_buffer',
              ),
         ]
-        macaw_format_base_path = '/preloaded_buffer/ant_dir_32/macaw_buffer_iter50/'
+        macaw_format_base_path = '/preloaded_buffer/ant_dir_5/pearl_buffer/'
     elif mode == 'azure':
         remote_mount_configs = [
             dict(
@@ -65,10 +65,10 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                 mount_point='/preloaded_buffer',
             ),
         ]
-        macaw_format_base_path = '/preloaded_buffer/ant_dir_32/macaw_buffer_iter50/'
+        macaw_format_base_path = '/preloaded_buffer/ant_dir_4/pearl_buffer/'
     elif mode == 'here_no_doodad':
         remote_mount_configs = []
-        macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer_iter50/'
+        macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/ant_dir_4/pearl_buffer/'
     else:
         raise ValueError(mode)
 
@@ -110,6 +110,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                     variant=variant,
                     time_in_mins=3 * 24 * 60 - 1,
                     use_gpu=gpu,
+                    mount_point=None,
                 )
 
     configs = [
@@ -126,28 +127,19 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         ],
         'seed': list(range(nseeds)),
         'load_macaw_buffer_kwargs.rl_buffer_start_end_idxs': [
-            [(-25000, None), (0, 25000)],
-            [(-25000, None)],
+            # [(-25000, None), (0, 25000)],
+            # [(-25000, None)],
+            [(-100000, 200000)],
         ],
-        'load_macaw_buffer_kwargs.encoder_buffer_matches_rl_buffer': [
-            True,
-            False,
-        ],
-        # 'load_macaw_buffer_kwargs.end_idx': [
-        #     200000
-        # ],
         'macaw_format_base_path': [
             macaw_format_base_path
         ],
-        # 'load_buffer_kwargs.is_macaw_buffer_path': [
-        #     True
-        # ],
         'trainer_kwargs.train_context_decoder': [
             True,
         ],
         'trainer_kwargs.backprop_q_loss_into_encoder': [
             False,
-            # True,
+            True,
         ],
         'train_task_idxs': [
             [0, 1, 2, 3],
@@ -162,16 +154,13 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             1,
         ],
         'algo_kwargs.encoder_buffer_matches_rl_buffer': [
-            True,
+            False,
         ],
         'algo_kwargs.freeze_encoder_buffer_in_unsupervised_phase': [
-            False,
+            True,
         ],
         'algo_kwargs.clear_encoder_buffer_before_every_update': [
             False,
-        ],
-        'relabel_offline_dataset': [
-            True,
         ],
         'online_trainer_kwargs.awr_weight': [
             1.0,
@@ -193,8 +182,5 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
     run_sweep(search_space, variant)
 
 
-
-
 if __name__ == "__main__":
     main()
-

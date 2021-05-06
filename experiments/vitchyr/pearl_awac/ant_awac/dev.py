@@ -28,6 +28,7 @@ name_to_exp = {
 @click.option('--mode', default='local')
 @click.option('--olddd', is_flag=True, default=False)
 def main(debug, dry, suffix, nseeds, mode, olddd):
+    debug=True
     gpu = True
 
     base_dir = Path(__file__).parent.parent
@@ -52,12 +53,15 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
 
     if mode == 'local':
         remote_mount_configs = [
-             dict(
-                 local_dir='/home/vitchyr/mnt2/log2/demos/',
-                 mount_point='/preloaded_buffer',
-             ),
+            dict(
+                local_dir='/home/vitchyr/mnt2/log2/demos/',
+                mount_point='/preloaded_buffer',
+            ),
         ]
         macaw_format_base_path = '/preloaded_buffer/ant_dir_32/macaw_buffer_iter50/'
+        if olddd:
+            # macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/ant_dir_32/macaw_buffer_iter50/'
+            macaw_format_base_path = '/home/vitchyr/mnt2/log2/demos/ant_dir_4/pearl_buffer/'
     elif mode == 'azure':
         remote_mount_configs = [
             dict(
@@ -93,6 +97,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                     # ),
                 ],
                 remote_mount_configs=remote_mount_configs,
+                start_run_id=2,
             )
         else:
             from rlkit.launchers.launcher_util import run_experiment
@@ -100,7 +105,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                 search_space, default_parameters=variant,
             )
             for exp_id, variant in enumerate(sweeper.iterate_hyperparameters()):
-                variant['expd_id'] = exp_id
+                variant['exp_id'] = exp_id
                 run_experiment(
                     name_to_exp[variant['tags']['method']],
                     unpack_variant=True,
@@ -109,14 +114,13 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                     variant=variant,
                     time_in_mins=3 * 24 * 60 - 1,
                     use_gpu=gpu,
-                    mount_point=None,
                 )
 
     configs = [
         base_dir / 'configs/default_awac.conf',
         base_dir / 'configs/offline_pretraining.conf',
         base_dir / 'configs/ant_four_dir_offline.conf',
-    ]
+        ]
     if debug:
         configs.append(base_dir / 'configs/debug.conf')
     variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
@@ -125,28 +129,39 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             100,
         ],
         'seed': list(range(nseeds)),
-        'load_macaw_buffer_kwargs.start_idx': [
-            -20000,
+        'load_macaw_buffer_kwargs.rl_buffer_start_end_idxs': [
+            # [(-25000, None), (0, 25000)],
+            # [(-25000, None)],
+            [(-100000, 200000)],
         ],
+        'load_buffer_kwargs.start_idx': [
+            -100000,
+        ],
+        'load_buffer_kwargs.end_idx': [
+            200000
+        ],
+        'load_macaw_buffer_kwargs.encoder_buffer_matches_rl_buffer': [
+            True,
+            # False,
+        ],
+        # 'load_macaw_buffer_kwargs.end_idx': [
+        #     200000
+        # ],
         'macaw_format_base_path': [
             macaw_format_base_path
-        ],
-        'load_buffer_kwargs.is_macaw_buffer_path': [
-            True
         ],
         'trainer_kwargs.train_context_decoder': [
             True,
         ],
         'trainer_kwargs.backprop_q_loss_into_encoder': [
             False,
-            True,
+            # True,
         ],
         'train_task_idxs': [
-            # list(range(4)),
-            list(range(28)),
+            [0, 1, 2, 3],
         ],
         'eval_task_idxs': [
-            [28, 29, 30, 31],
+            [4, 5, 6, 7],
         ],
         'algo_kwargs.num_iterations_with_reward_supervision': [
             0,
@@ -163,12 +178,9 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         'algo_kwargs.clear_encoder_buffer_before_every_update': [
             False,
         ],
-        'algo_kwargs.num_iterations': [
-            2,
+        'relabel_offline_dataset': [
+            True,
         ],
-        'pretrain_offline_algo_kwargs.num_batches': [
-            50,
-       ],
         'online_trainer_kwargs.awr_weight': [
             1.0,
         ],
