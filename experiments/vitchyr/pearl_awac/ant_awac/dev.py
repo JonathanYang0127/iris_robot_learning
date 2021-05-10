@@ -117,39 +117,41 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
                 )
 
     configs = [
-        base_dir / 'configs/default_awac.conf',
-        base_dir / 'configs/offline_pretraining.conf',
-        base_dir / 'configs/ant_four_dir_offline.conf',
+        # base_dir / 'configs/default_awac.conf',
+        base_dir / 'configs/default_sac.conf',
+        # base_dir / 'configs/offline_pretraining.conf',
+        # base_dir / 'configs/ant_four_dir_offline.conf',
+        base_dir / 'configs/ant_four_dir.conf',
         ]
     if debug:
         configs.append(base_dir / 'configs/debug.conf')
     variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))
     search_space = {
-        'trainer_kwargs.beta': [
-            100,
-        ],
+        # 'trainer_kwargs.beta': [
+        #     100,
+        # ],
         'seed': list(range(nseeds)),
-        'load_macaw_buffer_kwargs.rl_buffer_start_end_idxs': [
-            # [(-25000, None), (0, 25000)],
-            # [(-25000, None)],
-            [(-100000, 200000)],
-        ],
-        'load_buffer_kwargs.start_idx': [
-            -100000,
-        ],
-        'load_buffer_kwargs.end_idx': [
-            200000
-        ],
-        'load_macaw_buffer_kwargs.encoder_buffer_matches_rl_buffer': [
-            True,
-            # False,
-        ],
+        # 'load_macaw_buffer_kwargs.rl_buffer_start_end_idxs': [
+        #     # [(-25000, None), (0, 25000)],
+        #     # [(-25000, None)],
+        #     [(-100000, 200000)],
+        # ],
+        # 'load_buffer_kwargs.start_idx': [
+        #     -100000,
+        # ],
+        # 'load_buffer_kwargs.end_idx': [
+        #     200000
+        # ],
+        # 'load_macaw_buffer_kwargs.encoder_buffer_matches_rl_buffer': [
+        #     True,
+        #     # False,
+        # ],
         # 'load_macaw_buffer_kwargs.end_idx': [
         #     200000
         # ],
-        'macaw_format_base_path': [
-            macaw_format_base_path
-        ],
+        # 'macaw_format_base_path': [
+        #     macaw_format_base_path
+        # ],
         'trainer_kwargs.train_context_decoder': [
             True,
         ],
@@ -178,24 +180,24 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         'algo_kwargs.clear_encoder_buffer_before_every_update': [
             False,
         ],
-        'relabel_offline_dataset': [
-            True,
-        ],
-        'online_trainer_kwargs.awr_weight': [
-            1.0,
-        ],
-        'online_trainer_kwargs.reparam_weight': [
-            1.0,
-        ],
-        'online_trainer_kwargs.use_reparam_update': [
-            True,
-        ],
-        'online_trainer_kwargs.use_awr_update': [
-            True,
-        ],
-        'tags.encoder_buffer_mode': [
-            'match_rl',
-        ],
+        # 'relabel_offline_dataset': [
+        #     True,
+        # ],
+        # 'online_trainer_kwargs.awr_weight': [
+        #     1.0,
+        # ],
+        # 'online_trainer_kwargs.reparam_weight': [
+        #     1.0,
+        # ],
+        # 'online_trainer_kwargs.use_reparam_update': [
+        #     True,
+        # ],
+        # 'online_trainer_kwargs.use_awr_update': [
+        #     True,
+        # ],
+        # 'tags.encoder_buffer_mode': [
+        #     'match_rl',
+        # ],
     }
 
     run_sweep(search_space, variant)

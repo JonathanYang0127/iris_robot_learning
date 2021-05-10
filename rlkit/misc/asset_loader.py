@@ -127,11 +127,11 @@ def load_local_or_remote_file(filepath, file_type=None, delete_after_loading=Fal
         #object = CPU_Unpickler(f).load()
         object = pickle.load(open(local_path, "rb"))
     print("loaded", local_path)
-    
+
     if (local_path[:4] == "/tmp") and delete_after_loading:
         print("deleting tmp file after loading.")
         os.remove(local_path)
-    
+
     return object
 
 def get_absolute_path(path):

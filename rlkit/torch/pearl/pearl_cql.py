@@ -193,9 +193,11 @@ class PearlCqlTrainer(TorchTrainer):
         task_z_detached = task_z_with_grad.detach()
         new_obs_actions, log_pi = (
             action_distrib.rsample_and_logprob())
+        log_pi = log_pi.unsqueeze(1)
         next_action_distrib = self.agent(next_obs, context)
         new_next_actions, new_log_pi = (
             next_action_distrib.rsample_and_logprob())
+        new_log_pi = new_log_pi.unsqueeze(1)
 
         t, b, _ = obs.size()
         obs = obs.view(t * b, -1)

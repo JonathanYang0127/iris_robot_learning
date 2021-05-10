@@ -340,6 +340,7 @@ class PearlAwacTrainer(TorchTrainer):
         )
         task_z_detached = task_z_with_grad.detach()
         new_obs_actions, log_pi = dist.rsample_and_logprob()
+        log_pi = log_pi.unsqueeze(1)
         next_dist = self.agent(next_obs, context)
 
         if self._debug_ignore_context:
@@ -376,6 +377,7 @@ class PearlAwacTrainer(TorchTrainer):
             q2_pred = self.qf2(obs, actions, task_z_detached)
         # Make sure policy accounts for squashing functions like tanh correctly!
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
+        new_log_pi = new_log_pi.unsqueeze(1)
         with torch.no_grad():
             target_q_values = torch.min(
                 self.target_qf1(next_obs, new_next_actions, task_z_detached),

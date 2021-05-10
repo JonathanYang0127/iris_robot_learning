@@ -182,6 +182,7 @@ class PEARLSoftActorCriticTrainer(TorchTrainer):
         new_actions, log_pi, pre_tanh_value = (
             action_distrib.rsample_logprob_and_pretanh()
         )
+        log_pi = log_pi.unsqueeze(1)
         policy_mean = action_distrib.mean
         policy_log_std = action_distrib.log_std
 
