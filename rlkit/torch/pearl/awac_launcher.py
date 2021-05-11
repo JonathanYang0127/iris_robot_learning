@@ -60,6 +60,7 @@ def pearl_awac_experiment(
         train_task_idxs=None,
         eval_task_idxs=None,
         relabel_offline_dataset=False,
+        skip_initial_data_collection_if_pretrained=False,
         # PEARL
         n_train_tasks=0,
         n_eval_tasks=0,
@@ -287,6 +288,8 @@ def pearl_awac_experiment(
         logger.add_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True,
         )
+        if skip_initial_data_collection_if_pretrained:
+            algorithm.num_initial_steps = 0
 
     algorithm.trainer.configure(**online_trainer_kwargs)
     algorithm.to(ptu.device)

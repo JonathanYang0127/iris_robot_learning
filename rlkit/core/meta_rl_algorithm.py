@@ -233,7 +233,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         ):
             self._start_epoch(it_)
             self.training_mode(True)
-            if it_ == 0:
+            if it_ == 0 and self.num_initial_steps > 0:
                 print('collecting initial pool of data for train and eval')
                 # temp for evaluating
                 for task_idx in self.train_task_indices:

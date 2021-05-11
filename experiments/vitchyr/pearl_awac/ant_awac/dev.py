@@ -203,8 +203,5 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
     run_sweep(search_space, variant)
 
 
-
-
 if __name__ == "__main__":
     main()
-

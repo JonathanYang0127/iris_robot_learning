@@ -117,6 +117,9 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             'trainer_kwargs.beta': [
                 100,
             ],
+            'skip_initial_data_collection_if_pretrained': [
+                True,
+            ],
         }
         if not olddd:
             from rlkit.launchers.doodad_wrapper import run_experiment

@@ -304,6 +304,7 @@ class PearlAwacTrainer(TorchTrainer):
         self.num_buffer_policy_train_steps_on_reset = num_buffer_policy_train_steps_on_reset
         self.advantage_weighted_buffer_loss = advantage_weighted_buffer_loss
         self._debug_use_ground_truth_context = _debug_use_ground_truth_context
+        self._num_gradient_steps = 0
 
     @property
     def train_reparam_weight(self):
@@ -517,6 +518,7 @@ class PearlAwacTrainer(TorchTrainer):
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
+        self._num_gradient_steps += 1
 
         """
         Soft Updates
@@ -592,6 +594,9 @@ class PearlAwacTrainer(TorchTrainer):
                 ptu.get_numpy(score),
             ))
             self.eval_statistics['reparam_weight'] = self.train_reparam_weight
+            self.eval_statistics['num_gradient_steps'] = (
+                self._num_gradient_steps
+            )
 
             if self.use_automatic_entropy_tuning:
                 self.eval_statistics['Alpha'] = alpha.item()
