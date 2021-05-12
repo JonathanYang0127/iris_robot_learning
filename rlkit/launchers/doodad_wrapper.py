@@ -50,7 +50,7 @@ class AutoSetup:
             base_log_dir=None,
             log_dir=doodad_config.output_directory,
             seed=seed,
-            variant=variant,
+            variant=variant_to_save,
             reopen_files_on_flush=reopen_files_on_flush,
         )
         variant.pop('logger_config', None)
@@ -84,6 +84,6 @@ def run_experiment(
         mode=mode,
         log_path=exp_name,
         add_time_to_run_id='in_front',
-        extra_launch_info={'exp_name': exp_name, 'mode': mode},
+        extra_launch_info={'exp_name': exp_name, 'base_exp_name': exp_name, 'mode': mode},
         **kwargs
     )

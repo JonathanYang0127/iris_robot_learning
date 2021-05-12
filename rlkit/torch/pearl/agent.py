@@ -176,7 +176,7 @@ class PEARLAgent(nn.Module):
             ptu.ones(batch_size, self.latent_dim)
         )
 
-    def latent_posterior(self, context, squeeze=False):
+    def latent_posterior(self, context, squeeze=False, for_reward_prediction=False):
         ''' compute q(z|c) as a function of input context and sample new z from it'''
         if isinstance(context, np.ndarray):
             context = ptu.from_numpy(context)
@@ -184,8 +184,12 @@ class PEARLAgent(nn.Module):
             if squeeze:
                 context = context.squeeze(dim=0)
             return Delta(context)
-        params = self.context_encoder(context)
-        params = params.view(context.size(0), -1, self.context_encoder.output_size)
+        if for_reward_prediction:
+            context_encoder = self.context_encoder
+        else:
+            context_encoder = self.context_encoder_rp
+        params = context_encoder(context)
+        params = params.view(context.size(0), -1, context_encoder.output_size)
         mu = params[..., :self.latent_dim]
         sigma_squared = F.softplus(params[..., self.latent_dim:])
         z_params = [_product_of_gaussians(m, s) for m, s in zip(torch.unbind(mu), torch.unbind(sigma_squared))]

@@ -67,11 +67,12 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             exploration_update_posterior_period=0,
             exploration_data_collector=None,
             evaluation_data_collector=None,
-            use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
             use_meta_learning_buffer=False,
             env_info_sizes=None,
             sample_buffer_in_proportion_to_size=False,
-            # encoder buffer parameters
+            # encoder parameters
+            use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
+            train_encoder_decoder_in_unsupervised_phase=False,
             encoder_buffer_matches_rl_buffer=False,
             freeze_encoder_buffer_in_unsupervised_phase=True,
             clear_encoder_buffer_before_every_update=True,
@@ -84,6 +85,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self.train_encoder_decoder_in_unsupervised_phase = train_encoder_decoder_in_unsupervised_phase
         self.encoder_buffer_matches_rl_buffer = encoder_buffer_matches_rl_buffer
         self.use_meta_learning_buffer = use_meta_learning_buffer
         self._save_extra_every_epoch = save_extra_every_epoch
@@ -268,7 +270,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 and not self.encoder_buffer_matches_rl_buffer
             )
             # TODO: propogate unsupervised mode elegantly
-            self.trainer.train_encoder_decoder = not self.in_unsupervised_phase
+            self.trainer.train_encoder_decoder = (
+                not self.in_unsupervised_phase
+                or self.train_encoder_decoder_in_unsupervised_phase
+            )
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
                 task_idx = np.random.randint(len(self.train_task_indices))

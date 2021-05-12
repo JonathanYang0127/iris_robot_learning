@@ -78,49 +78,16 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
             'saved_tasks_path': [
                 "/preloaded_data/21-05-05_pearl-awac-ant-awac--exp59-half-cheetah-130-online-pearl/16h-02m-49s_run2/tasks_description.joblib",
             ],
-            # 'load_buffer_kwargs.start_idx': [
-            #     -100000,
-            # ],
             'load_buffer_kwargs.end_idx': [
                 1000,
-                2000,
             ],
-            'trainer_kwargs.train_context_decoder': [
+            'algo_kwargs.use_encoder_snapshot_for_reward_pred_in_unsupervised_phase': [
                 True,
             ],
-            'trainer_kwargs.backprop_q_loss_into_encoder': [
-                False,
+            'algo_kwargs.train_encoder_decoder_in_unsupervised_phase': [
                 True,
-            ],
-            'algo_kwargs.num_iterations_with_reward_supervision': [
-                0,
-            ],
-            'algo_kwargs.exploration_resample_latent_period': [
-                1,
-            ],
-            'online_trainer_kwargs.awr_weight': [
-                1.0,
-            ],
-            'online_trainer_kwargs.reparam_weight': [
-                1.0,
-            ],
-            'online_trainer_kwargs.use_reparam_update': [
-                True,
-            ],
-            'online_trainer_kwargs.use_awr_update': [
-                True,
-            ],
-            'tags.encoder_buffer_mode': [
-                'match_rl',
             ],
             'seed': list(range(nseeds)),
-            'trainer_kwargs.beta': [
-                100,
-            ],
-            'skip_initial_data_collection_if_pretrained': [
-                # True,
-                False,
-            ],
         }
         if not olddd:
             from rlkit.launchers.doodad_wrapper import run_experiment
@@ -161,7 +128,7 @@ def main(debug, dry, suffix, nseeds, mode, olddd):
         base_dir / 'configs/default_awac.conf',
         base_dir / 'configs/offline_pretraining.conf',
         base_dir / 'configs/half_cheetah_130_offline.conf',
-        ]
+    ]
     if debug:
         configs.append(base_dir / 'configs/debug.conf')
     variant = ppp.recursive_to_dict(load_pyhocon_configs(configs))

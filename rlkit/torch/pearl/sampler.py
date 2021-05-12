@@ -135,7 +135,9 @@ def rollout(
         z_dist = agent.latent_prior
 
     if use_predicted_reward:
-        z_reward_dist = agent.latent_posterior(initial_reward_context, squeeze=True)
+        z_reward_dist = agent.latent_posterior(
+            initial_reward_context, squeeze=True, for_reward_prediction=True,
+        )
         z_reward = ptu.get_numpy(z_reward_dist.sample())
 
     z = ptu.get_numpy(z_dist.sample())
