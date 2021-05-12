@@ -78,6 +78,7 @@ def rollout(
         initial_context=None,
         initial_reward_context=None,
         infer_posterior_at_start=True,
+        initialized_z_reward=None,
     ):
     """
     The following value for the following keys will be a 2D array, with the
@@ -118,7 +119,8 @@ def rollout(
     agent_infos = []
     env_infos = []
     zs = []
-    env.reset_task(task_idx)
+    if initialized_z_reward is None:
+        env.reset_task(task_idx)
     o = env.reset()
     next_o = None
 
@@ -135,10 +137,13 @@ def rollout(
         z_dist = agent.latent_prior
 
     if use_predicted_reward:
-        z_reward_dist = agent.latent_posterior(
-            initial_reward_context, squeeze=True, for_reward_prediction=True,
-        )
-        z_reward = ptu.get_numpy(z_reward_dist.sample())
+        if initialized_z_reward is None:
+            z_reward_dist = agent.latent_posterior(
+                initial_reward_context, squeeze=True, for_reward_prediction=True,
+            )
+            z_reward = ptu.get_numpy(z_reward_dist.sample())
+        else:
+            z_reward = initialized_z_reward
 
     z = ptu.get_numpy(z_dist.sample())
     for path_length in range(max_path_length):
@@ -148,6 +153,7 @@ def rollout(
         next_o, r, d, env_info = env.step(a)
         if use_predicted_reward:
             r = agent.infer_reward(o, a, z_reward)
+            r = r[0]
         if accum_context:
             context = agent.update_context(
                 context,

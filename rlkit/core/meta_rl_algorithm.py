@@ -70,12 +70,16 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             use_meta_learning_buffer=False,
             env_info_sizes=None,
             sample_buffer_in_proportion_to_size=False,
+            num_tasks_to_eval_on=10,
+            add_exploration_data_to='train_and_self_generated_tasks',
             # encoder parameters
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
             train_encoder_decoder_in_unsupervised_phase=False,
             encoder_buffer_matches_rl_buffer=False,
             freeze_encoder_buffer_in_unsupervised_phase=True,
             clear_encoder_buffer_before_every_update=True,
+            num_tasks_to_generate=0,
+            num_initial_steps_self_generated_tasks=200,
     ):
         """
         :param env: training env
@@ -85,6 +89,17 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         see default experiment config file for descriptions of the rest of the arguments
         """
+        self.add_exploration_data_to = add_exploration_data_to
+        self._num_tasks_to_eval_on = num_tasks_to_eval_on
+        self.num_initial_steps_self_generated_tasks = num_initial_steps_self_generated_tasks
+        self._num_tasks_to_generate = num_tasks_to_generate
+        if add_exploration_data_to not in {
+            'self_generated_tasks',
+            'train_tasks',
+            'train_and_self_generated_tasks',
+            'none',
+        }:
+            raise ValueError(add_exploration_data_to)
         self.train_encoder_decoder_in_unsupervised_phase = train_encoder_decoder_in_unsupervised_phase
         self.encoder_buffer_matches_rl_buffer = encoder_buffer_matches_rl_buffer
         self.use_meta_learning_buffer = use_meta_learning_buffer
@@ -103,6 +118,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self.trainer = trainer
         self.exploration_agent = agent # Can potentially use a different policy purely for exploration rather than also solving tasks, currently not being used
         self.train_task_indices = train_task_indices
+        self.exploration_task_indices = train_task_indices
+        self.offline_train_task_indices = train_task_indices
         self.eval_task_indices = eval_task_indices
         self.train_tasks = train_tasks
         self.eval_tasks = eval_tasks
@@ -206,6 +223,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         self._debug_use_ground_truth_context = use_ground_truth_context
 
         self._reward_decoder_buffer = self.enc_replay_buffer
+        self.fake_task_idx_to_z = {}
 
     def sample_task(self, is_eval=False):
         '''
@@ -221,7 +239,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         '''
         meta-training loop
         '''
+        start_time = time.time()
+        print("starting to pretrain")
         self.pretrain()
+        print("done pretraining after time:", time.time() - start_time)
         params = self.get_epoch_snapshot(-1)
         logger.save_itr_params(-1, params)
         gt.reset()
@@ -276,7 +297,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
             # Sample data from train tasks.
             for i in range(self.num_tasks_sample):
-                task_idx = np.random.randint(len(self.train_task_indices))
+                if len(self.exploration_task_indices) == 0:
+                    # do no data collection
+                    break
+                task_idx = np.random.randint(len(self.exploration_task_indices))
                 if clear_encoder_buffer:
                     self.enc_replay_buffer.task_buffers[task_idx].clear()
                 # collect some trajectories with z ~ prior
@@ -429,7 +453,34 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         """
         Do anything before the main training phase.
         """
-        pass
+        # HACK: I'm assuming the train and eval task indices are consecutive.
+        num_existing_tasks = len(self.offline_train_task_indices) + len(self.eval_task_indices)
+        fake_task_idxs = list(range(
+            num_existing_tasks,
+            num_existing_tasks + self._num_tasks_to_generate,
+        ))
+        if self.add_exploration_data_to == 'self_generated_tasks':
+            self.exploration_task_indices = fake_task_idxs
+        elif self.add_exploration_data_to == 'train_tasks':
+            self.exploration_task_indices = self.offline_train_task_indices
+        elif self.add_exploration_data_to == 'train_and_self_generated_tasks':
+            self.exploration_task_indices = (
+                    self.offline_train_task_indices + fake_task_idxs
+            )
+        elif self.add_exploration_data_to == 'none':
+            self.exploration_task_indices = []
+        else:
+            raise ValueError(self.add_exploration_data_to)
+        self.fake_task_idx_to_z = {
+            task_idx: ptu.get_numpy(self.agent.latent_prior.sample())
+            for task_idx in fake_task_idxs
+        }
+        for task_idx in self.fake_task_idx_to_z:
+            self.enc_replay_buffer.create_new_task_buffer(task_idx)
+            self.replay_buffer.create_new_task_buffer(task_idx)
+            self.collect_exploration_data(
+                self.num_initial_steps_self_generated_tasks, 1, np.inf, task_idx,
+            )
 
     def collect_exploration_data(self, num_samples,
                                  resample_latent_period, update_posterior_period, task_idx, add_to_enc_buffer=True, use_predicted_reward=False,
@@ -451,18 +502,22 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         num_transitions = 0
         init_context = None
         while num_transitions < num_samples:
-            if use_predicted_reward:
-                if self.use_meta_learning_buffer:
-                    initial_reward_context = self.meta_replay_buffer.sample_context(
-                        self.embedding_batch_size
-                    )
-                else:
-                    initial_reward_context = self._reward_decoder_buffer.sample_context(
-                        task_idx,
-                        self.embedding_batch_size
-                    )
+            initialized_z_reward = None
+            initial_reward_context = None
+            if task_idx in self.fake_task_idx_to_z:
+                initialized_z_reward = self.fake_task_idx_to_z[task_idx]
+                use_predicted_reward = True
             else:
-                initial_reward_context = None
+                if use_predicted_reward:
+                    if self.use_meta_learning_buffer:
+                        initial_reward_context = self.meta_replay_buffer.sample_context(
+                            self.embedding_batch_size
+                        )
+                    else:
+                        initial_reward_context = self._reward_decoder_buffer.sample_context(
+                            task_idx,
+                            self.embedding_batch_size
+                        )
             # TODO: replace with sampler
             paths, n_samples = self.sampler.obtain_samples(
                 max_samples=num_samples - num_transitions,
@@ -474,6 +529,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 task_idx=task_idx,
                 initial_context=init_context,
                 initial_reward_context=initial_reward_context,
+                initialized_z_reward=initialized_z_reward,
             )
             num_transitions += n_samples
             self._n_rollouts_total += len(paths)
@@ -650,6 +706,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         infer_posterior_at_start = False
         while num_transitions < self.num_steps_per_eval:
             # We follow the PEARL protocol and never update the posterior or resample z within an episode during evaluation.
+            if idx in self.fake_task_idx_to_z:
+                initialized_z_reward = self.fake_task_idx_to_z[idx]
+            else:
+                initialized_z_reward = None
             loop_paths, num = self.sampler.obtain_samples(
                 deterministic=self.eval_deterministic,
                 max_samples=self.num_steps_per_eval - num_transitions,
@@ -660,6 +720,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 resample_latent_period=self.exploration_resample_latent_period,  # PEARL had this=0.
                 update_posterior_period=0,  # following PEARL protocol
                 infer_posterior_at_start=infer_posterior_at_start,
+                initialized_z_reward=initialized_z_reward,
+                use_predicted_reward=initialized_z_reward is not None,
             )
             paths += loop_paths
             num_transitions += num
@@ -720,11 +782,11 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
             logger.save_extra_data(prior_paths, file_name='eval_trajectories/prior-epoch{}'.format(epoch))
         ### train tasks
-        if len(self.eval_task_indices) <= len(self.train_task_indices):
+        if self._num_tasks_to_eval_on >= len(self.train_task_indices):
             indices = self.train_task_indices
         else:
             # eval on a subset of train tasks in case num train tasks is huge
-            indices = np.random.choice(self.train_task_indices, len(self.eval_task_indices))
+            indices = np.random.choice(self.offline_train_task_indices, self._num_tasks_to_eval_on)
         # logger.log('evaluating on {} train tasks'.format(len(indices)))
         ### eval train tasks with posterior sampled from the training replay buffer
         train_returns = []
@@ -787,7 +849,6 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         test_final_returns, test_online_returns = self._do_eval(self.eval_task_indices, epoch)
         # logger.log('test online returns')
         # logger.log(test_online_returns)
-
         # save the final posterior
         self.agent.log_diagnostics(self.eval_statistics)
 
@@ -816,6 +877,22 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             'eval/adaptation/test_tasks/all_returns',
             avg_test_online_return,
         ))
+
+        self_generated_indices = np.random.choice(
+            np.array(list(self.fake_task_idx_to_z.keys())),
+            self._num_tasks_to_eval_on,
+        )
+        self_generated_final_returns, self_generated_online_returns = self._do_eval(self_generated_indices, epoch)
+        avg_self_generated_return = np.mean(np.stack(self_generated_online_returns))
+        self.eval_statistics.update(eval_util.create_stats_ordered_dict(
+            'eval/adaptation/generated_tasks/final_returns',
+            self_generated_final_returns,
+        ))
+        self.eval_statistics.update(eval_util.create_stats_ordered_dict(
+            'eval/adaptation/generated_tasks/all_returns',
+            avg_self_generated_return,
+        ))
+
         try:
             import os
             import psutil

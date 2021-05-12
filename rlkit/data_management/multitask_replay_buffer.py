@@ -44,7 +44,19 @@ class MultiTaskReplayBuffer(object):
             action_dim=get_dim(self._action_space),
             env_info_sizes=env_info_sizes,
         )) for idx in task_indices])
+        self._max_replay_buffer_size = max_replay_buffer_size
+        self._env_info_sizes = env_info_sizes
 
+    def create_new_task_buffer(self, task_idx):
+        if task_idx in self.task_buffers:
+            raise IndexError("task_idx already exists: {}".format(task_idx))
+        new_task_buffer = RLKitSimpleReplayBuffer(
+            max_replay_buffer_size=self._max_replay_buffer_size,
+            observation_dim=get_dim(self._ob_space),
+            action_dim=get_dim(self._action_space),
+            env_info_sizes=self._env_info_sizes,
+        )
+        self.task_buffers[task_idx] = new_task_buffer
 
     def add_sample(self, task, observation, action, reward, terminal,
                    next_observation, **kwargs):
