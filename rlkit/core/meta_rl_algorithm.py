@@ -300,7 +300,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
                 if len(self.exploration_task_indices) == 0:
                     # do no data collection
                     break
-                task_idx = np.random.randint(len(self.exploration_task_indices))
+                task_idx = np.random.choice(self.exploration_task_indices)
                 if clear_encoder_buffer:
                     self.enc_replay_buffer.task_buffers[task_idx].clear()
                 # collect some trajectories with z ~ prior
@@ -469,6 +469,7 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             )
         elif self.add_exploration_data_to == 'none':
             self.exploration_task_indices = []
+            self.num_tasks_sample = 0
         else:
             raise ValueError(self.add_exploration_data_to)
         self.fake_task_idx_to_z = {
