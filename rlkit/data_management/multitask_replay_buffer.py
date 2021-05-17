@@ -4,6 +4,7 @@ from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.simple_replay_buffer import (
     SimpleReplayBuffer as RLKitSimpleReplayBuffer
 )
+from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from gym.spaces import Box, Discrete, Tuple
 
 
@@ -169,6 +170,66 @@ class MultiTaskReplayBuffer(object):
         no = batch['next_observations'][None, ...]
         t = batch['terminals'][None, ...]
         return [o, a, r, no, t]
+
+
+class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):
+
+    def __init__(
+            self,
+            max_replay_buffer_size,
+            env,
+            task_indices,
+            use_next_obs_in_context,
+            sparse_rewards,
+            observation_keys,
+            use_ground_truth_context=False,
+            ground_truth_tasks=None,
+            env_info_sizes=None,
+    ):
+        """
+        :param max_replay_buffer_size:
+        :param env:
+        :param task_indices: for multi-task setting
+        """
+        if env_info_sizes is None:
+            env_info_sizes = {}
+
+        self.max_replay_buffer_size = max_replay_buffer_size
+        self.env = env
+        self.observation_keys = observation_keys
+
+        self.use_next_obs_in_context = use_next_obs_in_context
+        self.sparse_rewards = sparse_rewards
+        self.env = env
+        self._ob_space = env.observation_space
+        self._action_space = env.action_space
+        self.use_ground_truth_context = use_ground_truth_context
+        self.task_indices = task_indices
+        self.ground_truth_tasks = ground_truth_tasks
+        if use_ground_truth_context:
+            assert ground_truth_tasks is not None
+        if sparse_rewards:
+            env_info_sizes['sparse_reward'] = 1
+        self.task_buffers = dict([(idx, ObsDictReplayBuffer(
+            max_replay_buffer_size,
+            env,
+            observation_keys=observation_keys,
+            # env_info_sizes=env_info_sizes,
+        )) for idx in task_indices])
+
+        self._max_replay_buffer_size = max_replay_buffer_size
+        self._env_info_sizes = env_info_sizes
+
+    def create_new_task_buffer(self, task_idx):
+        if task_idx in self.task_buffers:
+            raise IndexError("task_idx already exists: {}".format(task_idx))
+        new_task_buffer = ObsDictReplayBuffer(
+            self.max_replay_buffer_size,
+            self.env,
+            observation_keys=self.observation_keys,
+        )
+        self.task_buffers[task_idx] = new_task_buffer
+
 
 def get_dim(space):
     if isinstance(space, Box):

@@ -32,7 +32,6 @@ class ObsDictReplayBuffer(ReplayBuffer):
             preallocate_arrays=False,
     ):
         """
-
         :param max_size:
         :param env:
         :param ob_keys_to_save: List of keys to save
