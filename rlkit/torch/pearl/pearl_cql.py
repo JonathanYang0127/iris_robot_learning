@@ -267,7 +267,7 @@ class PearlCqlTrainer(TorchTrainer):
             target_q_values = torch.min(
                 target_qf1_values, target_qf2_values)
 
-        q_target = rewards + (1. - terminals) * self.discount * target_q_values
+        q_target = rewards_flat + (1. - terminals) * self.discount * target_q_values
         q_target = q_target.detach()
 
         qf1_loss = self.qf_criterion(q1_pred, q_target)
@@ -517,7 +517,7 @@ class PearlCqlTrainer(TorchTrainer):
         in_ = torch.cat([obs_stacked, z_stacked.detach()], dim=1)
         action_distrib = self.policy(in_)
         actions, log_pi = action_distrib.rsample_and_logprob()
-        return actions, log_pi.view(batch_size, num_actions, 1)
+        return actions.detach(), log_pi.view(batch_size, num_actions, 1)
 
     def get_snapshot(self):
         # NOTE: overriding parent method which also optionally saves the env
