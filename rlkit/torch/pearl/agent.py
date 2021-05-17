@@ -188,7 +188,10 @@ class PEARLAgent(nn.Module):
             context_encoder = self.context_encoder
         else:
             context_encoder = self.context_encoder_rp
-        params = context_encoder(context)
+
+        t, b = context.size(0), context.size(1)
+        context_flat = context.view(t*b, -1)
+        params = context_encoder(context_flat)
         params = params.view(context.size(0), -1, context_encoder.output_size)
         mu = params[..., :self.latent_dim]
         sigma_squared = F.softplus(params[..., self.latent_dim:])
