@@ -32,6 +32,55 @@ def save_paths(algo, epoch):
     print("saved", filename)
 
 
+class VideoSaveFunctionBasic:
+    def __init__(self, variant):
+        self.logdir = logger.get_snapshot_dir()
+        self.dump_video_kwargs = variant.get("dump_video_kwargs", dict())
+        self.save_period = self.dump_video_kwargs.pop('save_video_period', 50)
+
+    def __call__(self, folder_name, video_prefix, path):
+        # if epoch % self.save_period == 0 or epoch == algo.num_epochs:
+        video_dir = osp.join(self.logdir,
+                             'videos_eval/{}/'.format(folder_name))
+        # eval_paths = algo.eval_data_collector.get_epoch_paths()
+        dump_video_basic(video_dir, [path], video_prefix=video_prefix)
+
+
+def dump_video_basic(video_dir, paths, video_prefix):
+
+    if not os.path.exists(video_dir):
+        os.makedirs(video_dir)
+
+    import cv2
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    for i, path in enumerate(paths):
+        video = path['next_observations']
+        frame_list = []
+        for frame in video:
+            # TODO(avi) Figure out why this hack is needed
+            if isinstance(frame, np.ndarray):
+                frame_list.append(frame[0]['image'])
+            else:
+                frame_list.append(frame['image'])
+            # frame_list.append(frame)
+        frame_list = np.asarray(frame_list)
+        video_len = frame_list.shape[0]
+        n_channels = 3
+        imsize = int(np.sqrt(frame_list.shape[1] / n_channels))
+        assert imsize*imsize*n_channels == frame_list.shape[1]
+
+        video = frame_list.reshape(video_len, n_channels, imsize, imsize)
+        video = np.transpose(video, (0, 2, 3, 1))
+        video = (video*255.0).astype(np.uint8)
+        filename = osp.join(video_dir, '{}_{}.mp4'.format(video_prefix, i))
+        FPS = float(np.ceil(video_len/3.0))
+        writer = cv2.VideoWriter(filename, fourcc, FPS, (imsize, imsize))
+        for j in range(video.shape[0]):
+            writer.write(cv2.cvtColor(video[j], cv2.COLOR_RGB2BGR))
+        writer = None
+
+
 class VideoSaveFunction:
     def __init__(self, env, variant, expl_path_collector=None,
                  eval_path_collector=None):

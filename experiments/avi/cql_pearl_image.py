@@ -29,9 +29,10 @@ from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic, Tanh
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplayBuffer
-
+from rlkit.visualization.video import VideoSaveFunctionBasic
 import roboverse
 import numpy as np
+import os
 
 CUSTOM_LOG_DIR = '/nfs/kun1/users/avi/doodad-output/'
 LOCAL_LOG_DIR = '/media/avi/data/Work/doodad_output/'
@@ -121,12 +122,7 @@ def experiment(variant):
         action_dim,
         hidden_sizes=[256, 256, 256],
     )
-    # policy = TanhGaussianPolicy(
-    #     obs_dim=cnn_params['output_size'],
-    #     action_dim=action_dim,
-    #     hidden_sizes=[256, 256, 256],
-    #     obs_processor=policy_obs_processor,
-    # )
+
     if variant['use_robot_state']:
         observation_keys = ['image', 'state']
     else:
@@ -157,6 +153,7 @@ def experiment(variant):
         context_encoder,
         policy,
         reward_predictor,
+        obs_keys=observation_keys,
         use_next_obs_in_context=variant['use_next_obs_in_context'],
         _debug_do_not_sqrt=variant['_debug_do_not_sqrt'],
     )
@@ -178,64 +175,15 @@ def experiment(variant):
 
     train_task_indices = [0, 1]
     eval_task_indices = [0, 1]
-    train_tasks = [{'object': 0}, {'object': 1}]
-    eval_tasks = [{'object': 0}, {'object': 1}]
-
-    algo_kwargs = {
-        'num_iterations': 5,
-        'meta_batch': 4,
-        'embedding_batch_size': 256,
-        'num_initial_steps': 2000,
-        'num_steps_prior': 400,
-        'num_steps_posterior': 0,
-        'num_extra_rl_steps_posterior': 600,
-        'num_train_steps_per_itr': 4000,
-        'num_evals': 10, # number of independent evals per task
-        'num_exp_traj_eval': 2,
-        'num_steps_per_eval': 1000, # number of steps to eval for
-    }
-
-    # algorithm = MetaRLAlgorithm(
-    #     agent=agent,
-    #     env=expl_env,
-    #     trainer=trainer,
-    #     train_task_indices=train_task_indices,
-    #     eval_task_indices=eval_task_indices,
-    #     train_tasks=train_tasks,
-    #     eval_tasks=eval_tasks,
-    #     use_next_obs_in_context=variant['use_next_obs_in_context'],
-    #     # env_info_sizes=get_env_info_sizes(expl_env),
-    #     env_info_sizes={},  # TODO(avi) check what this is used for
-    #     **algo_kwargs
-    # )
-    # load_buffer_kwargs = {
-    #     'pretrain_buffer_path': "21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-"
-    #                             "sac-to-get-buffer-longer/21-02-22-ant-awac--exp7"
-    #                             "-ant-dir-4-eval-4-train-sac-to-get-buffer-longer"
-    #                             "_2021_02_23_06_09_23_id000--s270987/extra_snapshot_itr400.cpkl"
-    # }
-    # saved_tasks_path = "demos/ant_four_dir/buffer_550k_each/tasks.pkl"
-
-    load_buffer_kwargs = {
-        'pretrain_buffer_path': ''
-    }
-    #
-    # load_buffer_onto_algo(
-    #     algorithm.replay_buffer,
-    #     algorithm.enc_replay_buffer,
-    #     **load_buffer_kwargs)
 
     pretrain_offline_algo_kwargs = {
         'batch_size': 128,
         'logging_period': 1000,
         'meta_batch_size': 4,
-        'num_batches': 50000,
+        'num_batches': int(1e6),  # basically means 1M update steps
         'task_embedding_batch_size': 64,
     }
 
-    # eval_pearl_fn = EvalPearl(
-    #     algorithm, train_task_indices, eval_task_indices
-    # )
     max_replay_buffer_size = int(5E5)
 
     replay_buffer = ObsDictMultiTaskReplayBuffer(
@@ -268,13 +216,22 @@ def experiment(variant):
     add_data_to_buffer(data, replay_buffer, observation_keys, task=1)
     add_data_to_buffer(data, enc_replay_buffer, observation_keys, task=1)
 
+
+    # eval_pearl_fn = EvalPearl(
+    #     algorithm, train_task_indices, eval_task_indices
+    # )
+    video_saver = VideoSaveFunctionBasic(variant)
+
     pretrain_algo = OfflineMetaRLAlgorithm(
+        env=eval_env,
         meta_replay_buffer=None,
         replay_buffer=replay_buffer,
         task_embedding_replay_buffer=enc_replay_buffer,
         trainer=trainer,
         train_tasks=train_task_indices,
+        eval_tasks=eval_task_indices,
         # extra_eval_fns=[eval_pearl_fn],
+        video_saver=video_saver,
         **pretrain_offline_algo_kwargs
     )
 
@@ -285,12 +242,20 @@ def experiment(variant):
     # algorithm.train()
 
 
+def enable_gpus(gpu_str):
+    if gpu_str != "":
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
+    return
+
+
 if __name__ == "__main__":
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="Pearl-CQL",
         latent_dim=5,
-
+        dump_video_kwargs=dict(
+            save_video_period=1,
+        ),
         # from standard image-based CQL
         trainer_kwargs=dict(
             discount=0.99,
@@ -307,7 +272,7 @@ if __name__ == "__main__":
             # min Q
             temp=1.0,
             min_q_version=3,
-            min_q_weight=5.0,
+            min_q_weight=1.0,
 
             # lagrange
             with_lagrange=False,  # Defaults to False
@@ -316,17 +281,18 @@ if __name__ == "__main__":
             # extra params
             num_random=1,
             max_q_backup=False,
-            deterministic_backup=False,
+            deterministic_backup=True,
 
             # pearl kwargs
             backprop_q_loss_into_encoder=False,
+            train_context_decoder=True,
         ),
     )
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument("--env", type=str, required=True)
-    parser.add_argument("--env", type=str, default='Widow250MultiTaskGraspShed-v0')
+    parser.add_argument("--env", type=str, default='Widow250MetaGraspVaseShed-v0')
     parser.add_argument('--use-robot-state', action='store_true', default=False)
+    parser.add_argument("--gpu", default='0', type=str)
     args = parser.parse_args()
 
     variant['env'] = args.env
@@ -349,6 +315,9 @@ if __name__ == "__main__":
         # image_augmentation_padding=4,
     )
 
+    enable_gpus(args.gpu)
+    ptu.set_gpu_mode(True)
+
     exp_prefix = '{}-pearl-cql-{}'.format(time.strftime("%y-%m-%d"), args.env)
     if osp.isdir(CUSTOM_LOG_DIR):
         base_log_dir = CUSTOM_LOG_DIR
@@ -357,3 +326,53 @@ if __name__ == "__main__":
     setup_logger(logger, exp_prefix, base_log_dir, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
     experiment(variant)
+
+
+    # train_tasks = [{'object': 0}, {'object': 1}]
+    # eval_tasks = [{'object': 0}, {'object': 1}]
+    # policy = TanhGaussianPolicy(
+    #     obs_dim=cnn_params['output_size'],
+    #     action_dim=action_dim,
+    #     hidden_sizes=[256, 256, 256],
+    #     obs_processor=policy_obs_processor,
+    # )
+    # algo_kwargs = {
+    #     'num_iterations': 5,
+    #     'meta_batch': 4,
+    #     'embedding_batch_size': 256,
+    #     'num_initial_steps': 2000,
+    #     'num_steps_prior': 400,
+    #     'num_steps_posterior': 0,
+    #     'num_extra_rl_steps_posterior': 600,
+    #     'num_train_steps_per_itr': 4000,
+    #     'num_evals': 10, # number of independent evals per task
+    #     'num_exp_traj_eval': 2,
+    #     'num_steps_per_eval': 1000, # number of steps to eval for
+    # }
+    # algorithm = MetaRLAlgorithm(
+    #     agent=agent,
+    #     env=expl_env,
+    #     trainer=trainer,
+    #     train_task_indices=train_task_indices,
+    #     eval_task_indices=eval_task_indices,
+    #     train_tasks=train_tasks,
+    #     eval_tasks=eval_tasks,
+    #     use_next_obs_in_context=variant['use_next_obs_in_context'],
+    #     # env_info_sizes=get_env_info_sizes(expl_env),
+    #     env_info_sizes={},  # TODO(avi) check what this is used for
+    #     **algo_kwargs
+    # )
+    # load_buffer_kwargs = {
+    #     'pretrain_buffer_path': "21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-"
+    #                             "sac-to-get-buffer-longer/21-02-22-ant-awac--exp7"
+    #                             "-ant-dir-4-eval-4-train-sac-to-get-buffer-longer"
+    #                             "_2021_02_23_06_09_23_id000--s270987/extra_snapshot_itr400.cpkl"
+    # }
+    # saved_tasks_path = "demos/ant_four_dir/buffer_550k_each/tasks.pkl"
+    # load_buffer_kwargs = {
+    #     'pretrain_buffer_path': ''
+    # }
+    # load_buffer_onto_algo(
+    #     algorithm.replay_buffer,
+    #     algorithm.enc_replay_buffer,
+    #     **load_buffer_kwargs)

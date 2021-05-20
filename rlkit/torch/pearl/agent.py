@@ -59,6 +59,7 @@ class PEARLAgent(nn.Module):
                  context_encoder,
                  policy,
                  reward_predictor,
+                 obs_keys=None,
                  use_next_obs_in_context=False,
                  _debug_ignore_context=False,
                  _debug_do_not_sqrt=False,
@@ -70,6 +71,7 @@ class PEARLAgent(nn.Module):
         self.context_encoder = context_encoder
         self.policy = policy
         self.reward_predictor = reward_predictor
+        self.obs_keys = obs_keys
         self.deterministic_policy = MakeDeterministic(self.policy)
         self._debug_ignore_context = _debug_ignore_context
         self._debug_use_ground_truth_context = _debug_use_ground_truth_context
@@ -144,6 +146,11 @@ class PEARLAgent(nn.Module):
         if self._debug_use_ground_truth_context:
             return context
         o, a, r, no, d, info = inputs
+
+        if self.obs_keys is not None:
+            o = np.concatenate([o[key] for key in self.obs_keys], axis=0)
+            no = np.concatenate([no[key] for key in self.obs_keys], axis=0)
+
         o = ptu.from_numpy(o[None, None, ...])
         a = ptu.from_numpy(a[None, None, ...])
         r = ptu.from_numpy(np.array([r])[None, None, ...])
@@ -208,6 +215,9 @@ class PEARLAgent(nn.Module):
 
     def get_action(self, obs, z, deterministic=False):
         ''' sample action from the policy, conditioned on the task embedding '''
+        if self.obs_keys is not None:
+            obs = np.concatenate([obs[key] for key in self.obs_keys], axis=0)
+
         obs = ptu.from_numpy(obs[None])
         if self._debug_ignore_context:
             z = ptu.from_numpy(z[None]) * 0
