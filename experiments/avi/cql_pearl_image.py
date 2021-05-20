@@ -206,12 +206,12 @@ def experiment(variant):
 
     # import IPython; IPython.embed()
 
-    with open(BUFFER_1, 'rb') as fl:
+    with open(variant['buffer_a'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
     add_data_to_buffer(data, replay_buffer, observation_keys, task=0)
     add_data_to_buffer(data, enc_replay_buffer, observation_keys, task=0)
 
-    with open(BUFFER_2, 'rb') as fl:
+    with open(variant['buffer_b'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
     add_data_to_buffer(data, replay_buffer, observation_keys, task=1)
     add_data_to_buffer(data, enc_replay_buffer, observation_keys, task=1)
@@ -291,12 +291,17 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default='Widow250MetaGraspVaseShed-v0')
+    parser.add_argument("--buffer-a", type=str, default=BUFFER_1)
+    parser.add_argument("--buffer-b", type=str, default=BUFFER_2)
+
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
     args = parser.parse_args()
 
     variant['env'] = args.env
     variant['use_robot_state'] = args.use_robot_state
+    variant['buffer_a'] = args.buffer_a
+    variant['buffer_b'] = args.buffer_b
 
     variant['_debug_do_not_sqrt'] = False
     variant['use_next_obs_in_context'] = False
