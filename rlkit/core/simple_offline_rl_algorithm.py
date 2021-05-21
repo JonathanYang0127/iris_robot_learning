@@ -178,12 +178,21 @@ class OfflineMetaRLAlgorithm(object):
         stats = OrderedDict()
         max_path_length = 25
         for task_idx in self.eval_tasks:
-            path = rollout(self.env, self.trainer.agent,
-                            task_idx, max_path_length)
-            path_return = path['rewards'].sum()
-            if self.video_saver is not None:
-                self.video_saver(num_step, 'eval_{}'.format(task_idx), path)
-            stats['eval_env_{}/AverageReturns'.format(task_idx)] = path_return
+            initial_context = None
+            self.trainer.agent.clear_z()
+            for trial_idx in range(3):
+                path = rollout(
+                    self.env,
+                    self.trainer.agent,
+                    task_idx,
+                    max_path_length=max_path_length,
+                    initial_context=initial_context
+                )
+                initial_context = path['context']
+                path_return = path['rewards'].sum()
+                if self.video_saver is not None:
+                    self.video_saver(num_step, 'eval_{}'.format(task_idx), path)
+                stats['eval_env_{}_trial_{}/AverageReturns'.format(task_idx, trial_idx)] = path_return
         return stats
 
     # def get_eval_statistics(self):
