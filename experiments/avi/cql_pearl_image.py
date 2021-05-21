@@ -179,6 +179,7 @@ def experiment(variant):
     pretrain_offline_algo_kwargs = {
         'batch_size': 128,
         'logging_period': 1000,
+        'checkpoint_frequency': 10,
         'meta_batch_size': 4,
         'num_batches': int(1e6),  # basically means 1M update steps
         'task_embedding_batch_size': 64,

@@ -73,6 +73,7 @@ class OfflineMetaRLAlgorithm(object):
             num_batches,
             task_embedding_batch_size,
             extra_eval_fns=(),
+            checkpoint_frequency=25,
             use_meta_learning_buffer=False,
             video_saver=None,
     ):
@@ -89,6 +90,7 @@ class OfflineMetaRLAlgorithm(object):
         self.eval_tasks = eval_tasks
         self.meta_batch_size = meta_batch_size
         self._extra_eval_fns = extra_eval_fns
+        self.checkpoint_frequency = checkpoint_frequency
         self.use_meta_learning_buffer = use_meta_learning_buffer
         self.video_saver = video_saver
 
@@ -128,8 +130,10 @@ class OfflineMetaRLAlgorithm(object):
             timer.stop_timer('train')
 
             if i % self.logging_period == 0:
-                params = self.get_epoch_snapshot(i)
-                logger.save_itr_params(-1, params)
+
+                if i % (self.logging_period*self.checkpoint_frequency) == 0:
+                    params = self.get_epoch_snapshot(i)
+                    logger.save_itr_params(i, params)
 
                 stats_with_prefix = add_prefix(
                     self.trainer.eval_statistics, prefix="trainer/")
