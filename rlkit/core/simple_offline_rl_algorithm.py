@@ -242,7 +242,6 @@ def rollout(
         case only update at the start using that initial context.
     :return:
     """
-    # import IPython; IPython.embed()
 
     observations = []
     actions = []

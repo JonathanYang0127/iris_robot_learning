@@ -11,7 +11,7 @@ from rlkit.torch.data_management.normalizer import TorchFixedNormalizer
 from rlkit.torch.pytorch_util import activation_from_string
 
 
-class CNN(PyTorchModule):
+class CNN(nn.Module):
     # TODO: remove the FC parts of this code
     def __init__(
             self,
@@ -36,6 +36,10 @@ class CNN(PyTorchModule):
             pool_sizes=None,
             pool_strides=None,
             pool_paddings=None,
+            image_augmentation=False,
+            image_augmentation_padding=4,
+            fc_dropout=0.0,
+            fc_dropout_length=0,
     ):
         if hidden_sizes is None:
             hidden_sizes = []
@@ -63,6 +67,10 @@ class CNN(PyTorchModule):
         self.conv_input_length = self.input_width * self.input_height * self.input_channels
         self.output_conv_channels = output_conv_channels
         self.pool_type = pool_type
+        self.image_augmentation = image_augmentation
+        self.image_augmentation_padding = image_augmentation_padding
+        self.fc_dropout = fc_dropout
+        self.fc_dropout_length = fc_dropout_length
 
         self.conv_layers = nn.ModuleList()
         self.conv_norm_layers = nn.ModuleList()
@@ -86,13 +94,14 @@ class CNN(PyTorchModule):
             input_channels = out_channels
 
             if pool_type == 'max2d':
-                self.pool_layers.append(
-                    nn.MaxPool2d(
-                        kernel_size=pool_sizes[i],
-                        stride=pool_strides[i],
-                        padding=pool_paddings[i],
+                if pool_sizes[i] > 1:
+                    self.pool_layers.append(
+                        nn.MaxPool2d(
+                            kernel_size=pool_sizes[i],
+                            stride=pool_strides[i],
+                            padding=pool_paddings[i],
+                        )
                     )
-                )
 
         # use torch rather than ptu because initially the model is on CPU
         test_mat = torch.zeros(
@@ -108,7 +117,7 @@ class CNN(PyTorchModule):
                 self.conv_norm_layers.append(nn.BatchNorm2d(test_mat.shape[1]))
             if self.conv_normalization_type == 'layer':
                 self.conv_norm_layers.append(nn.LayerNorm(test_mat.shape[1:]))
-            if self.pool_type != 'none':
+            if self.pool_type != 'none' and len(self.pool_layers) > i:
                 test_mat = self.pool_layers[i](test_mat)
 
         self.conv_output_flat_size = int(np.prod(test_mat.shape))
@@ -136,6 +145,13 @@ class CNN(PyTorchModule):
             self.last_fc.weight.data.uniform_(-init_w, init_w)
             self.last_fc.bias.data.uniform_(-init_w, init_w)
 
+        if self.image_augmentation:
+            self.augmentation_transform = RandomCrop(
+                input_height, self.image_augmentation_padding, device='cuda')
+
+        if self.fc_dropout > 0.0:
+            self.fc_dropout_layer = nn.Dropout(self.fc_dropout)
+
     def forward(self, input, return_last_activations=False):
         conv_input = input.narrow(start=0,
                                   length=self.conv_input_length,
@@ -145,6 +161,10 @@ class CNN(PyTorchModule):
                             self.input_channels,
                             self.input_height,
                             self.input_width)
+
+        if h.shape[0] > 1 and self.image_augmentation:
+            # h.shape[0] > 1 ensures we apply this only during training
+            h = self.augmentation_transform(h)
 
         h = self.apply_forward_conv(h)
 
@@ -159,7 +179,7 @@ class CNN(PyTorchModule):
                 length=self.added_fc_input_size,
                 dim=1,
             )
-            h = torch.cat((h, extra_fc_input), dim=1)
+            h = torch.cat((extra_fc_input, h), dim=1)
         h = self.apply_forward_fc(h)
 
         if return_last_activations:
@@ -171,12 +191,26 @@ class CNN(PyTorchModule):
             h = layer(h)
             if self.conv_normalization_type != 'none':
                 h = self.conv_norm_layers[i](h)
-            if self.pool_type != 'none':
+            if self.pool_type != 'none' and len(self.pool_layers) > i:
                 h = self.pool_layers[i](h)
             h = self.hidden_activation(h)
         return h
 
     def apply_forward_fc(self, h):
+        if self.fc_dropout > 0.0 and self.fc_dropout_length > 0:
+            dropout_input = h.narrow(
+                start=0,
+                length=self.fc_dropout_length,
+                dim=1,
+            )
+            dropout_output = self.fc_dropout_layer(dropout_input)
+
+            remaining_input = h.narrow(
+                start=self.fc_dropout_length,
+                length=self.conv_output_flat_size + self.added_fc_input_size - self.fc_dropout_length,
+                dim=1)
+            h = torch.cat((dropout_output, remaining_input), dim=1)
+
         for i, layer in enumerate(self.fc_layers):
             h = layer(h)
             if self.fc_normalization_type != 'none':
@@ -348,3 +382,59 @@ class BasicCNN(PyTorchModule):
                     h = self.pool_layers[i](h)
             h = self.hidden_activation(h)
         return h
+
+
+class RandomCrop:
+    """
+    Source: # https://github.com/pratogab/batch-transforms
+    Applies the :class:`~torchvision.transforms.RandomCrop` transform to
+    a batch of images.
+    Args:
+        size (int): Desired output size of the crop.
+        padding (int, optional): Optional padding on each border of the image.
+            Default is None, i.e no padding.
+        dtype (torch.dtype,optional): The data type of tensors to which the transform will be applied.
+        device (torch.device,optional): The device of tensors to which the transform will be applied.
+    """
+
+    def __init__(self, size, padding=None, dtype=torch.float, device='cpu'):
+        self.size = size
+        self.padding = padding
+        self.dtype = dtype
+        self.device = device
+
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor of size (N, C, H, W) to be cropped.
+        Returns:
+            Tensor: Randomly cropped Tensor.
+        """
+        if self.padding is not None:
+            padded = torch.zeros((tensor.size(0), tensor.size(1),
+                                  tensor.size(2) + self.padding * 2,
+                                  tensor.size(3) + self.padding * 2),
+                                 dtype=self.dtype, device=self.device)
+            padded[:, :, self.padding:-self.padding,
+            self.padding:-self.padding] = tensor
+        else:
+            padded = tensor
+
+        w, h = padded.size(2), padded.size(3)
+        th, tw = self.size, self.size
+        if w == tw and h == th:
+            i, j = 0, 0
+        else:
+            i = torch.randint(0, h - th + 1, (tensor.size(0),),
+                              device=self.device)
+            j = torch.randint(0, w - tw + 1, (tensor.size(0),),
+                              device=self.device)
+
+        rows = torch.arange(th, dtype=torch.long, device=self.device) + i[:,
+                                                                        None]
+        columns = torch.arange(tw, dtype=torch.long, device=self.device) + j[:,
+                                                                           None]
+        padded = padded.permute(1, 0, 2, 3)
+        padded = padded[:, torch.arange(tensor.size(0))[:, None, None],
+                 rows[:, torch.arange(th)[:, None]], columns[:, None]]
+        return padded.permute(1, 0, 2, 3)
