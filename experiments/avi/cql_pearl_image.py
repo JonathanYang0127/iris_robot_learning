@@ -144,6 +144,7 @@ def experiment(variant):
         added_fc_input_size=state_observation_dim + action_dim + latent_dim,
         output_size=1,
         hidden_sizes=[256, 256],
+        image_augmentation=False,
     )
     context_decoder = ConcatCNN(**cnn_params)
     reward_predictor = context_decoder

@@ -143,9 +143,10 @@ class OfflineMetaRLAlgorithm(object):
                 for fn in self._extra_eval_fns:
                     extra_stats = fn()
                     logger.record_dict(extra_stats)
-
+                timer.start_timer('eval', unique=False)
                 # TODO: evaluate during offline RL
                 eval_stats = self._do_eval(i)
+                timer.stop_timer('eval',)
                 eval_stats_with_prefix = add_prefix(eval_stats, prefix="eval/")
                 logger.record_dict(eval_stats_with_prefix)
 
@@ -191,7 +192,7 @@ class OfflineMetaRLAlgorithm(object):
                 initial_context = path['context']
                 path_return = path['rewards'].sum()
                 if self.video_saver is not None:
-                    self.video_saver(num_step, 'eval_{}'.format(task_idx), path)
+                    self.video_saver(num_step, 'eval_task_{}_trial_{}'.format(task_idx, trial_idx), path)
                 stats['eval_env_{}_trial_{}/AverageReturns'.format(task_idx, trial_idx)] = path_return
         return stats
 
