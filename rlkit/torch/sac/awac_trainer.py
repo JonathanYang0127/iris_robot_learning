@@ -240,7 +240,7 @@ class AWACTrainer(TorchTrainer):
         og = o
         # pred_u, *_ = self.policy(og)
         dist = policy(og)
-        pred_u, log_pi = dist.rsample_and_logprob()
+        pred_u, _ = dist.rsample_and_logprob()
         stats = dist.get_diagnostics()
 
         mse = (pred_u - u) ** 2
@@ -390,6 +390,7 @@ class AWACTrainer(TorchTrainer):
         """
         dist = self.policy(obs)
         new_obs_actions, log_pi = dist.rsample_and_logprob()
+        log_pi = log_pi.unsqueeze(1)
         policy_mle = dist.mle_estimate()
 
         if self.use_automatic_entropy_tuning:
@@ -404,6 +405,7 @@ class AWACTrainer(TorchTrainer):
         # Make sure policy accounts for squashing functions like tanh correctly!
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
+        new_log_pi = new_log_pi.unsqueeze(1)
         target_q_values = torch.min(
             self.target_qf1(next_obs, new_next_actions),
             self.target_qf2(next_obs, new_next_actions),
@@ -463,6 +465,7 @@ class AWACTrainer(TorchTrainer):
         """
         dist = self.policy(obs)
         new_obs_actions, log_pi = dist.rsample_and_logprob()
+        log_pi = log_pi.unsqueeze(1)
         policy_mle = dist.mle_estimate()
 
         if self.brac:
@@ -488,6 +491,7 @@ class AWACTrainer(TorchTrainer):
         # Make sure policy accounts for squashing functions like tanh correctly!
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
+        new_log_pi = new_log_pi.unsqueeze(1)
         target_q_values = torch.min(
             self.target_qf1(next_obs, new_next_actions),
             self.target_qf2(next_obs, new_next_actions),
