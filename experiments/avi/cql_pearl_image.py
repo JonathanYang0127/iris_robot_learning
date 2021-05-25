@@ -34,50 +34,13 @@ import roboverse
 import numpy as np
 import os
 
+from rlkit.misc.roboverse_utils import add_data_to_buffer_multitask
+
 CUSTOM_LOG_DIR = '/nfs/kun1/users/avi/doodad-output/'
 LOCAL_LOG_DIR = '/media/avi/data/Work/doodad_output/'
 
 BUFFER_1 = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16_1000.npy'
 BUFFER_2 = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspVase-v0_1000_save_all_noise_0.1_2021-05-14T16-39-22/may14_meta_Widow250MultiTaskGraspVase-v0_1000_save_all_noise_0.1_2021-05-14T16-39-22_1000.npy'
-
-
-def process_keys(observations, observation_keys):
-    output = []
-    for i in range(len(observations)):
-        observation = dict()
-        for key in observation_keys:
-            if key == 'image':
-                image = observations[i]['image']
-                if len(image.shape) == 3:
-                    image = np.transpose(image, [2, 0, 1])
-                    image = (image.flatten())/255.0
-                else:
-                    print('image shape: {}'.format(image.shape))
-                    raise ValueError
-                observation[key] = image
-            elif key == 'state':
-                observation[key] = np.array(observations[i]['state'])
-            else:
-                raise NotImplementedError
-        output.append(observation)
-    return output
-
-
-def add_data_to_buffer(data, replay_buffer, observation_keys, task):
-
-    for j in range(len(data)):
-        assert (len(data[j]['actions']) == len(data[j]['observations']) == len(
-            data[j]['next_observations']))
-
-        path = dict(
-            rewards=[np.asarray([r]) for r in data[j]['rewards']],
-            actions=data[j]['actions'],
-            terminals=[np.asarray([t]) for t in data[j]['terminals']],
-            observations=process_keys(data[j]['observations'], observation_keys),
-            next_observations=process_keys(
-                data[j]['next_observations'], observation_keys),
-        )
-        replay_buffer.add_path(task, path)
 
 
 def experiment(variant):
@@ -210,13 +173,13 @@ def experiment(variant):
 
     with open(variant['buffer_a'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
-    add_data_to_buffer(data, replay_buffer, observation_keys, task=0)
-    add_data_to_buffer(data, enc_replay_buffer, observation_keys, task=0)
+    add_data_to_buffer_multitask(data, replay_buffer, observation_keys, task=0)
+    add_data_to_buffer_multitask(data, enc_replay_buffer, observation_keys, task=0)
 
     with open(variant['buffer_b'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
-    add_data_to_buffer(data, replay_buffer, observation_keys, task=1)
-    add_data_to_buffer(data, enc_replay_buffer, observation_keys, task=1)
+    add_data_to_buffer_multitask(data, replay_buffer, observation_keys, task=1)
+    add_data_to_buffer_multitask(data, enc_replay_buffer, observation_keys, task=1)
 
 
     # eval_pearl_fn = EvalPearl(
