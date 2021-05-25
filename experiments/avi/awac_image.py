@@ -80,6 +80,14 @@ def dump_video_basic(video_dir, paths):
         writer = None
 
 
+def get_buffer_size(data):
+    num_transitions = 0
+    for i in range(len(data)):
+        for j in range(len(data[i]['observations'])):
+            num_transitions += 1
+    return num_transitions
+
+
 def process_keys(observations, observation_keys):
     output = []
     for i in range(len(observations)):
@@ -123,6 +131,7 @@ def experiment(variant):
     eval_env = roboverse.make(variant['env'], transpose_image=True)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
+    observation_keys = ['image']
 
     cnn_params = variant['cnn_params']
     cnn_params.update(
@@ -157,15 +166,15 @@ def experiment(variant):
     target_qf1 = ConcatCNN(**cnn_params)
     target_qf2 = ConcatCNN(**cnn_params)
 
-    max_replay_buffer_size = int(5e5)
-    observation_keys = ['image']
+    with open(variant['buffer'], 'rb') as fl:
+        data = np.load(fl, allow_pickle=True)
+    num_transitions = get_buffer_size(data)
+    max_replay_buffer_size = num_transitions + 10
     replay_buffer = ObsDictReplayBuffer(
         max_replay_buffer_size,
         expl_env,
         observation_keys=observation_keys
     )
-    with open(variant['buffer'], 'rb') as fl:
-        data = np.load(fl, allow_pickle=True)
     add_data_to_buffer(data, replay_buffer, observation_keys)
 
     if variant['use_negative_rewards']:
