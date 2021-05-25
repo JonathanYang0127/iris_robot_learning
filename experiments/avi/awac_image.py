@@ -7,7 +7,7 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy
+from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
@@ -195,14 +195,15 @@ def experiment(variant):
 
     # expl_path_collector = None
     # eval_path_collector = None
+    eval_policy = MakeDeterministic(policy)
     expl_path_collector = ObsDictPathCollector(
         expl_env,
         policy,
         observation_key='image',
     )
     eval_path_collector = ObsDictPathCollector(
-        expl_env,
-        policy,
+        eval_env,
+        eval_policy,
         observation_key='image',
     )
 
@@ -296,6 +297,9 @@ if __name__ == '__main__':
 
             reward_transform_kwargs=None,
             terminal_transform_kwargs=dict(m=0, b=0),
+
+            awr_use_mle_for_vf=True,
+            clip_score=0.5,
         ),
         )
 
