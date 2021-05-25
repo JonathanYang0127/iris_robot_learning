@@ -145,23 +145,23 @@ class ObsDictPathCollector(MdpPathCollector):
     def __init__(
             self,
             *args,
-            observation_key='observation',
+            observation_keys=['observation',],
             **kwargs
     ):
         def obs_processor(obs):
-            return obs[observation_key]
+            return np.concatenate([obs[key] for key in observation_keys])
 
         rollout_fn = partial(
             rollout,
             preprocess_obs_for_policy_fn=obs_processor,
         )
         super().__init__(*args, rollout_fn=rollout_fn, **kwargs)
-        self._observation_key = observation_key
+        self._observation_keys = observation_keys
 
     def get_snapshot(self):
         snapshot = super().get_snapshot()
         snapshot.update(
-            observation_key=self._observation_key,
+            observation_keys=self._observation_keys,
         )
         return snapshot
 

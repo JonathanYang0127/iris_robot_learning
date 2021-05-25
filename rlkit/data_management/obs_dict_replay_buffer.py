@@ -173,9 +173,13 @@ class ObsDictReplayBuffer(ReplayBuffer):
             obs = self._obs[self.observation_keys[0]][indices]
             next_obs = self._next_obs[self.observation_keys[0]][indices]
         else:
-            obs = tuple(self._obs[k][indices] for k in self.observation_keys)
-            next_obs = tuple(self._next_obs[k][indices]
-                             for k in self.observation_keys)
+            # obs = tuple(self._obs[k][indices] for k in self.observation_keys)
+            # next_obs = tuple(self._next_obs[k][indices]
+            #                  for k in self.observation_keys)
+            obs = np.concatenate([self._obs[k][indices] for k in
+                                  self.observation_keys], axis=1)
+            next_obs = np.concatenate([self._next_obs[k][indices] for k
+                                       in self.observation_keys], axis=1)
         terminals = self._terminals[indices]
         batch = {
             'observations': obs,

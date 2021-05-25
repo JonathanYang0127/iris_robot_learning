@@ -131,12 +131,18 @@ def experiment(variant):
     eval_env = roboverse.make(variant['env'], transpose_image=True)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
-    observation_keys = ['image']
+
+    if variant['use_robot_state']:
+        observation_keys = ['image', 'state']
+        state_observation_dim = eval_env.observation_space.spaces['state'].low.size
+    else:
+        observation_keys = ['image']
+        state_observation_dim = 0
 
     cnn_params = variant['cnn_params']
     cnn_params.update(
         # output_size=action_dim,
-        added_fc_input_size=0,
+        added_fc_input_size=state_observation_dim,
     )
 
     policy = GaussianCNNPolicy(max_log_std=0,
@@ -152,7 +158,6 @@ def experiment(variant):
                                       std_architecture="values",
                                       **cnn_params)
 
-    state_observation_dim = 0
     cnn_params.update(
         output_size=1,
         added_fc_input_size=state_observation_dim + action_dim,
@@ -199,12 +204,12 @@ def experiment(variant):
     expl_path_collector = ObsDictPathCollector(
         expl_env,
         policy,
-        observation_key='image',
+        observation_keys=observation_keys,
     )
     eval_path_collector = ObsDictPathCollector(
         eval_env,
         eval_policy,
-        observation_key='image',
+        observation_keys=observation_keys,
     )
 
     algorithm = TorchBatchRLAlgorithm(
@@ -242,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument("--buffer", type=str, default=BUFFER)
 
     parser.add_argument("--beta", type=float, default=1.0)
+    parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
 
@@ -267,6 +273,7 @@ if __name__ == '__main__':
         env=args.env,
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
+        use_robot_state=args.use_robot_state,
 
         trainer_kwargs=dict(
             discount=0.99,
