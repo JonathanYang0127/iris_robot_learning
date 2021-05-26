@@ -8,6 +8,7 @@ from rlkit.torch.sac.policies.gaussian_policy import (
     TanhGaussianPolicy,
     GaussianPolicy,
     GaussianCNNPolicy,
+    GaussianVQVAEPolicy,
     GaussianMixturePolicy,
     BinnedGMMPolicy,
     TanhGaussianObsProcessorPolicy,

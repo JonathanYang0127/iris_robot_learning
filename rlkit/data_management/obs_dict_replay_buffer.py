@@ -4,7 +4,7 @@ from gym.spaces import Dict, Discrete
 
 from rlkit.data_management.replay_buffer import ReplayBuffer
 import rlkit.data_management.images as image_np
-
+from rlkit.torch import pytorch_util as ptu
 
 class ObsDictReplayBuffer(ReplayBuffer):
     """
@@ -241,6 +241,88 @@ class ObsDictReplayBuffer(ReplayBuffer):
             future_obs_idxs.append(next_obs_i)
         future_obs_idxs = np.array(future_obs_idxs)
         return future_obs_idxs
+
+
+class ObsDictReplayBufferVQVAE(ObsDictReplayBuffer):
+    def __init__(self, vqvae, *args, encoding_type='q', image_dim=(48, 48, 3), **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.vqvae = vqvae
+        self.encoding_type = encoding_type
+        self.image_dim_transposed = (image_dim[2], image_dim[0], image_dim[1])
+
+        test_mat = np.zeros((1, *self.image_dim_transposed))
+        test_mat = self.encode_observations(test_mat)
+        encoding_size = int(np.prod(test_mat.shape))
+
+        for key in self.observation_keys + self.internal_keys:
+            assert key in self.ob_spaces, \
+                "Key not found in the observation space: %s" % key
+            if key.startswith('image'):
+                self._obs[key] = np.zeros(
+                    (self.max_size, encoding_size), dtype=np.float64)
+                self._next_obs[key] = np.zeros(
+                    (self.max_size, encoding_size), dtype=np.float64)
+
+    def encode_observations(self, obs):
+        batch_size = obs.shape[0]
+        obs = ptu.from_numpy(obs).reshape((-1, *self.image_dim_transposed))
+        z_e = self.vqvae.encoder(obs)
+        z_e = self.vqvae.pre_quantization_conv(z_e)
+        if self.encoding_type == 'e':
+            return z_e.detach().reshape((batch_size, -1)).cpu().numpy()
+
+        embedding_loss, z_q, perplexity, _, _ = self.vqvae.vector_quantization(
+            z_e)
+        return z_q.detach().reshape((batch_size, -1)).cpu().numpy()
+
+    def encode_all_observations(self):
+        minibatch_size = 100
+        for i in range(self._size - minibatch_size + 1):
+            indices = np.arange(i, min(i + minibatch_size, self._size))
+            obs['image'][indices] = self.encode_observations(obs['image'][indices])
+            next_obs['image'][indices] = self.encode_observations(next_obs['image'][indices])
+
+
+    def add_path(self, path, ob_dicts_already_combined=False):
+        if not ob_dicts_already_combined:
+            path['observations'] = combine_dicts(path['observations'], self.ob_keys_to_save + self.internal_keys)
+        path['next_observations'] = combine_dicts(path['next_observations'], self.ob_keys_to_save + self.internal_keys)
+        obs = path['observations']
+        actions = path["actions"]
+        rewards = path["rewards"]
+        next_obs = path["next_observations"]
+        terminals = path["terminals"]           
+        obs['image'] = self.encode_observations(obs['image'])
+        next_obs['image'] = self.encode_observations(next_obs['image'])
+        super().add_path(path, ob_dicts_already_combined=True)
+
+
+    def random_batch(self, batch_size):
+        indices = np.random.randint(0, self._size, batch_size)
+        actions = self._actions[indices]
+        rewards = self._rewards[indices]
+        if len(self.observation_keys) == 1:
+            obs = self._obs[self.observation_keys[0]][indices]
+            next_obs = self._next_obs[self.observation_keys[0]][indices]
+        else:
+            # obs = tuple(self._obs[k][indices] for k in self.observation_keys)
+            # next_obs = tuple(self._next_obs[k][indices]
+            #                  for k in self.observation_keys)
+            obs = np.concatenate([self._obs[k][indices] for k in
+                                  self.observation_keys], axis=1)
+            next_obs = np.concatenate([self._next_obs[k][indices] for k
+                                       in self.observation_keys], axis=1)
+        terminals = self._terminals[indices]
+        batch = {
+            'observations': obs,
+            'actions': actions,
+            'rewards': rewards,
+            'terminals': terminals,
+            'next_observations': next_obs,
+            'indices': np.array(indices).reshape(-1, 1),
+        }
+        return batch
 
 
 class ObsDictRelabelingBuffer(ObsDictReplayBuffer):

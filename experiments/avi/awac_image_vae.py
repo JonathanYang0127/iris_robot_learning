@@ -1,4 +1,3 @@
-
 import argparse
 import time
 import os.path as osp
@@ -7,10 +6,10 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
-from rlkit.torch.networks.cnn import CNN, ConcatCNN
+from rlkit.torch.sac.policies import GaussianVQVAEPolicy, MakeDeterministic
+from rlkit.torch.networks.vqvae import VQVAEWrapper, ConcatVQVAEWrapper
 
-from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
+from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBufferVQVAE
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
@@ -19,12 +18,16 @@ from rlkit.pythonplusplus import identity
 
 import roboverse
 import numpy as np
+import torch
+import sys
 
-CUSTOM_LOG_DIR = '/nfs/kun1/users/avi/doodad-output/'
-LOCAL_LOG_DIR = '/home/jonathanyang0127/doodad-output'
+VQVAE_DIR = '/home/jonathanyang0127/vqvae'
+CUSTOM_LOG_DIR = '/home/jonathanyang0127/doodad-output'
+LOCAL_LOG_DIR = '/home/jonathanyang0127/doodad-output/'
 
-BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16_1000.npy'
+BUFFER = '/home/jonathanyang0127/minibullet/data/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01_20000.npy'
 
+sys.path.append(VQVAE_DIR)
 
 class VideoSaveFunctionBullet:
     def __init__(self, variant):
@@ -145,13 +148,18 @@ def experiment(variant):
         added_fc_input_size=state_observation_dim,
     )
 
-    policy = GaussianCNNPolicy(max_log_std=0,
+    vqvae = torch.load(variant['vqvae'])
+    policy = GaussianVQVAEPolicy(vqvae=vqvae,
+                               encoding_type=variant['encoding_type'],
+                               max_log_std=0,
                                min_log_std=-6,
                                obs_dim=None,
                                action_dim=action_dim,
                                std_architecture="values",
                                **cnn_params)
-    buffer_policy = GaussianCNNPolicy(max_log_std=0,
+    buffer_policy = GaussianVQVAEPolicy(vqvae=vqvae,
+                                      encoding_type=variant['encoding_type'],
+                                      max_log_std=0,
                                       min_log_std=-6,
                                       obs_dim=None,
                                       action_dim=action_dim,
@@ -166,18 +174,27 @@ def experiment(variant):
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
 
-    qf1 = ConcatCNN(**cnn_params)
-    qf2 = ConcatCNN(**cnn_params)
-    target_qf1 = ConcatCNN(**cnn_params)
-    target_qf2 = ConcatCNN(**cnn_params)
+    qf1 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
+    qf2 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
+    target_qf1 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
+    target_qf2 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
 
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
     num_transitions = get_buffer_size(data)
     max_replay_buffer_size = num_transitions + 10
-    replay_buffer = ObsDictReplayBuffer(
+
+    image_dim = (48, 48, 3)
+    replay_buffer = ObsDictReplayBufferVQVAE(
+        vqvae, 
         max_replay_buffer_size,
         expl_env,
+        encoding_type=variant['encoding_type'],
+        image_dim=image_dim,
         observation_keys=observation_keys
     )
     add_data_to_buffer(data, replay_buffer, observation_keys)
@@ -250,7 +267,8 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-
+    parser.add_argument('--vqvae', type=str, required=True)
+    parser.add_argument('--encoding-type', type=str, default='e')
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -326,6 +344,8 @@ if __name__ == '__main__':
         image_augmentation=True,
         image_augmentation_padding=4,
     )
+    variant['vqvae'] = args.vqvae
+    variant['encoding_type'] = args.encoding_type
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)

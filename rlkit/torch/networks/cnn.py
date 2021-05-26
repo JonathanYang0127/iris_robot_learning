@@ -6,9 +6,11 @@ from rlkit.policies.base import Policy
 from rlkit.pythonplusplus import identity
 from rlkit.torch.core import PyTorchModule, eval_np
 from rlkit.torch.data_management.normalizer import TorchFixedNormalizer
-
-
 from rlkit.torch.pytorch_util import activation_from_string
+import torch.nn.functional as F
+
+import numpy as np
+
 
 
 class CNN(nn.Module):
@@ -71,6 +73,8 @@ class CNN(nn.Module):
         self.image_augmentation_padding = image_augmentation_padding
         self.fc_dropout = fc_dropout
         self.fc_dropout_length = fc_dropout_length
+        self.hidden_sizes = hidden_sizes
+        self.init_w = init_w
 
         self.conv_layers = nn.ModuleList()
         self.conv_norm_layers = nn.ModuleList()
@@ -121,29 +125,12 @@ class CNN(nn.Module):
                 test_mat = self.pool_layers[i](test_mat)
 
         self.conv_output_flat_size = int(np.prod(test_mat.shape))
+
         if self.output_conv_channels:
             self.last_fc = None
         else:
-            fc_input_size = self.conv_output_flat_size
-            # used only for injecting input directly into fc layers
-            fc_input_size += added_fc_input_size
-            for idx, hidden_size in enumerate(hidden_sizes):
-                fc_layer = nn.Linear(fc_input_size, hidden_size)
-                fc_input_size = hidden_size
-
-                fc_layer.weight.data.uniform_(-init_w, init_w)
-                fc_layer.bias.data.uniform_(-init_w, init_w)
-
-                self.fc_layers.append(fc_layer)
-
-                if self.fc_normalization_type == 'batch':
-                    self.fc_norm_layers.append(nn.BatchNorm1d(hidden_size))
-                if self.fc_normalization_type == 'layer':
-                    self.fc_norm_layers.append(nn.LayerNorm(hidden_size))
-
-            self.last_fc = nn.Linear(fc_input_size, output_size)
-            self.last_fc.weight.data.uniform_(-init_w, init_w)
-            self.last_fc.bias.data.uniform_(-init_w, init_w)
+            self.fc_layers, self.fc_norm_layers, self.last_fc = self.initialize_fc_layers(self.hidden_sizes, 
+                self.output_size, self.conv_output_flat_size, self.added_fc_input_size, init_w)
 
         if self.image_augmentation:
             self.augmentation_transform = RandomCrop(
@@ -151,6 +138,36 @@ class CNN(nn.Module):
 
         if self.fc_dropout > 0.0:
             self.fc_dropout_layer = nn.Dropout(self.fc_dropout)
+
+
+    def initialize_fc_layers(self, hidden_sizes, output_size, conv_output_flat_size, added_fc_input_size, init_w):
+        fc_layers = nn.ModuleList()
+        fc_norm_layers = nn.ModuleList()
+    
+        
+        fc_input_size = conv_output_flat_size
+        # used only for injecting input directly into fc layers
+        fc_input_size += added_fc_input_size
+        for idx, hidden_size in enumerate(hidden_sizes):
+            fc_layer = nn.Linear(fc_input_size, hidden_size)
+            fc_input_size = hidden_size
+
+            fc_layer.weight.data.uniform_(-init_w, init_w)
+            fc_layer.bias.data.uniform_(-init_w, init_w)
+
+            fc_layers.append(fc_layer)
+
+            if self.fc_normalization_type == 'batch':
+                fc_norm_layers.append(nn.BatchNorm1d(hidden_size))
+            if self.fc_normalization_type == 'layer':
+                fc_norm_layers.append(nn.LayerNorm(hidden_size))
+
+        last_fc = nn.Linear(fc_input_size, output_size)
+        last_fc.weight.data.uniform_(-init_w, init_w)
+        last_fc.bias.data.uniform_(-init_w, init_w)
+
+        return fc_layers, fc_norm_layers, last_fc
+
 
     def forward(self, input, return_last_activations=False):
         conv_input = input.narrow(start=0,
