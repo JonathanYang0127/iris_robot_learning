@@ -20,6 +20,7 @@ from rlkit.torch.pearl.agent import PEARLAgent
 #     get_env_info_sizes,
 # )
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
+from rlkit.torch.networks import Clamp
 from rlkit.torch.pearl.networks import MlpEncoder, MlpDecoder
 from rlkit.torch.pearl.launcher_util import load_buffer_onto_algo, EvalPearl
 from rlkit.torch.pearl.path_collector import PearlPathCollector
@@ -33,8 +34,10 @@ from rlkit.visualization.video import VideoSaveFunctionBasic
 import roboverse
 import numpy as np
 import os
+from rlkit.torch.sac.policies import GaussianCNNPolicy
 
-from rlkit.misc.roboverse_utils import add_data_to_buffer_multitask
+from rlkit.misc.roboverse_utils import add_data_to_buffer_multitask, get_buffer_size
+from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
 
 CUSTOM_LOG_DIR = '/nfs/kun1/users/avi/doodad-output/'
 LOCAL_LOG_DIR = '/media/avi/data/Work/doodad_output/'
@@ -43,56 +46,58 @@ BUFFER_1 = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_W
 BUFFER_2 = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspVase-v0_1000_save_all_noise_0.1_2021-05-14T16-39-22/may14_meta_Widow250MultiTaskGraspVase-v0_1000_save_all_noise_0.1_2021-05-14T16-39-22_1000.npy'
 
 
+def enable_gpus(gpu_str):
+    if gpu_str != "":
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
+    return
+
+
 def experiment(variant):
     eval_env = roboverse.make(variant['env'], transpose_image=True)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
 
-    latent_dim = variant['latent_dim']
-    # Q-functions
-    state_observation_dim = 0
     if variant['use_robot_state']:
-        print(eval_env.observation_space)
-        state_observation_dim = eval_env.observation_space.spaces[
-            'state'].low.size
+        observation_keys = ['image', 'state']
+        state_observation_dim = eval_env.observation_space.spaces['state'].low.size
+    else:
+        observation_keys = ['image']
+        state_observation_dim = 0
+
     cnn_params = variant['cnn_params']
     cnn_params.update(
-        input_width=48,
-        input_height=48,
-        input_channels=3,
-        output_size=1,
-        added_fc_input_size=state_observation_dim + action_dim + latent_dim,
+        # output_size=action_dim,
+        added_fc_input_size=state_observation_dim +  + variant['latent_dim'],
     )
+
+    policy = GaussianCNNPolicy(max_log_std=0,
+                               min_log_std=-6,
+                               obs_dim=None,
+                               action_dim=action_dim,
+                               std_architecture="values",
+                               **cnn_params)
+    buffer_policy = GaussianCNNPolicy(max_log_std=0,
+                                      min_log_std=-6,
+                                      obs_dim=None,
+                                      action_dim=action_dim,
+                                      std_architecture="values",
+                                      **cnn_params)
+
+
+    cnn_params.update(
+        output_size=1,
+        added_fc_input_size=state_observation_dim + action_dim + variant['latent_dim'],
+    )
+    if variant['use_negative_rewards']:
+        cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
     qf1 = ConcatCNN(**cnn_params)
     qf2 = ConcatCNN(**cnn_params)
     target_qf1 = ConcatCNN(**cnn_params)
     target_qf2 = ConcatCNN(**cnn_params)
 
-    # policy
-    if variant['use_robot_state']:
-        policy_added_input_dim = state_observation_dim
-    else:
-        policy_added_input_dim = 0
-    cnn_params.update(
-        output_size=256,
-        added_fc_input_size=policy_added_input_dim,
-        hidden_sizes=[1024, 512],
-    )
-    policy_obs_processor = CNN(**cnn_params)
-    policy = TanhGaussianPolicyAdapter(
-        policy_obs_processor,
-        cnn_params['output_size'],
-        action_dim,
-        hidden_sizes=[256, 256, 256],
-    )
-
-    if variant['use_robot_state']:
-        observation_keys = ['image', 'state']
-    else:
-        observation_keys = ['image']
-
     # context encoder
     reward_dim = 1
+    latent_dim = variant['latent_dim']
     assert not variant['use_next_obs_in_context']
     context_encoder_output_dim = latent_dim * 2
     cnn_params.update(
@@ -112,29 +117,15 @@ def experiment(variant):
     context_decoder = ConcatCNN(**cnn_params)
     reward_predictor = context_decoder
 
+
     agent = PEARLAgent(
-        latent_dim,
+        variant['latent_dim'],
         context_encoder,
         policy,
         reward_predictor,
         obs_keys=observation_keys,
         use_next_obs_in_context=variant['use_next_obs_in_context'],
         _debug_do_not_sqrt=variant['_debug_do_not_sqrt'],
-    )
-
-    trainer_kwargs = variant['trainer_kwargs']
-    trainer = PearlCqlTrainer(
-        latent_dim=variant['latent_dim'],
-        agent=agent,
-        qf1=qf1,
-        qf2=qf2,
-        target_qf1=target_qf1,
-        target_qf2=target_qf2,
-        reward_predictor=reward_predictor,
-        context_encoder=context_encoder,
-        context_decoder=context_decoder,
-        action_space=expl_env.action_space,
-        **trainer_kwargs
     )
 
     train_task_indices = [0, 1]
@@ -149,7 +140,12 @@ def experiment(variant):
         'task_embedding_batch_size': 64,
     }
 
-    max_replay_buffer_size = int(5E5)
+    # max_replay_buffer_size = int(5E5)
+    with open(variant['buffer_a'], 'rb') as fl:
+        data = np.load(fl, allow_pickle=True)
+    num_transitions = get_buffer_size(data)
+    max_replay_buffer_size = num_transitions + 10
+    max_replay_buffer_size = int(max_replay_buffer_size)
 
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
@@ -169,10 +165,6 @@ def experiment(variant):
         observation_keys=observation_keys
     )
 
-    # import IPython; IPython.embed()
-
-    with open(variant['buffer_a'], 'rb') as fl:
-        data = np.load(fl, allow_pickle=True)
     add_data_to_buffer_multitask(data, replay_buffer, observation_keys, task=0)
     add_data_to_buffer_multitask(data, enc_replay_buffer, observation_keys, task=0)
 
@@ -181,10 +173,38 @@ def experiment(variant):
     add_data_to_buffer_multitask(data, replay_buffer, observation_keys, task=1)
     add_data_to_buffer_multitask(data, enc_replay_buffer, observation_keys, task=1)
 
+    if variant['use_negative_rewards']:
+        for ind in train_task_indices:
+            task_buffer = replay_buffer.task_buffers[ind]
+            if set(np.unique(task_buffer._rewards)).issubset({0, 1}):
+                task_buffer._rewards = task_buffer._rewards - 1.0
+            assert set(np.unique(task_buffer._rewards)).issubset({0, -1})
 
-    # eval_pearl_fn = EvalPearl(
-    #     algorithm, train_task_indices, eval_task_indices
-    # )
+        for ind in train_task_indices:
+            task_buffer = enc_replay_buffer.task_buffers[ind]
+            if set(np.unique(task_buffer._rewards)).issubset({0, 1}):
+                task_buffer._rewards = task_buffer._rewards - 1.0
+            assert set(np.unique(task_buffer._rewards)).issubset({0, -1})
+
+    trainer_kwargs = variant['trainer_kwargs']
+    networks_ignore_context = False
+    use_ground_truth_context = False
+    trainer = PearlAwacTrainer(
+        agent=agent,
+        env=expl_env,
+        latent_dim=variant['latent_dim'],
+        qf1=qf1,
+        qf2=qf2,
+        target_qf1=target_qf1,
+        target_qf2=target_qf2,
+        reward_predictor=reward_predictor,
+        context_encoder=context_encoder,
+        context_decoder=context_decoder,
+        _debug_ignore_context=networks_ignore_context,
+        _debug_use_ground_truth_context=use_ground_truth_context,
+        **trainer_kwargs
+    )
+
     video_saver = VideoSaveFunctionBasic(variant)
 
     pretrain_algo = OfflineMetaRLAlgorithm(
@@ -203,50 +223,67 @@ def experiment(variant):
     pretrain_algo.to(ptu.device)
     pretrain_algo.train()
 
-    # algorithm.to(ptu.device)
-    # algorithm.train()
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--env", type=str, default='Widow250MetaGraspVaseShed-v0')
+    parser.add_argument("--buffer-a", type=str, default=BUFFER_1)
+    parser.add_argument("--buffer-b", type=str, default=BUFFER_2)
 
-def enable_gpus(gpu_str):
-    if gpu_str != "":
-        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
-    return
+    parser.add_argument("--beta", type=float, default=1.0)
+    parser.add_argument('--use-robot-state', action='store_true', default=False)
+    parser.add_argument('--use-negative-rewards', action='store_true',
+                        default=False)
 
+    parser.add_argument("--gpu", default='0', type=str)
 
-if __name__ == "__main__":
-    # noinspection PyTypeChecker
+    args = parser.parse_args()
+
     variant = dict(
-        algorithm="Pearl-CQL",
+        algorithm='AWAC-PEARL',
+        env=args.env,
+        buffer_a=args.buffer_a,
+        buffer_b=args.buffer_b,
+
+        use_negative_rewards=args.use_negative_rewards,
+        use_robot_state=args.use_robot_state,
         latent_dim=5,
-        dump_video_kwargs=dict(
-            save_video_period=1,
-        ),
-        # from standard image-based CQL
+
+        use_next_obs_in_context=False,
+        _debug_do_not_sqrt=False,
+
         trainer_kwargs=dict(
             discount=0.99,
             soft_target_tau=5e-3,
-            policy_lr=1E-4,
+            target_update_period=1,
+            policy_lr=3E-4,
             qf_lr=3E-4,
             reward_scale=1,
-            use_automatic_entropy_tuning=True,
+            beta=args.beta,
+            use_automatic_entropy_tuning=False,
+            alpha=0,
+            compute_bc=False,
+            awr_min_q=True,
 
-            # Target nets/ policy vs Q-function update
-            policy_eval_start=0,
-            num_qs=2,
+            bc_num_pretrain_steps=0,
+            q_num_pretrain1_steps=0,
+            q_num_pretrain2_steps=0,
+            # q_num_pretrain2_steps=25000,
+            policy_weight_decay=1e-4,
+            q_weight_decay=0,
 
-            # min Q
-            temp=1.0,
-            min_q_version=3,
-            min_q_weight=1.0,
+            rl_weight=1.0,
+            use_awr_update=True,
+            use_reparam_update=False,
+            reparam_weight=0.0,
+            awr_weight=1.0,
+            bc_weight=0.0,
 
-            # lagrange
-            with_lagrange=False,  # Defaults to False
-            lagrange_thresh=10.0,
+            reward_transform_kwargs=None,
+            terminal_transform_kwargs=dict(m=0, b=0),
 
-            # extra params
-            num_random=1,
-            max_q_backup=False,
-            deterministic_backup=True,
+            awr_use_mle_for_vf=True,
+            clip_score=0.5,
 
             # pearl kwargs
             backprop_q_loss_into_encoder=False,
@@ -254,24 +291,10 @@ if __name__ == "__main__":
         ),
     )
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default='Widow250MetaGraspVaseShed-v0')
-    parser.add_argument("--buffer-a", type=str, default=BUFFER_1)
-    parser.add_argument("--buffer-b", type=str, default=BUFFER_2)
-
-    parser.add_argument('--use-robot-state', action='store_true', default=False)
-    parser.add_argument("--gpu", default='0', type=str)
-    args = parser.parse_args()
-
-    variant['env'] = args.env
-    variant['use_robot_state'] = args.use_robot_state
-    variant['buffer_a'] = args.buffer_a
-    variant['buffer_b'] = args.buffer_b
-
-    variant['_debug_do_not_sqrt'] = False
-    variant['use_next_obs_in_context'] = False
-
     variant['cnn_params'] = dict(
+        input_width=48,
+        input_height=48,
+        input_channels=3,
         kernel_sizes=[3, 3, 3],
         n_channels=[16, 16, 16],
         strides=[1, 1, 1],
@@ -288,61 +311,12 @@ if __name__ == "__main__":
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-pearl-cql-{}'.format(time.strftime("%y-%m-%d"), args.env)
+    exp_prefix = '{}-awac-pearl-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
     if osp.isdir(CUSTOM_LOG_DIR):
         base_log_dir = CUSTOM_LOG_DIR
     else:
         base_log_dir = LOCAL_LOG_DIR
     setup_logger(logger, exp_prefix, base_log_dir, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
+
     experiment(variant)
-
-
-    # train_tasks = [{'object': 0}, {'object': 1}]
-    # eval_tasks = [{'object': 0}, {'object': 1}]
-    # policy = TanhGaussianPolicy(
-    #     obs_dim=cnn_params['output_size'],
-    #     action_dim=action_dim,
-    #     hidden_sizes=[256, 256, 256],
-    #     obs_processor=policy_obs_processor,
-    # )
-    # algo_kwargs = {
-    #     'num_iterations': 5,
-    #     'meta_batch': 4,
-    #     'embedding_batch_size': 256,
-    #     'num_initial_steps': 2000,
-    #     'num_steps_prior': 400,
-    #     'num_steps_posterior': 0,
-    #     'num_extra_rl_steps_posterior': 600,
-    #     'num_train_steps_per_itr': 4000,
-    #     'num_evals': 10, # number of independent evals per task
-    #     'num_exp_traj_eval': 2,
-    #     'num_steps_per_eval': 1000, # number of steps to eval for
-    # }
-    # algorithm = MetaRLAlgorithm(
-    #     agent=agent,
-    #     env=expl_env,
-    #     trainer=trainer,
-    #     train_task_indices=train_task_indices,
-    #     eval_task_indices=eval_task_indices,
-    #     train_tasks=train_tasks,
-    #     eval_tasks=eval_tasks,
-    #     use_next_obs_in_context=variant['use_next_obs_in_context'],
-    #     # env_info_sizes=get_env_info_sizes(expl_env),
-    #     env_info_sizes={},  # TODO(avi) check what this is used for
-    #     **algo_kwargs
-    # )
-    # load_buffer_kwargs = {
-    #     'pretrain_buffer_path': "21-02-22-ant-awac--exp7-ant-dir-4-eval-4-train-"
-    #                             "sac-to-get-buffer-longer/21-02-22-ant-awac--exp7"
-    #                             "-ant-dir-4-eval-4-train-sac-to-get-buffer-longer"
-    #                             "_2021_02_23_06_09_23_id000--s270987/extra_snapshot_itr400.cpkl"
-    # }
-    # saved_tasks_path = "demos/ant_four_dir/buffer_550k_each/tasks.pkl"
-    # load_buffer_kwargs = {
-    #     'pretrain_buffer_path': ''
-    # }
-    # load_buffer_onto_algo(
-    #     algorithm.replay_buffer,
-    #     algorithm.enc_replay_buffer,
-    #     **load_buffer_kwargs)
