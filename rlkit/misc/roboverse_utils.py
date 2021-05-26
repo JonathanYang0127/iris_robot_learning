@@ -113,3 +113,11 @@ def dump_video_basic(video_dir, paths):
         for j in range(video.shape[0]):
             writer.write(cv2.cvtColor(video[j], cv2.COLOR_RGB2BGR))
         writer = None
+
+
+def get_buffer_size(data):
+    num_transitions = 0
+    for i in range(len(data)):
+        for j in range(len(data[i]['observations'])):
+            num_transitions += 1
+    return num_transitions
