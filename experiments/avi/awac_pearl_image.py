@@ -311,7 +311,7 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}awac-preal-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
+    exp_prefix = '{}-awac-pearl-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
     if osp.isdir(CUSTOM_LOG_DIR):
         base_log_dir = CUSTOM_LOG_DIR
     else:
