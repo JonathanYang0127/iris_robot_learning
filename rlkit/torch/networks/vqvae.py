@@ -8,7 +8,7 @@ from rlkit.torch.networks.cnn import CNN
 
 class VQVAEWrapper(CNN):
     """
-    Two headed version of CNN. MLP layers of size 'hidden_sizes' are duplicated
+    Wrapper for VQVAE observation processor.
     """
     def __init__(self, vqvae, *args, encoding_type='e', **kwargs):
         super().__init__(*args, **kwargs)
@@ -29,7 +29,6 @@ class VQVAEWrapper(CNN):
         ).cuda()
         test_mat = self.apply_forward_conv(test_mat)
         self.conv_output_flat_size = int(np.prod(test_mat.shape))
-        print('***********', self.conv_output_flat_size)
         self.fc_layers, self.fc_norm_layers, self.last_fc = self.initialize_fc_layers(self.hidden_sizes,
             self.output_size, self.conv_output_flat_size, self.added_fc_input_size, self.init_w)
 
