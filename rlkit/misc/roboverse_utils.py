@@ -61,6 +61,23 @@ def add_data_to_buffer_multitask(data, replay_buffer, observation_keys, task):
         replay_buffer.add_path(task, path)
 
 
+def add_data_to_buffer_multitask_v2(data, replay_buffer, observation_keys):
+
+    for j in range(len(data)):
+        assert (len(data[j]['actions']) == len(data[j]['observations']) == len(
+            data[j]['next_observations']))
+
+        path = dict(
+            rewards=[np.asarray([r]) for r in data[j]['rewards']],
+            actions=data[j]['actions'],
+            terminals=[np.asarray([t]) for t in data[j]['terminals']],
+            observations=process_keys(data[j]['observations'], observation_keys),
+            next_observations=process_keys(
+                data[j]['next_observations'], observation_keys),
+        )
+        replay_buffer.add_path(data[j]['env_infos'][0]['task_idx'], path)
+
+
 class VideoSaveFunctionBullet:
     def __init__(self, variant):
         self.logdir = logger.get_snapshot_dir()
@@ -115,9 +132,18 @@ def dump_video_basic(video_dir, paths):
         writer = None
 
 
+def get_buffer_size_multitask(data):
+    num_transitions = {}
+    for i in range(len(data)):
+        task_id = data[i]['env_infos'][0]['task_idx']
+        if task_id not in num_transitions.keys():
+            num_transitions[task_id] = 0
+        num_transitions[task_id] += len(data[i]['observations'])
+    return max(num_transitions.values())
+
+
 def get_buffer_size(data):
     num_transitions = 0
     for i in range(len(data)):
-        for j in range(len(data[i]['observations'])):
-            num_transitions += 1
+        num_transitions += len(data[i]['observations'])
     return num_transitions
