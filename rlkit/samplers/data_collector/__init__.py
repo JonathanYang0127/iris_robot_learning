@@ -7,7 +7,7 @@ from rlkit.samplers.data_collector.path_collector import (
     MdpPathCollector,
     ObsDictPathCollector,
     GoalConditionedPathCollector,
-    VAEWrappedEnvPathCollector,
+#    VAEWrappedEnvPathCollector,
 )
 from rlkit.samplers.data_collector.step_collector import (
     GoalConditionedStepCollector
