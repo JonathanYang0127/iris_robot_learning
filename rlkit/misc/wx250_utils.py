@@ -28,7 +28,7 @@ class DummyEnv:
         raise NotImplementedError
 
 
-def add_data_to_buffer(data_path, replay_buffer, validation_replay_buffer=None,
+def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_buffer=None,
                        validation_fraction=0.8):
     with open(data_path, 'rb') as handle:
         paths = pickle.load(handle)

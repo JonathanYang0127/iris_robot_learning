@@ -16,7 +16,7 @@ from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
-from rlkit.misc.wx250_utils import add_data_to_buffer, DummyEnv
+from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv
 
 import roboverse
 import numpy as np
@@ -87,7 +87,7 @@ def experiment(variant):
         expl_env,
         observation_keys=observation_keys
     )
-    add_data_to_buffer(variant['buffer'], replay_buffer,
+    add_data_to_buffer_real_robot(variant['buffer'], replay_buffer,
                        validation_replay_buffer=None,
                        validation_fraction=0.8)
 
