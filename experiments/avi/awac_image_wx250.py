@@ -21,9 +21,7 @@ from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv
 import roboverse
 import numpy as np
 
-from doodad.easy_launch.config import LOCAL_LOG_DIR
-#CUSTOM_LOG_DIR = '/nfs/kun1/users/avi/doodad-output/'
-#LOCAL_LOG_DIR = '/home/jonathanyang0127/doodad-output'
+from rlkit.launchers.config import LOCAL_LOG_DIR
 
 BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16_1000.npy'
 
@@ -236,12 +234,7 @@ if __name__ == '__main__':
     ptu.set_gpu_mode(True)
 
     exp_prefix = '{}-awac-image-wx250'.format(time.strftime("%y-%m-%d"))
-    base_log_dir = LOCAL_LOG_DIR
-    #if osp.isdir(CUSTOM_LOG_DIR):
-    #    base_log_dir = CUSTOM_LOG_DIR
-    #else:
-    #    base_log_dir = LOCAL_LOG_DIR
-    setup_logger(logger, exp_prefix, base_log_dir, variant=variant,
+    setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
 
     experiment(variant)
