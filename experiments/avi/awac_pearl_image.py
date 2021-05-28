@@ -216,7 +216,8 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-
+    parser.add_argument('--backprop-q-loss-into-encoder', action='store_true',
+                        default=False)
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -266,7 +267,7 @@ if __name__ == '__main__':
             clip_score=0.5,
 
             # pearl kwargs
-            backprop_q_loss_into_encoder=False,
+            backprop_q_loss_into_encoder=args.backprop_q_loss_into_encoder,
             train_context_decoder=True,
         ),
     )
