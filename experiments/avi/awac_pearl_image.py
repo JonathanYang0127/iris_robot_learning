@@ -36,14 +36,13 @@ import numpy as np
 import os
 from rlkit.torch.sac.policies import GaussianCNNPolicy
 
-from rlkit.misc.roboverse_utils import add_data_to_buffer_multitask, get_buffer_size
+from rlkit.misc.roboverse_utils import add_data_to_buffer_multitask_v2, get_buffer_size_multitask
 from rlkit.torch.pearl.pearl_awac import PearlAwacTrainer
 
 CUSTOM_LOG_DIR = '/nfs/kun1/users/avi/doodad-output/'
 LOCAL_LOG_DIR = '/media/avi/data/Work/doodad_output/'
 
-BUFFER_1 = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16_1000.npy'
-BUFFER_2 = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspVase-v0_1000_save_all_noise_0.1_2021-05-14T16-39-22/may14_meta_Widow250MultiTaskGraspVase-v0_1000_save_all_noise_0.1_2021-05-14T16-39-22_1000.npy'
+BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/test_meta_may26/scripted_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_2021-05-26T15-39-34.npy'
 
 
 def enable_gpus(gpu_str):
@@ -67,7 +66,7 @@ def experiment(variant):
     cnn_params = variant['cnn_params']
     cnn_params.update(
         # output_size=action_dim,
-        added_fc_input_size=state_observation_dim +  + variant['latent_dim'],
+        added_fc_input_size=state_observation_dim + variant['latent_dim'],
     )
 
     policy = GaussianCNNPolicy(max_log_std=0,
@@ -76,14 +75,6 @@ def experiment(variant):
                                action_dim=action_dim,
                                std_architecture="values",
                                **cnn_params)
-    buffer_policy = GaussianCNNPolicy(max_log_std=0,
-                                      min_log_std=-6,
-                                      obs_dim=None,
-                                      action_dim=action_dim,
-                                      std_architecture="values",
-                                      **cnn_params)
-
-
     cnn_params.update(
         output_size=1,
         added_fc_input_size=state_observation_dim + action_dim + variant['latent_dim'],
@@ -117,7 +108,6 @@ def experiment(variant):
     context_decoder = ConcatCNN(**cnn_params)
     reward_predictor = context_decoder
 
-
     agent = PEARLAgent(
         variant['latent_dim'],
         context_encoder,
@@ -128,8 +118,8 @@ def experiment(variant):
         _debug_do_not_sqrt=variant['_debug_do_not_sqrt'],
     )
 
-    train_task_indices = [0, 1]
-    eval_task_indices = [0, 1]
+    train_task_indices = list(range(32))
+    eval_task_indices = list(range(8))
 
     pretrain_offline_algo_kwargs = {
         'batch_size': 128,
@@ -140,12 +130,10 @@ def experiment(variant):
         'task_embedding_batch_size': 64,
     }
 
-    # max_replay_buffer_size = int(5E5)
-    with open(variant['buffer_a'], 'rb') as fl:
+    with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
-    num_transitions = get_buffer_size(data)
+    num_transitions = get_buffer_size_multitask(data)
     max_replay_buffer_size = num_transitions + 10
-    max_replay_buffer_size = int(max_replay_buffer_size)
 
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
@@ -165,13 +153,8 @@ def experiment(variant):
         observation_keys=observation_keys
     )
 
-    add_data_to_buffer_multitask(data, replay_buffer, observation_keys, task=0)
-    add_data_to_buffer_multitask(data, enc_replay_buffer, observation_keys, task=0)
-
-    with open(variant['buffer_b'], 'rb') as fl:
-        data = np.load(fl, allow_pickle=True)
-    add_data_to_buffer_multitask(data, replay_buffer, observation_keys, task=1)
-    add_data_to_buffer_multitask(data, enc_replay_buffer, observation_keys, task=1)
+    add_data_to_buffer_multitask_v2(data, replay_buffer, observation_keys)
+    add_data_to_buffer_multitask_v2(data, enc_replay_buffer, observation_keys)
 
     if variant['use_negative_rewards']:
         for ind in train_task_indices:
@@ -226,10 +209,9 @@ def experiment(variant):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default='Widow250MetaGraspVaseShed-v0')
-    parser.add_argument("--buffer-a", type=str, default=BUFFER_1)
-    parser.add_argument("--buffer-b", type=str, default=BUFFER_2)
-
+    parser.add_argument("--env", type=str,
+        default='Widow250PickPlaceMetaTestMultiObjectMultiContainer-v0')
+    parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--beta", type=float, default=1.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
@@ -242,9 +224,7 @@ if __name__ == '__main__':
     variant = dict(
         algorithm='AWAC-PEARL',
         env=args.env,
-        buffer_a=args.buffer_a,
-        buffer_b=args.buffer_b,
-
+        buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
         latent_dim=5,
