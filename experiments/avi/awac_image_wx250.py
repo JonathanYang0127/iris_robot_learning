@@ -81,7 +81,6 @@ def experiment(variant):
     target_qf1 = ConcatCNN(**cnn_params)
     target_qf2 = ConcatCNN(**cnn_params)
 
-    
     replay_buffer = ObsDictReplayBuffer(
         int(1E6),
         expl_env,
