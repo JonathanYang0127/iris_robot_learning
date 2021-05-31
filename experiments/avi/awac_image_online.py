@@ -80,7 +80,7 @@ def experiment(variant):
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
     num_transitions = get_buffer_size(data)
-    max_replay_buffer_size = num_transitions + 10
+    max_replay_buffer_size = num_transitions + 15000*3
     replay_buffer = ObsDictReplayBuffer(
         max_replay_buffer_size,
         expl_env,
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     variant = dict(
         algorithm="AWAC-Pixel",
 
-        num_epochs=3000,
+        num_epochs=1000,
         batch_size=256,
         max_path_length=30,
         num_trains_per_train_loop=args.num_train_steps,
