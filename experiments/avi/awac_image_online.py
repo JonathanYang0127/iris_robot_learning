@@ -231,7 +231,7 @@ if __name__ == '__main__':
             use_reparam_update=False,
             reparam_weight=0.0,
             awr_weight=1.0,
-            bc_weight=0.0,
+            bc_weight=1.0, # Not used during RL unless compute_bc is True
 
             reward_transform_kwargs=None,
             terminal_transform_kwargs=dict(m=0, b=0),
