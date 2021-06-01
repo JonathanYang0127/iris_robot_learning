@@ -84,7 +84,10 @@ def experiment(variant):
     replay_buffer = ObsDictReplayBuffer(
         max_replay_buffer_size,
         expl_env,
-        observation_keys=observation_keys
+        observation_keys=observation_keys,
+
+        bias_point=num_transitions,
+        before_bias_point_probability=0.5,
     )
     add_data_to_buffer(data, replay_buffer, observation_keys)
 
@@ -133,6 +136,7 @@ def experiment(variant):
         num_expl_steps_per_train_loop=variant['num_expl_steps_per_train_loop'],
         num_trains_per_train_loop=variant['num_trains_per_train_loop'],
         min_num_steps_before_training=variant['min_num_steps_before_training'],
+        biased_sampling=variant['biased_sampling'],
     )
 
     video_func = VideoSaveFunctionBullet(variant)
@@ -163,6 +167,8 @@ if __name__ == '__main__':
                         default=False)
     parser.add_argument('--set-prior-reward-zero', action='store_true',
                         default=False)
+    parser.add_argument('--biased-sampling', action='store_true',
+                        default=False)
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -178,6 +184,7 @@ if __name__ == '__main__':
         num_expl_steps_per_train_loop=150,
         min_num_steps_before_training=0,
         prior_reward_zero=args.set_prior_reward_zero,
+        biased_sampling=args.biased_sampling,
 
         dump_video_kwargs=dict(
             save_video_period=1,
