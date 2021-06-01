@@ -168,6 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
 
     parser.add_argument('--num-expl-steps', type=int, default=150)
+    parser.add_argument('--num-steps-before-training', type=int, default=0)
     parser.add_argument('--num-train-steps', type=int, default=1000)
     parser.add_argument('--num-bc-pretrain-steps', type=int, default=0)
     parser.add_argument('--num-pretrain-steps', type=int, default=25000)
@@ -193,7 +194,7 @@ if __name__ == '__main__':
         num_trains_per_train_loop=args.num_train_steps,
         num_eval_steps_per_epoch=150,
         num_expl_steps_per_train_loop=args.num_expl_steps,
-        min_num_steps_before_training=0,
+        min_num_steps_before_training=args.num_steps_before_training,
         prior_reward_zero=args.set_prior_reward_zero,
         biased_sampling=args.biased_sampling,
 
