@@ -144,6 +144,11 @@ def experiment(variant):
     algorithm.post_train_funcs.append(video_func)
 
     algorithm.to(ptu.device)
+    trainer.pretrain_policy_with_bc(
+        policy,
+        replay_buffer,
+        variant['trainer_kwargs']['bc_num_pretrain_steps']
+    )
     trainer.pretrain_q_with_bc_data(replay_buffer)
     algorithm.train()
 
@@ -164,6 +169,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--num-expl-steps', type=int, default=150)
     parser.add_argument('--num-train-steps', type=int, default=1000)
+    parser.add_argument('--num-bc-pretrain-steps', type=int, default=0)
     parser.add_argument('--num-pretrain-steps', type=int, default=25000)
 
     parser.add_argument('--use-negative-rewards', action='store_true',
@@ -213,7 +219,7 @@ if __name__ == '__main__':
             compute_bc=False,
             awr_min_q=args.awr_min_q,
 
-            bc_num_pretrain_steps=0,
+            bc_num_pretrain_steps=args.num_bc_pretrain_steps,
             q_num_pretrain1_steps=0,
             # q_num_pretrain2_steps=0,
             q_num_pretrain2_steps=args.num_pretrain_steps,

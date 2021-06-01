@@ -252,7 +252,7 @@ class AWACTrainer(TorchTrainer):
 
         return policy_loss, logp_loss, mse_loss, stats
 
-    def pretrain_policy_with_bc(self, policy, train_buffer, test_buffer, steps, label="policy", ):
+    def pretrain_policy_with_bc(self, policy, train_buffer, steps, test_buffer=None, label="policy", ):
         logger.remove_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True,
         )
@@ -270,20 +270,26 @@ class AWACTrainer(TorchTrainer):
             train_policy_loss.backward()
             optimizer.step()
 
-            test_policy_loss, test_logp_loss, test_mse_loss, test_stats = self.run_bc_batch(test_buffer, policy)
-            test_policy_loss = test_policy_loss * self.bc_weight
+            if test_buffer is not None:
+                test_policy_loss, test_logp_loss, test_mse_loss, test_stats = self.run_bc_batch(test_buffer, policy)
+                test_policy_loss = test_policy_loss * self.bc_weight
 
             if i % self.pretraining_logging_period==0:
                 stats = {
                 "pretrain_bc/batch": i,
                 "pretrain_bc/Train Logprob Loss": ptu.get_numpy(train_logp_loss),
-                "pretrain_bc/Test Logprob Loss": ptu.get_numpy(test_logp_loss),
                 "pretrain_bc/Train MSE": ptu.get_numpy(train_mse_loss),
-                "pretrain_bc/Test MSE": ptu.get_numpy(test_mse_loss),
                 "pretrain_bc/train_policy_loss": ptu.get_numpy(train_policy_loss),
-                "pretrain_bc/test_policy_loss": ptu.get_numpy(test_policy_loss),
                 "pretrain_bc/epoch_time":time.time()-prev_time,
                 }
+
+                if test_buffer is not None:
+                    stats.update({
+                        "pretrain_bc/Test Logprob Loss": ptu.get_numpy(test_logp_loss),
+                        "pretrain_bc/Test MSE": ptu.get_numpy(test_mse_loss),
+                        "pretrain_bc/test_policy_loss": ptu.get_numpy(test_policy_loss),
+
+                    })
 
                 logger.record_dict(stats)
                 logger.dump_tabular(with_prefix=True, with_timestamp=False)
