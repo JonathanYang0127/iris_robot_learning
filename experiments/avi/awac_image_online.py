@@ -172,6 +172,8 @@ if __name__ == '__main__':
                         default=False)
     parser.add_argument('--biased-sampling', action='store_true',
                         default=False)
+    parser.add_argument('--awr-min-q', action='store_true',
+                        default=False)
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -209,7 +211,7 @@ if __name__ == '__main__':
             use_automatic_entropy_tuning=False,
             alpha=0,
             compute_bc=False,
-            awr_min_q=True,
+            awr_min_q=args.awr_min_q,
 
             bc_num_pretrain_steps=0,
             q_num_pretrain1_steps=0,
