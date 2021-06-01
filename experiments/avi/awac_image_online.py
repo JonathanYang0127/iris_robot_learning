@@ -80,7 +80,8 @@ def experiment(variant):
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
     num_transitions = get_buffer_size(data)
-    max_replay_buffer_size = num_transitions + 15000*3
+    max_replay_buffer_size = num_transitions + \
+                             variant['num_expl_steps_per_train_loop']*1000
     replay_buffer = ObsDictReplayBuffer(
         max_replay_buffer_size,
         expl_env,
@@ -160,6 +161,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--beta", type=float, default=1.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
+
+    parser.add_argument('--num-expl-steps', type=int, default=150)
     parser.add_argument('--num-train-steps', type=int, default=1000)
     parser.add_argument('--num-pretrain-steps', type=int, default=25000)
 
@@ -181,7 +184,7 @@ if __name__ == '__main__':
         max_path_length=30,
         num_trains_per_train_loop=args.num_train_steps,
         num_eval_steps_per_epoch=150,
-        num_expl_steps_per_train_loop=150,
+        num_expl_steps_per_train_loop=args.num_expl_steps,
         min_num_steps_before_training=0,
         prior_reward_zero=args.set_prior_reward_zero,
         biased_sampling=args.biased_sampling,
