@@ -88,6 +88,9 @@ def experiment(variant):
     )
     add_data_to_buffer(data, replay_buffer, observation_keys)
 
+    if variant['prior_reward_zero']:
+        replay_buffer._rewards = replay_buffer._rewards*0.0
+
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
@@ -158,7 +161,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-
+    parser.add_argument('--set-prior-reward-zero', action='store_true',
+                        default=False)
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -173,6 +177,7 @@ if __name__ == '__main__':
         num_eval_steps_per_epoch=150,
         num_expl_steps_per_train_loop=150,
         min_num_steps_before_training=0,
+        prior_reward_zero=args.set_prior_reward_zero,
 
         dump_video_kwargs=dict(
             save_video_period=1,
