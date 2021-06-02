@@ -88,7 +88,7 @@ def experiment(variant):
         observation_keys=observation_keys,
 
         bias_point=num_transitions,
-        before_bias_point_probability=0.5,
+        before_bias_point_probability=variant['prior_data_probability'],
     )
     add_data_to_buffer(data, replay_buffer, observation_keys)
 
@@ -179,6 +179,7 @@ if __name__ == '__main__':
                         default=False)
     parser.add_argument('--biased-sampling', action='store_true',
                         default=False)
+    parser.add_argument('--prior-data-probability', type=float, default=0.5)
     parser.add_argument('--awr-min-q', action='store_true',
                         default=False)
     parser.add_argument("--gpu", default='0', type=str)
@@ -197,6 +198,7 @@ if __name__ == '__main__':
         min_num_steps_before_training=args.num_steps_before_training,
         prior_reward_zero=args.set_prior_reward_zero,
         biased_sampling=args.biased_sampling,
+        prior_data_probability=args.prior_data_probability,
 
         dump_video_kwargs=dict(
             save_video_period=1,
