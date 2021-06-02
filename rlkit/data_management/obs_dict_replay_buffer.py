@@ -171,13 +171,22 @@ class ObsDictReplayBuffer(ReplayBuffer):
 
     def _sample_indices(self, batch_size, biased_sampling):
         if biased_sampling:
+            indices_any = np.random.randint(0, self._size, batch_size//2)
+            indices_positive = np.argwhere(self._rewards)[:, 0]
+            if indices_positive.shape[0] > 0:
+                indices_positive = np.random.choice(indices_positive,
+                                                size=batch_size//2)
+            else:
+                indices_positive = np.random.randint(0, self._size,
+                                                     batch_size//2)
+            indices = np.concatenate([indices_any, indices_positive])
             # sample from before the "bias point" with p=before_bias_point_prob
-            assert self.bias_point is not None
-            indices_1 = np.random.randint(0, self.bias_point, batch_size)
-            indices_2 = np.random.randint(self.bias_point, self._size, batch_size)
-            biased_coin_flip = (np.random.uniform(size=batch_size) <
-                                self.before_bias_point_probability) * 1
-            indices = np.where(biased_coin_flip, indices_1, indices_2)
+            # assert self.bias_point is not None
+            # indices_1 = np.random.randint(0, self.bias_point, batch_size)
+            # indices_2 = np.random.randint(self.bias_point, self._size, batch_size)
+            # biased_coin_flip = (np.random.uniform(size=batch_size) <
+            #                     self.before_bias_point_probability) * 1
+            # indices = np.where(biased_coin_flip, indices_1, indices_2)
         else:
             indices = np.random.randint(0, self._size, batch_size)
         return indices
