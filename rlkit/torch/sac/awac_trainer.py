@@ -104,6 +104,8 @@ class AWACTrainer(TorchTrainer):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
+
+        self.single_q = self.qf2 is None
         self.buffer_policy = buffer_policy
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
@@ -145,11 +147,12 @@ class AWACTrainer(TorchTrainer):
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
-        self.qf2_optimizer = optimizer_class(
-            self.qf2.parameters(),
-            weight_decay=q_weight_decay,
-            lr=qf_lr,
-        )
+        if not self.single_q:
+            self.qf2_optimizer = optimizer_class(
+                self.qf2.parameters(),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
 
         if buffer_policy and train_bc_on_rl_buffer:
             self.buffer_policy_optimizer =  optimizer_class(
@@ -406,7 +409,7 @@ class AWACTrainer(TorchTrainer):
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
         new_log_pi = new_log_pi.unsqueeze(1)
-        target_q_values = torch.min(
+        target_q_values = torch.mean(
             self.target_qf1(next_obs, new_next_actions),
             self.target_qf2(next_obs, new_next_actions),
         ) - alpha * new_log_pi
@@ -487,51 +490,73 @@ class AWACTrainer(TorchTrainer):
         QF Loss
         """
         q1_pred = self.qf1(obs, actions)
-        q2_pred = self.qf2(obs, actions)
+        if not self.single_q:
+            q2_pred = self.qf2(obs, actions)
         # Make sure policy accounts for squashing functions like tanh correctly!
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
         new_log_pi = new_log_pi.unsqueeze(1)
-        target_q_values = torch.min(
-            self.target_qf1(next_obs, new_next_actions),
-            self.target_qf2(next_obs, new_next_actions),
-        ) - alpha * new_log_pi
+        if self.single_q:
+            target_q_values = self.target_qf1(next_obs, new_next_actions) - alpha * new_log_pi
+        else: 
+            target_q_values = (self.target_qf1(next_obs, new_next_actions) + self.target_qf2(next_obs, new_next_actions)) / 2 - alpha * new_log_pi
 
         q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
-        qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
+        if not self.single_q:
+            qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
 
         """
         Policy Loss
         """
         qf1_new_actions = self.qf1(obs, new_obs_actions)
-        qf2_new_actions = self.qf2(obs, new_obs_actions)
-        q_new_actions = torch.min(
-            qf1_new_actions,
-            qf2_new_actions,
-        )
+        if not self.single_q:
+            qf2_new_actions = self.qf2(obs, new_obs_actions)
+
+        if self.single_q:
+            q_new_actions = qf1_new_actions
+        else:
+            q_new_actions = torch.min(
+                qf1_new_actions,
+                qf2_new_actions,
+            )
 
         # Advantage-weighted regression
         if self.awr_use_mle_for_vf:
             v1_pi = self.qf1(obs, policy_mle)
-            v2_pi = self.qf2(obs, policy_mle)
-            v_pi = torch.min(v1_pi, v2_pi)
+            if not self.single_q:
+                v2_pi = self.qf2(obs, policy_mle)
+
+            if self.single_q:
+                v_pi = v1_pi
+            else:
+                v_pi = torch.min(v1_pi, v2_pi)
         else:
             if self.vf_K > 1:
                 vs = []
                 for i in range(self.vf_K):
                     u = dist.sample()
                     q1 = self.qf1(obs, u)
-                    q2 = self.qf2(obs, u)
-                    v = torch.min(q1, q2)
+                    if not self.single_q:
+                        q2 = self.qf2(obs, u)
+                    
+                    if self.single_q:
+                        v = q1
+                    else:
+                        v = torch.min(q1, q2)
                     # v = q1
                     vs.append(v)
                 v_pi = torch.cat(vs, 1).mean(dim=1)
             else:
                 # v_pi = self.qf1(obs, new_obs_actions)
                 v1_pi = self.qf1(obs, new_obs_actions)
-                v2_pi = self.qf2(obs, new_obs_actions)
-                v_pi = torch.min(v1_pi, v2_pi)
+                if not self.single_q:
+                    v2_pi = self.qf2(obs, new_obs_actions)
+
+                if self.single_q:
+                    v_pi = v1_pi
+                else:   
+                    v_pi = torch.min(v1_pi, v2_pi)
 
         if self.awr_sample_actions:
             u = new_obs_actions
@@ -543,18 +568,23 @@ class AWACTrainer(TorchTrainer):
             buf_dist = self.buffer_policy(obs)
             u, _ = buf_dist.rsample_and_logprob()
             qf1_buffer_actions = self.qf1(obs, u)
-            qf2_buffer_actions = self.qf2(obs, u)
-            q_buffer_actions = torch.min(
-                qf1_buffer_actions,
-                qf2_buffer_actions,
-            )
+            if not self.single_q:
+                qf2_buffer_actions = self.qf2(obs, u)
+
+            if self.single_q:
+                q_buffer_actions = qf1_buffer_actions
+            else:
+                q_buffer_actions = torch.min(
+                    qf1_buffer_actions,
+                    qf2_buffer_actions,
+                )
             if self.awr_min_q:
                 q_adv = q_buffer_actions
             else:
                 q_adv = qf1_buffer_actions
         else:
             u = actions
-            if self.awr_min_q:
+            if self.awr_min_q and not self.single_q:
                 q_adv = torch.min(q1_pred, q2_pred)
             else:
                 q_adv = q1_pred
@@ -598,8 +628,13 @@ class AWACTrainer(TorchTrainer):
             log_pi = torch.cat(log_pis, 0)
             log_pi = log_pi.sum(dim=1, )
             q1_b = self.qf1(buffer_obs, buffer_actions)
-            q2_b = self.qf2(buffer_obs, buffer_actions)
-            q_b = torch.min(q1_b, q2_b)
+            if not self.single_q:
+                q2_b = self.qf2(buffer_obs, buffer_actions)
+
+            if self.single_q:
+                q_b = q1_b
+            else:
+                q_b = torch.min(q1_b, q2_b)
             q_b = torch.reshape(q_b, (-1, K))
             adv_b = q_b - v_pi
             # if self._n_train_steps_total % 100 == 0:
@@ -672,12 +707,17 @@ class AWACTrainer(TorchTrainer):
                         buffer_policy_logpp = buffer_policy_logpp[:, None]
 
                         buffer_q1_pred = self.qf1(obs, buffer_u)
-                        buffer_q2_pred = self.qf2(obs, buffer_u)
-                        buffer_q_adv = torch.min(buffer_q1_pred, buffer_q2_pred)
-
                         buffer_v1_pi = self.qf1(obs, buffer_new_obs_actions)
-                        buffer_v2_pi = self.qf2(obs, buffer_new_obs_actions)
-                        buffer_v_pi = torch.min(buffer_v1_pi, buffer_v2_pi)
+                        if not self.single_q:
+                            buffer_q2_pred = self.qf2(obs, buffer_u)
+                            buffer_v2_pi = self.qf2(obs, buffer_new_obs_actions)
+                        
+                        if self.single_q:
+                            buffer_q_adv = buffer_q1_pred
+                            buffer_v_pi = buffer_v1_pi
+                        else:
+                            buffer_q_adv = torch.min(buffer_q1_pred, buffer_q2_pred)
+                            buffer_v_pi = torch.min(buffer_v1_pi, buffer_v2_pi)
 
                         buffer_score = buffer_q_adv - buffer_v_pi
                         buffer_weights = F.softmax(buffer_score / beta, dim=0)
@@ -699,12 +739,17 @@ class AWACTrainer(TorchTrainer):
                 buffer_policy_logpp = buffer_policy_logpp[:, None]
 
                 buffer_q1_pred = self.qf1(obs, buffer_u)
-                buffer_q2_pred = self.qf2(obs, buffer_u)
-                buffer_q_adv = torch.min(buffer_q1_pred, buffer_q2_pred)
-
                 buffer_v1_pi = self.qf1(obs, buffer_new_obs_actions)
-                buffer_v2_pi = self.qf2(obs, buffer_new_obs_actions)
-                buffer_v_pi = torch.min(buffer_v1_pi, buffer_v2_pi)
+                if not self.single_q:
+                    buffer_q2_pred = self.qf2(obs, buffer_u)
+                    buffer_v2_pi = self.qf2(obs, buffer_new_obs_actions)
+
+                if self.single_q:
+                    buffer_q_adv = buffer_q1_pred
+                    buffer_v_pi = buffer_v1_pi
+                else:
+                    buffer_q_adv = torch.min(buffer_q1_pred, buffer_q2_pred)
+                    buffer_v_pi = torch.min(buffer_v1_pi, buffer_v2_pi)
 
                 buffer_score = buffer_q_adv - buffer_v_pi
                 buffer_weights = F.softmax(buffer_score / beta, dim=0)
@@ -723,9 +768,10 @@ class AWACTrainer(TorchTrainer):
             qf1_loss.backward()
             self.qf1_optimizer.step()
 
-            self.qf2_optimizer.zero_grad()
-            qf2_loss.backward()
-            self.qf2_optimizer.step()
+            if not self.single_q:
+                self.qf2_optimizer.zero_grad()
+                qf2_loss.backward()
+                self.qf2_optimizer.step()
 
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
@@ -746,9 +792,10 @@ class AWACTrainer(TorchTrainer):
             ptu.soft_update_from_to(
                 self.qf1, self.target_qf1, self.soft_target_tau
             )
-            ptu.soft_update_from_to(
-                self.qf2, self.target_qf2, self.soft_target_tau
-            )
+            if not self.single_q:
+                ptu.soft_update_from_to(
+                    self.qf2, self.target_qf2, self.soft_target_tau
+                )
 
         """
         Save some statistics for eval
@@ -762,7 +809,8 @@ class AWACTrainer(TorchTrainer):
             policy_loss = (log_pi - q_new_actions).mean()
 
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
-            self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
+            if not self.single_q:
+                self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
             self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
                 policy_loss
             ))
@@ -770,10 +818,11 @@ class AWACTrainer(TorchTrainer):
                 'Q1 Predictions',
                 ptu.get_numpy(q1_pred),
             ))
-            self.eval_statistics.update(create_stats_ordered_dict(
-                'Q2 Predictions',
-                ptu.get_numpy(q2_pred),
-            ))
+            if not self.single_q:
+                self.eval_statistics.update(create_stats_ordered_dict(
+                    'Q2 Predictions',
+                    ptu.get_numpy(q2_pred),
+                ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Q Targets',
                 ptu.get_numpy(q_target),
@@ -880,23 +929,34 @@ class AWACTrainer(TorchTrainer):
 
     @property
     def networks(self):
-        nets = [
-            self.policy,
-            self.qf1,
-            self.qf2,
-            self.target_qf1,
-            self.target_qf2,
-        ]
+        if self.single_q:
+            nets = [
+                self.policy, 
+                self.qf1,
+                self.target_qf1
+            ]
+        else:
+            nets = [
+                self.policy,
+                self.qf1,
+                self.qf2,
+                self.target_qf1,
+                self.target_qf2,
+            ]
         if self.buffer_policy:
             nets.append(self.buffer_policy)
         return nets
 
     def get_snapshot(self):
-        return dict(
+        snapshot = dict(
             policy=self.policy,
             qf1=self.qf1,
-            qf2=self.qf2,
-            target_qf1=self.qf1,
-            target_qf2=self.qf2,
+            target_qf1=self.target_qf1,
             buffer_policy=self.buffer_policy,
         )
+        if not self.single_q:
+            snapshot.update(dict(
+                qf2=self.qf2, 
+                target_qf2=self.target_qf2
+            ))
+        return snapshot

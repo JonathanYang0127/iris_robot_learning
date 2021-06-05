@@ -76,8 +76,12 @@ def experiment(variant):
 
     qf1 = ConcatCNN(**cnn_params)
     qf2 = ConcatCNN(**cnn_params)
-    target_qf1 = ConcatCNN(**cnn_params)
-    target_qf2 = ConcatCNN(**cnn_params)
+    if variant['use_single_q']:
+        target_qf1 = None
+        target_qf2 = None
+    else:
+        target_qf1 = ConcatCNN(**cnn_params)
+        target_qf2 = ConcatCNN(**cnn_params)
 
     replay_buffer = ObsDictReplayBuffer(
         int(1E6),
@@ -153,7 +157,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-
+    parser.add_argument('--use-single-q', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -228,6 +232,7 @@ if __name__ == '__main__':
         image_augmentation=True,
         image_augmentation_padding=4,
     )
+    variant['use_single_q'] = args.use_single_q
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)

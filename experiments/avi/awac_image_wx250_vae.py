@@ -247,7 +247,7 @@ if __name__ == '__main__':
         pool_sizes=[2, 2, 1],  # the one at the end means no pool
         pool_strides=[2, 2, 1],
         pool_paddings=[0, 0, 0],
-        image_augmentation=True,
+        image_augmentation=False,
         image_augmentation_padding=4,
     )
     variant['vqvae'] = args.vqvae
