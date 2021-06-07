@@ -55,5 +55,5 @@ def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_bu
         for path in val_paths:
             validation_replay_buffer.add_path(path)
 
-    print("replay_buffer.size", replay_buffer.size)
+    print("replay_buffer._size", replay_buffer._size)
 
