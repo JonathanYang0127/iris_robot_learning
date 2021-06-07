@@ -14,6 +14,8 @@ def process_keys(observations, observation_keys):
                 if len(image.shape) == 3:
                     image = np.transpose(image, [2, 0, 1])
                     image = (image.flatten())/255.0
+                elif len(image.shape) == 1:
+                    image = image/255.0
                 else:
                     print('image shape: {}'.format(image.shape))
                     raise ValueError
@@ -24,6 +26,17 @@ def process_keys(observations, observation_keys):
                 raise NotImplementedError
         output.append(observation)
     return output
+
+
+def add_data_to_buffer_new(data, replay_buffer, observation_keys):
+
+    for j in range(len(data)):
+        path = data[j]
+        assert (len(path['actions']) == len(path['observations']) == len(
+            path['next_observations']))
+        path['observations'] = process_keys(path['observations'], observation_keys)
+        path['next_observations'] = process_keys(path['next_observations'], observation_keys)
+        replay_buffer.add_path(path)
 
 
 def add_data_to_buffer(data, replay_buffer, observation_keys):

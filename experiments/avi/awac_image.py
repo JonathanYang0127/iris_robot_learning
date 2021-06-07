@@ -15,7 +15,7 @@ from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
-from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
+from rlkit.misc.roboverse_utils import add_data_to_buffer, add_data_to_buffer_new, VideoSaveFunctionBullet
 
 import roboverse
 import numpy as np
@@ -86,7 +86,11 @@ def experiment(variant):
         expl_env,
         observation_keys=observation_keys
     )
-    add_data_to_buffer(data, replay_buffer, observation_keys)
+
+    if len(data[0]['observations'][0]['image'].shape) > 1:
+        add_data_to_buffer(data, replay_buffer, observation_keys)
+    else:
+        add_data_to_buffer_new(data, replay_buffer, observation_keys)
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
