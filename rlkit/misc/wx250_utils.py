@@ -29,12 +29,16 @@ class DummyEnv:
 
 
 def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_buffer=None,
-                       validation_fraction=0.8):
+                       validation_fraction=0.8, num_trajs_limit=None):
     with open(data_path, 'rb') as handle:
         paths = pickle.load(handle)
 
     assert validation_fraction >= 0.0
     assert validation_fraction < 1.0
+
+    if num_trajs_limit is not None:
+        assert num_trajs_limit <= len(paths)
+        paths = paths[:num_trajs_limit]
 
     if validation_replay_buffer is None:
         for path in paths:
@@ -50,4 +54,6 @@ def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_bu
 
         for path in val_paths:
             validation_replay_buffer.add_path(path)
+
+    print("replay_buffer._size", replay_buffer._size)
 

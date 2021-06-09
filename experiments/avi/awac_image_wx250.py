@@ -23,9 +23,6 @@ import numpy as np
 
 from rlkit.launchers.config import LOCAL_LOG_DIR
 
-BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16_1000.npy'
-
-
 def get_buffer_size(data):
     num_transitions = 0
     for i in range(len(data)):
@@ -90,7 +87,7 @@ def experiment(variant):
     )
     add_data_to_buffer_real_robot(variant['buffer'], replay_buffer,
                        validation_replay_buffer=None,
-                       validation_fraction=0.8)
+                       validation_fraction=0.8, num_trajs_limit=variant['num_trajs_limit'])
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -140,7 +137,15 @@ def experiment(variant):
     algorithm.post_train_funcs.append(video_func)
 
     algorithm.to(ptu.device)
-    algorithm.train()
+
+    if variant['use_bc']:
+        trainer.pretrain_policy_with_bc(
+            policy,
+            replay_buffer,
+            1000 * variant['num_epochs'],
+        )
+    else:
+        algorithm.train()
 
 
 def enable_gpus(gpu_str):
@@ -151,19 +156,22 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--buffer", type=str, default=BUFFER)
-
+    parser.add_argument("--buffer", type=str, required=True)
     parser.add_argument("--beta", type=float, default=1.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
     parser.add_argument('--use-single-q', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
-
+    parser.add_argument("--seed", default=0, type=int)
+    parser.add_argument("--use-bc", action="store_true", default=False)
+    parser.add_argument("--num-trajs-limit", default=0, type=int)
     args = parser.parse_args()
 
+    alg = 'BC' if args.use_bc else 'AWAC-Pixel'
+
     variant = dict(
-        algorithm="AWAC-Pixel",
+        algorithm=alg,
 
         num_epochs=3000,
         batch_size=256,
@@ -233,12 +241,16 @@ if __name__ == '__main__':
         image_augmentation_padding=4,
     )
     variant['use_single_q'] = args.use_single_q
+    variant['seed'] = args.seed
+    variant['use_bc'] = args.use_bc
+    if args.num_trajs_limit > 0:
+        variant['num_trajs_limit'] = args.num_trajs_limit
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-awac-image-wx250'.format(time.strftime("%y-%m-%d"))
+    exp_prefix = '{}-{}-wx250'.format(time.strftime("%y-%m-%d"), alg)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+                 snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
 
     experiment(variant)
