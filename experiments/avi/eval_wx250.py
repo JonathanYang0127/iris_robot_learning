@@ -13,11 +13,11 @@ import rlkit.torch.pytorch_util as ptu
 
 if __name__ == '__main__':
     num_trajs = 100
-    num_timesteps = 10
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--checkpoint_path", type=str, required=True)
-    parser.add_argument("-v", "--video_save_dir", type=str, default="")
+    parser.add_argument("-c", "--checkpoint-path", type=str, required=True)
+    parser.add_argument("-v", "--video-save-dir", type=str, default="")
+    parser.add_argument("--num-timesteps", type=int, default=10)
     args = parser.parse_args()
 
     if not os.path.exists(args.video_save_dir):
@@ -31,11 +31,16 @@ if __name__ == '__main__':
          'return_full_image': True}
     ))
 
-    pickle_path = args.checkpoint_path
-    with open(pickle_path, 'rb') as handle:
-        params = torch.load(handle)
+    checkpoint_path = args.checkpoint_path
+    _, ext = os.path.splitext(args.checkpoint_path)
 
-    eval_policy = params['evaluation/policy']
+    with open(args.checkpoint_path, 'rb') as handle:
+        if ext == ".pt":
+            params = torch.load(handle)
+            eval_policy = params['evaluation/policy']
+        elif ext == ".pkl":
+            eval_policy = pickle.load(handle)
+
     eval_policy.eval()
     # eval_policy = params['exploration/policy']
 
@@ -49,7 +54,7 @@ if __name__ == '__main__':
             input("Press Enter to continue...")
         print("Eval Traj {}".format(i))
 
-        for j in range(num_timesteps):
+        for j in range(args.num_timesteps):
             action, info = eval_policy.get_action(obs_flat)
             print(action[-1])
             # if j > 7:
