@@ -38,6 +38,8 @@ def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_bu
 
     if num_trajs_limit is not None:
         assert num_trajs_limit <= len(paths)
+        # Shuffle trajectories before truncating dataset
+        random.shuffle(paths)
         paths = paths[:num_trajs_limit]
 
     if validation_replay_buffer is None:
