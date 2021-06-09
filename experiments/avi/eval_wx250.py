@@ -31,11 +31,16 @@ if __name__ == '__main__':
          'return_full_image': True}
     ))
 
-    pickle_path = args.checkpoint_path
-    with open(pickle_path, 'rb') as handle:
-        params = torch.load(handle)
+    checkpoint_path = args.checkpoint_path
+    _, ext = os.path.splitext(args.checkpoint_path)
 
-    eval_policy = params['evaluation/policy']
+    with open(args.checkpoint_path, 'rb') as handle:
+        if ext == ".pt":
+            params = torch.load(handle)
+            eval_policy = params['evaluation/policy']
+        elif ext == ".pkl":
+            eval_policy = pickle.load(handle)
+
     eval_policy.eval()
     # eval_policy = params['exploration/policy']
 
