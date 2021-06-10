@@ -18,7 +18,7 @@ from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
 from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv
 
-import roboverse
+# import roboverse
 import numpy as np
 
 from rlkit.launchers.config import LOCAL_LOG_DIR
@@ -245,6 +245,8 @@ if __name__ == '__main__':
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:
         variant['num_trajs_limit'] = args.num_trajs_limit
+    else:
+        variant['num_trajs_limit'] = None
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
