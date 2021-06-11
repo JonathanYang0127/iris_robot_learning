@@ -298,7 +298,8 @@ class AWACTrainer(TorchTrainer):
 
             if i % self.pretraining_dump_period == 0:
                 checkpoint_save_path = logger.get_snapshot_dir() + '/itr_{}.pt'.format(i // 1000)
-                torch.save(self.policy, checkpoint_save_path)
+                snapshot = {"evaluation/policy": self.policy}
+                torch.save(snapshot, checkpoint_save_path)
 
         logger.remove_tabular_output(
             'pretrain_%s.csv' % label, relative_to_snapshot_dir=True,
