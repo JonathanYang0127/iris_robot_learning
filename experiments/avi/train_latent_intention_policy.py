@@ -64,19 +64,27 @@ class DataLoader:
 
 
 class TrajectoryConditionedPolicy(nn.Module):
+
     def __init__(self, action_dim, latent_dim, rnn_hidden_size, cnn_params,
-                 batch_size=32, ignore_z=False):
+                 trajectory_length, batch_size=32, ignore_z=False, use_fc=False):
 
         super(TrajectoryConditionedPolicy, self).__init__()
 
         self.action_dim = action_dim
         self.latent_dim = latent_dim
         self.rnn_hidden_size = rnn_hidden_size
+        self.trajectory_length = trajectory_length
         self.batch_size = batch_size
         self.ignore_z = ignore_z
+        self.use_fc = use_fc
 
         # sequence encoder
-        self.gru = nn.GRU(action_dim, rnn_hidden_size, batch_first=True)
+        if not self.use_fc:
+            self.gru = nn.GRU(action_dim, rnn_hidden_size, batch_first=True)
+        else:
+            fc_input_size = self.trajectory_length*self.action_dim
+            self.fc1 = nn.Linear(fc_input_size, rnn_hidden_size)
+            self.fc2 = nn.Linear(rnn_hidden_size, rnn_hidden_size)
 
         # sequence to mu, var
         self.fc_mu = nn.Linear(rnn_hidden_size, latent_dim)
@@ -87,11 +95,19 @@ class TrajectoryConditionedPolicy(nn.Module):
 
     def forward(self, input):
         hidden = self.init_hidden(self.batch_size)
-        rnn_output, rnn_hidden = self.gru(input['input_action_sequence'], hidden)
+        if not self.use_fc:
+            rnn_output, rnn_hidden = self.gru(input['input_action_sequence'], hidden)
+            sequence_encoding = rnn_hidden[0]
 
-        rnn_final_hidden = rnn_hidden[0]
-        mu = self.fc_mu(rnn_final_hidden)
-        log_var = self.fc_var(rnn_final_hidden)
+        else:
+            x = input['input_action_sequence'].view(self.batch_size, -1)
+            x = F.relu(self.fc1(x))
+            x = F.relu(self.fc2(x))
+            sequence_encoding = x
+
+        # import IPython; IPython.embed()
+        mu = self.fc_mu(sequence_encoding)
+        log_var = self.fc_var(sequence_encoding)
 
         z, q_z = self.reparameterize(mu, log_var)
 
@@ -142,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--beta-target", type=float, default=0.01)
     parser.add_argument("--ignore-z", default=False, action='store_true')
+    parser.add_argument("--use-fc", default=False, action='store_true')
     parser.add_argument("--gpu", default='0', type=str)
     args = parser.parse_args()
 
@@ -159,6 +176,8 @@ if __name__ == "__main__":
     beta_target = args.beta_target
 
     variant = dict(
+        buffer=args.buffer,
+        use_fc=args.use_fc,
         action_dim=action_dim,
         latent_dim=latent_dim,
         rnn_hidden_size=512,
@@ -200,29 +219,28 @@ if __name__ == "__main__":
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
 
-    seq_cond_policy = TrajectoryConditionedPolicy(action_dim=action_dim,
-                                                  latent_dim=latent_dim,
-                                                  rnn_hidden_size=variant['rnn_hidden_size'],
-                                                  cnn_params=variant['cnn_params'],
-                                                  batch_size=variant['batch_size'],
-                                                  ignore_z=variant['ignore_z'])
-    seq_cond_policy.to(ptu.device)
-    # sequence_encoder = EncoderRNN(action_dim, hidden_size).to(ptu.device)
-
     with open(args.buffer, 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
     train_size = int(0.8*len(data))
     train_dataloader = DataLoader(data[:train_size], batch_size=batch_size)
     val_dataloader = DataLoader(data[train_size:], batch_size=batch_size)
 
+    seq_cond_policy = TrajectoryConditionedPolicy(
+        action_dim=action_dim,
+        latent_dim=latent_dim,
+        rnn_hidden_size=variant['rnn_hidden_size'],
+        trajectory_length=train_dataloader.trajectory_length,
+        cnn_params=variant['cnn_params'],
+        batch_size=variant['batch_size'],
+        ignore_z=variant['ignore_z']
+    )
+
+    seq_cond_policy.to(ptu.device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(seq_cond_policy.parameters(), lr=3e-4)
 
-    # Trainer
     p_z = td.normal.Normal(ptu.from_numpy(np.zeros((latent_dim,))),
                            ptu.from_numpy(np.ones((latent_dim,))))
-    # p_z.to(ptu.device)
-
     running_loss_mse = 0.
     running_loss_kl = 0.
 
@@ -262,13 +280,17 @@ if __name__ == "__main__":
             logger.record_tabular('train/mse_loss', running_loss_mse)
             logger.record_tabular('train/kl_loss', running_loss_kl)
 
-            batch = val_dataloader.get_batch()
-            predicted_actions, q_z = seq_cond_policy(batch)
-            mse_loss_val = criterion(predicted_actions, batch['target_actions'])
-            KLD_val = td.kl_divergence(q_z, p_z).sum()
+            num_val_batches = 10
+            mse_loss_val = 0.
+            KLD_val = 0.
+            for i in range(num_val_batches):
+                batch = val_dataloader.get_batch()
+                predicted_actions, q_z = seq_cond_policy(batch)
+                mse_loss_val += criterion(predicted_actions, batch['target_actions']).item()
+                KLD_val += td.kl_divergence(q_z, p_z).sum().item()
 
-            logger.record_tabular('val/mse_loss', mse_loss_val.item())
-            logger.record_tabular('val/kl_loss', KLD_val.item())
+            logger.record_tabular('val/mse_loss', mse_loss_val/num_val_batches)
+            logger.record_tabular('val/kl_loss', KLD_val/num_val_batches)
 
             # save_path = os.path.join(save_dir, 'step_{}.pkl'.format(i))
             # print('checkpoint', save_path)
