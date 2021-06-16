@@ -45,7 +45,7 @@ class DataLoader:
             j = trajectory_indices[i]
             k = timestep_indices[i]
 
-            input_image_observations.append(data[j]['observations'][k]['image'])
+            input_image_observations.append(data[j]['observations'][k]['image']/255.0)
             input_state_observations.append(data[j]['observations'][k]['state'])
             target_actions.append(data[j]['actions'][k])
 
