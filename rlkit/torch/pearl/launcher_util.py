@@ -8,7 +8,6 @@ import numpy as np
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
-from rlkit.envs.pearl_envs import AntDirEnv, HalfCheetahVelEnv
 from rlkit.misc import eval_util
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch.sac.policies import GaussianPolicy, TanhGaussianPolicy

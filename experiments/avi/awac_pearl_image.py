@@ -95,6 +95,7 @@ def experiment(variant):
         added_fc_input_size=state_observation_dim + action_dim + reward_dim,
         output_size=context_encoder_output_dim,
         hidden_sizes=[256, 256],
+        image_augmentation=True
     )
     context_encoder = ConcatCNN(**cnn_params)
 
@@ -103,7 +104,7 @@ def experiment(variant):
         added_fc_input_size=state_observation_dim + action_dim + latent_dim,
         output_size=1,
         hidden_sizes=[256, 256],
-        image_augmentation=False,
+        image_augmentation=True,
     )
     context_decoder = ConcatCNN(**cnn_params)
     reward_predictor = context_decoder
@@ -218,6 +219,7 @@ if __name__ == '__main__':
                         default=False)
     parser.add_argument('--backprop-q-loss-into-encoder', action='store_true',
                         default=False)
+    parser.add_argument('--kl-annealing', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -269,6 +271,9 @@ if __name__ == '__main__':
             # pearl kwargs
             backprop_q_loss_into_encoder=args.backprop_q_loss_into_encoder,
             train_context_decoder=True,
+            kl_annealing = args.kl_annealing,
+            kl_annealing_x0=100 * 1000,
+            kl_annealing_k=0.01 / 1000,
         ),
     )
 

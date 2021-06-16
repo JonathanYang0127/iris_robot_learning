@@ -46,6 +46,10 @@ class PearlAwacTrainer(TorchTrainer):
             train_reward_pred_in_unsupervised_phase=False,
             use_encoder_snapshot_for_reward_pred_in_unsupervised_phase=False,
 
+            kl_annealing=False,
+            kl_annealing_x0=1000,
+            kl_annealing_k=0.0025,
+
             # from AWAC
             buffer_policy=None,
 
@@ -146,6 +150,9 @@ class PearlAwacTrainer(TorchTrainer):
         self.l2_reg_criterion = nn.MSELoss()
         self.reward_pred_criterion = nn.MSELoss()
         self.kl_lambda = kl_lambda
+        self.kl_annealing = kl_annealing
+        self.kl_annealing_x0 = kl_annealing_x0
+        self.kl_annealing_k = kl_annealing_k
 
         self.use_information_bottleneck = use_information_bottleneck
         self.sparse_rewards = sparse_rewards
@@ -397,7 +404,12 @@ class PearlAwacTrainer(TorchTrainer):
             kl_div = kl_loss = ptu.zeros(0)
         else:
             kl_div = kl_divergence(p_z, self.agent.latent_prior).mean(dim=0).sum()
-            kl_loss = self.kl_lambda * kl_div
+            if self.kl_annealing:
+                kl_lambda = self.kl_lambda * float(1 / (1 + np.exp(-self.kl_annealing_k * 
+                    (self._n_train_steps_total - self.kl_annealing_x0))))
+            else:
+                kl_lambda = self.kl_lambda
+            kl_loss = kl_lambda * kl_div
 
         if self.train_context_decoder:
             # TODO: change to use a distribution
@@ -559,6 +571,10 @@ class PearlAwacTrainer(TorchTrainer):
                 'Q Targets',
                 ptu.get_numpy(q_target),
             ))
+            if self.kl_annealing:
+                self.eval_statistics['task_embedding/kl_lambda'] = (
+                    kl_lambda
+                )
             self.eval_statistics['task_embedding/kl_divergence'] = (
                 ptu.get_numpy(kl_div)
             )
