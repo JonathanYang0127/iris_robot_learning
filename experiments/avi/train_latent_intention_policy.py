@@ -170,7 +170,7 @@ if __name__ == "__main__":
     latent_dim = 5
     batch_size = args.batch_size
 
-    total_steps = int(1e5)
+    total_steps = int(5e5)
     log_freq = 1000
     half_beta_target_steps = min(total_steps // 2, 25000)
     beta_target = args.beta_target
