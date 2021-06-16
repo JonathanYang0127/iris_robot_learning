@@ -296,7 +296,7 @@ if __name__ == "__main__":
             # print('checkpoint', save_path)
             # torch.save(seq_cond_policy.state_dict(), save_path)
             params = seq_cond_policy.state_dict()
-            logger.save_itr_params(i, params)
+            logger.save_itr_params(i // log_freq, params)
 
             running_loss_mse = 0.
             running_loss_kl = 0.
