@@ -65,7 +65,7 @@ class DataLoader:
 
 class TrajectoryConditionedPolicy(nn.Module):
     def __init__(self, action_dim, latent_dim, rnn_hidden_size, cnn_params,
-                 batch_size=32):
+                 batch_size=32, ignore_z=False):
 
         super(TrajectoryConditionedPolicy, self).__init__()
 
@@ -73,6 +73,7 @@ class TrajectoryConditionedPolicy(nn.Module):
         self.latent_dim = latent_dim
         self.rnn_hidden_size = rnn_hidden_size
         self.batch_size = batch_size
+        self.ignore_z = ignore_z
 
         # sequence encoder
         self.gru = nn.GRU(action_dim, rnn_hidden_size, batch_first=True)
@@ -94,9 +95,13 @@ class TrajectoryConditionedPolicy(nn.Module):
 
         z, q_z = self.reparameterize(mu, log_var)
 
-        output = self.cnn(input['input_image_observations'],
-                          input['input_state_observations'],
-                          z)
+        if self.ignore_z:
+            output = self.cnn(input['input_image_observations'],
+                              input['input_state_observations'],)
+        else:
+            output = self.cnn(input['input_image_observations'],
+                              input['input_state_observations'],
+                              z)
         return output, q_z
 
     def init_hidden(self, batch_size):
@@ -136,6 +141,7 @@ if __name__ == "__main__":
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--beta-target", type=float, default=0.01)
+    parser.add_argument("--ignore-z", default=False, action='store_true')
     parser.add_argument("--gpu", default='0', type=str)
     args = parser.parse_args()
 
@@ -156,6 +162,7 @@ if __name__ == "__main__":
         action_dim=action_dim,
         latent_dim=latent_dim,
         rnn_hidden_size=512,
+        ignore_z=args.ignore_z,
         batch_size=batch_size,
         beta_target=beta_target,
         cnn_params=dict(
@@ -181,6 +188,9 @@ if __name__ == "__main__":
         )
     )
 
+    if args.ignore_z:
+        variant['cnn_params']['added_fc_input_size'] = state_observation_dim
+
     # LOG_FOLDER = '{}-latent_intention_model'.format(time.strftime("%y-%m-%d"))
     # save_dir = os.path.join(LOCAL_LOG_DIR, LOG_FOLDER)
     # if not os.path.exists(save_dir):
@@ -194,7 +204,8 @@ if __name__ == "__main__":
                                                   latent_dim=latent_dim,
                                                   rnn_hidden_size=variant['rnn_hidden_size'],
                                                   cnn_params=variant['cnn_params'],
-                                                  batch_size=variant['batch_size'])
+                                                  batch_size=variant['batch_size'],
+                                                  ignore_z=variant['ignore_z'])
     seq_cond_policy.to(ptu.device)
     # sequence_encoder = EncoderRNN(action_dim, hidden_size).to(ptu.device)
 
