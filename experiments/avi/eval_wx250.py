@@ -13,11 +13,12 @@ import rlkit.torch.pytorch_util as ptu
 
 if __name__ == '__main__':
     num_trajs = 100
+    full_image = True
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--checkpoint-path", type=str, required=True)
     parser.add_argument("-v", "--video-save-dir", type=str, default="")
-    parser.add_argument("--num-timesteps", type=int, default=10)
+    parser.add_argument("-n", "--num-timesteps", type=int, default=10)
     args = parser.parse_args()
 
     if not os.path.exists(args.video_save_dir):
@@ -46,7 +47,8 @@ if __name__ == '__main__':
 
     for i in range(num_trajs):
         obs = env.reset()
-        obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
+        # obs = env._get_obs()
+        # obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
 
         images = []
 
@@ -54,7 +56,13 @@ if __name__ == '__main__':
             input("Press Enter to continue...")
         print("Eval Traj {}".format(i))
 
+        obs = env._get_obs()
+        obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
+
         for j in range(args.num_timesteps):
+            # obs = env._get_obs()
+            # obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
+
             action, info = eval_policy.get_action(obs_flat)
             print(action[-1])
             # if j > 7:
@@ -64,10 +72,12 @@ if __name__ == '__main__':
             # obs_flat = ptu.from_numpy(obs['image'])
 
             if args.video_save_dir != "":
-                image = np.uint8(np.reshape(obs['image'] * 255, (3, 64, 64)))
-                # image = np.transpose(image, (2, 1, 0)) (sideways image)
-                image = np.transpose(image, (1, 2, 0))
-                # import ipdb; ipdb.set_trace()
+                if full_image:
+                    image = obs['full_image']
+                else:
+                    image = np.uint8(np.reshape(obs['image'] * 255, (3, 64, 64)))
+                    # image = np.transpose(image, (2, 1, 0)) (sideways image)
+                    image = np.transpose(image, (1, 2, 0))
                 images.append(Image.fromarray(image))
 
         # Save Video
