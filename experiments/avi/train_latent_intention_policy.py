@@ -283,7 +283,7 @@ if __name__ == "__main__":
             num_val_batches = 10
             mse_loss_val = 0.
             KLD_val = 0.
-            for i in range(num_val_batches):
+            for _ in range(num_val_batches):
                 batch = val_dataloader.get_batch()
                 predicted_actions, q_z = seq_cond_policy(batch)
                 mse_loss_val += criterion(predicted_actions, batch['target_actions']).item()
