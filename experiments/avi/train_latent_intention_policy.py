@@ -9,9 +9,12 @@ import os
 import argparse
 import time
 
+from rlkit.core.timer import timer
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
 from rlkit.launchers.config import LOCAL_LOG_DIR
+from rlkit.core import logger
+from rlkit.launchers.launcher_util import setup_logger
 
 BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/june15_test_Widow250PickPlaceMedium-v0_100_noise_0.1_2021-06-15T14-36-15/june15_test_Widow250PickPlaceMedium-v0_100_noise_0.1_2021-06-15T14-36-15_100.npy'
 
@@ -30,7 +33,7 @@ class DataLoader:
         self.action_sequences = np.asarray(self.action_sequences)
         self.data = data
 
-    def get_batch(self, batch_size):
+    def get_batch(self):
         trajectory_indices = np.random.randint(self.dataset_size, size=self.batch_size)
         timestep_indices = np.random.randint(self.trajectory_length, size=self.batch_size)
 
@@ -38,7 +41,7 @@ class DataLoader:
         input_state_observations = []
         target_actions = []
 
-        for i in range(batch_size):
+        for i in range(self.batch_size):
             j = trajectory_indices[i]
             k = timestep_indices[i]
 
@@ -56,6 +59,7 @@ class DataLoader:
             input_state_observations=ptu.from_numpy(input_state_observations),
             target_actions=ptu.from_numpy(target_actions)
         )
+
         return batch
 
 
@@ -98,6 +102,13 @@ class TrajectoryConditionedPolicy(nn.Module):
     def init_hidden(self, batch_size):
         return torch.zeros(1, batch_size, self.rnn_hidden_size, device=ptu.device)
 
+    def get_action(self, obs, z):
+        obs_image = ptu.from_numpy(np.expand_dims(obs['image'], axis=0))
+        obs_state = ptu.from_numpy(np.expand_dims(obs['state'], axis=0))
+        z = ptu.from_numpy(np.expand_dims(z, axis=0))
+
+        return ptu.get_numpy(self.cnn(obs_image, obs_state, z))[0]
+
     def reparameterize(self, mu, logvar):
         """
         From https://github.com/AntixK/PyTorch-VAE/blob/master/models/beta_vae.py
@@ -123,57 +134,76 @@ def enable_gpus(gpu_str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--buffer", type=str, default=BUFFER)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--beta-target", type=float, default=0.01)
     parser.add_argument("--gpu", default='0', type=str)
     args = parser.parse_args()
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    LOG_FOLDER = '{}-latent_intention_model'.format(time.strftime("%y-%m-%d"))
-    save_dir = os.path.join(LOCAL_LOG_DIR, LOG_FOLDER)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
+    state_observation_dim = 10
     action_dim = 8
     latent_dim = 5
-    rnn_hidden_size = 512
-    state_observation_dim = 10
+    batch_size = args.batch_size
 
-    cnn_params = dict(
-        input_width=48,
-        input_height=48,
-        input_channels=3,
+    total_steps = int(1e5)
+    log_freq = 1000
+    half_beta_target_steps = min(total_steps // 2, 25000)
+    beta_target = args.beta_target
 
-        kernel_sizes=[3, 3, 3],
-        n_channels=[16, 16, 16],
-        strides=[1, 1, 1],
-        hidden_sizes=[1024, 512, 256],
-        paddings=[1, 1, 1],
-        pool_type='max2d',
-        pool_sizes=[2, 2, 1],  # the one at the end means no pool
-        pool_strides=[2, 2, 1],
-        pool_paddings=[0, 0, 0],
+    variant = dict(
+        action_dim=action_dim,
+        latent_dim=latent_dim,
+        rnn_hidden_size=512,
+        batch_size=batch_size,
+        beta_target=beta_target,
+        cnn_params=dict(
+            input_width=48,
+            input_height=48,
+            input_channels=3,
 
-        image_augmentation=True,
-        image_augmentation_padding=4,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
 
-        output_size=action_dim,
-        added_fc_input_size=state_observation_dim+latent_dim,
+            image_augmentation=True,
+            image_augmentation_padding=4,
+
+            output_size=action_dim,
+            added_fc_input_size=state_observation_dim+latent_dim,
+        )
     )
 
-    batch_size = 32
+    # LOG_FOLDER = '{}-latent_intention_model'.format(time.strftime("%y-%m-%d"))
+    # save_dir = os.path.join(LOCAL_LOG_DIR, LOG_FOLDER)
+    # if not os.path.exists(save_dir):
+    #     os.makedirs(save_dir)
+
+    exp_prefix = '{}-latent_intention_model'.format(time.strftime("%y-%m-%d"))
+    setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
+                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+
     seq_cond_policy = TrajectoryConditionedPolicy(action_dim=action_dim,
                                                   latent_dim=latent_dim,
-                                                  rnn_hidden_size=rnn_hidden_size,
-                                                  cnn_params=cnn_params,
-                                                  batch_size=batch_size)
+                                                  rnn_hidden_size=variant['rnn_hidden_size'],
+                                                  cnn_params=variant['cnn_params'],
+                                                  batch_size=variant['batch_size'])
     seq_cond_policy.to(ptu.device)
     # sequence_encoder = EncoderRNN(action_dim, hidden_size).to(ptu.device)
 
     with open(args.buffer, 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
+    train_size = int(0.8*len(data))
+    train_dataloader = DataLoader(data[:train_size], batch_size=batch_size)
+    val_dataloader = DataLoader(data[train_size:], batch_size=batch_size)
 
-    dataloader = DataLoader(data)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(seq_cond_policy.parameters(), lr=3e-4)
 
@@ -185,16 +215,14 @@ if __name__ == "__main__":
     running_loss_mse = 0.
     running_loss_kl = 0.
 
-    total_steps = int(2e4)
-    log_freq = 1000
-    half_beta_target_steps = total_steps // 2
-    beta_target = 0.01
+    start_time = time.time()
 
     for i in range(total_steps):
+
         optimizer.zero_grad()
-        batch = dataloader.get_batch(batch_size)
+        batch = train_dataloader.get_batch()
         predicted_actions, q_z = seq_cond_policy(batch)
-        loss = criterion(predicted_actions, batch['target_actions'])
+        mse_loss = criterion(predicted_actions, batch['target_actions'])
         KLD = td.kl_divergence(q_z, p_z).sum()
 
         def kl_anneal_function(step, x0, k=0.0025):
@@ -202,25 +230,41 @@ if __name__ == "__main__":
 
         beta = beta_target*kl_anneal_function(i, half_beta_target_steps)
 
-        total_loss = loss + beta*KLD
-        total_loss.backward()
+        loss = mse_loss + beta*KLD
+        loss.backward()
         optimizer.step()
-        running_loss_mse += loss.item()
+        running_loss_mse += mse_loss.item()
         running_loss_kl += KLD.item()
 
         if i % log_freq == 0:
 
+            logger.record_tabular('steps', i)
+
             if i > 0:
                 running_loss_kl /= log_freq
                 running_loss_mse /= log_freq
+                logger.record_tabular('time/epoch_time', time.time() - start_time)
+                start_time = time.time()
+            else:
+                logger.record_tabular('time/epoch_time', 0.0)
 
-            print('step', i)
-            print('mse loss', running_loss_mse)
-            print('kl loss', running_loss_kl)
+            logger.record_tabular('train/mse_loss', running_loss_mse)
+            logger.record_tabular('train/kl_loss', running_loss_kl)
 
-            save_path = os.path.join(save_dir, 'step_{}.pkl'.format(i))
-            print('checkpoint', save_path)
-            torch.save(seq_cond_policy.state_dict(), save_path)
+            batch = val_dataloader.get_batch()
+            predicted_actions, q_z = seq_cond_policy(batch)
+            mse_loss_val = criterion(predicted_actions, batch['target_actions'])
+            KLD_val = td.kl_divergence(q_z, p_z).sum()
+
+            logger.record_tabular('val/mse_loss', mse_loss_val.item())
+            logger.record_tabular('val/kl_loss', KLD_val.item())
+
+            # save_path = os.path.join(save_dir, 'step_{}.pkl'.format(i))
+            # print('checkpoint', save_path)
+            # torch.save(seq_cond_policy.state_dict(), save_path)
+            params = seq_cond_policy.state_dict()
+            logger.save_itr_params(i, params)
 
             running_loss_mse = 0.
             running_loss_kl = 0.
+            logger.dump_tabular(with_prefix=True, with_timestamp=False)
