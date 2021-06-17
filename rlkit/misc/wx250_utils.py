@@ -5,13 +5,19 @@ import random
 
 class DummyEnv:
 
-    def __init__(self, image_size):
+    def __init__(self, image_size, use_wrist=False):
         from gym import spaces
         self.image_size = image_size
-        self.action_space = spaces.Box(
-            np.asarray([-0.05, -0.05, -0.05, -1.0]),
-            np.asarray([0.05, 0.05, 0.05, 1.0]),
-            dtype=np.float32)
+        if not use_wrist:
+            self.action_space = spaces.Box(
+                np.asarray([-0.05, -0.05, -0.05, -1.0]),
+                np.asarray([0.05, 0.05, 0.05, 1.0]),
+                dtype=np.float32)
+        else:
+            self.action_space = spaces.Box(
+		np.asarray([-0.05, -0.05, -0.05, -1.0, -1.0]),
+		np.asarray([0.05, 0.05, 0.05, 1.0, 1.0]),
+		dtype=np.float32)
         self.observation_space = spaces.dict.Dict({
             "image": spaces.Box(
                 low=np.array([0]*self.image_size*self.image_size*3),

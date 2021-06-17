@@ -36,7 +36,7 @@ def get_buffer_size(data):
 
 def experiment(variant):
     image_size = 64
-    eval_env = DummyEnv(image_size=image_size)
+    eval_env = DummyEnv(image_size=image_size, use_wrist=True)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
 
