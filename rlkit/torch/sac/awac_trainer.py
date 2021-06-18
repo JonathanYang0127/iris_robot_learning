@@ -276,11 +276,11 @@ class AWACTrainer(TorchTrainer):
 
             if i % self.pretraining_logging_period==0:
                 stats = {
-                "pretrain_bc/batch": i,
-                "pretrain_bc/Train Logprob Loss": ptu.get_numpy(train_logp_loss),
-                "pretrain_bc/Train MSE": ptu.get_numpy(train_mse_loss),
-                "pretrain_bc/train_policy_loss": ptu.get_numpy(train_policy_loss),
-                "pretrain_bc/epoch_time":time.time()-prev_time,
+                    "pretrain_bc/batch": i,
+                    "pretrain_bc/Train Logprob Loss": ptu.get_numpy(train_logp_loss),
+                    "pretrain_bc/Train MSE": ptu.get_numpy(train_mse_loss),
+                    "pretrain_bc/train_policy_loss": ptu.get_numpy(train_policy_loss),
+                    "pretrain_bc/epoch_time":time.time()-prev_time,
                 }
 
                 if test_buffer is not None:
@@ -288,7 +288,6 @@ class AWACTrainer(TorchTrainer):
                         "pretrain_bc/Test Logprob Loss": ptu.get_numpy(test_logp_loss),
                         "pretrain_bc/Test MSE": ptu.get_numpy(test_mse_loss),
                         "pretrain_bc/test_policy_loss": ptu.get_numpy(test_policy_loss),
-
                     })
 
                 logger.record_dict(stats)
