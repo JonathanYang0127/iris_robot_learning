@@ -19,6 +19,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
             object_detector=None,
+            biased_sampling=False,
             *args,
             **kwargs
     ):
@@ -32,6 +33,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
         self.object_detector = object_detector
+        self.biased_sampling = biased_sampling
 
     def _train(self):
         done = (self.epoch == self.num_epochs)
