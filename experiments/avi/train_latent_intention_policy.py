@@ -188,7 +188,7 @@ def main(args):
 
     total_steps = int(5e5)
     log_freq = 1000
-    half_beta_target_steps = min(total_steps // 2, 25000)
+    half_beta_target_steps = min(total_steps // 2, args.beta_anneal_steps)
     beta_target = args.beta_target
 
     variant = dict(
@@ -200,6 +200,7 @@ def main(args):
         ignore_z=args.ignore_z,
         batch_size=batch_size,
         beta_target=beta_target,
+        beta_anneal_steps=args.beta_anneal_steps,
         cnn_params=dict(
 
             input_width=train_dataloader.image_width,
@@ -319,6 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--beta-target", type=float, default=0.01)
+    parser.add_argument("--beta-anneal-steps", type=int, default=25000)
     parser.add_argument("--ignore-z", default=False, action='store_true')
     parser.add_argument("--use-fc", default=False, action='store_true')
     parser.add_argument("--gpu", default='0', type=str)
