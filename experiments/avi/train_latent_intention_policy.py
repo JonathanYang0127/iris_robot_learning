@@ -167,15 +167,7 @@ def enable_gpus(gpu_str):
     return
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--buffer", type=str, default=BUFFER)
-    parser.add_argument("--batch-size", type=int, default=128)
-    parser.add_argument("--beta-target", type=float, default=0.01)
-    parser.add_argument("--ignore-z", default=False, action='store_true')
-    parser.add_argument("--use-fc", default=False, action='store_true')
-    parser.add_argument("--gpu", default='0', type=str)
-    args = parser.parse_args()
+def main(args):
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
@@ -185,8 +177,10 @@ if __name__ == "__main__":
 
     batch_size = args.batch_size
     train_size = int(0.8*len(data))
-    train_dataloader = DataLoader(data[:train_size], batch_size=batch_size)
-    val_dataloader = DataLoader(data[train_size:], batch_size=batch_size)
+    indices = np.random.permutation(data.shape[0])
+    training_idx, val_idx = indices[:train_size], indices[train_size:]
+    train_dataloader = DataLoader(data[training_idx], batch_size=batch_size)
+    val_dataloader = DataLoader(data[val_idx], batch_size=batch_size)
 
     state_observation_dim = train_dataloader.state_observation_dim
     action_dim = train_dataloader.action_dim
@@ -318,3 +312,16 @@ if __name__ == "__main__":
             running_loss_mse = 0.
             running_loss_kl = 0.
             logger.dump_tabular(with_prefix=True, with_timestamp=False)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--buffer", type=str, default=BUFFER)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--beta-target", type=float, default=0.01)
+    parser.add_argument("--ignore-z", default=False, action='store_true')
+    parser.add_argument("--use-fc", default=False, action='store_true')
+    parser.add_argument("--gpu", default='0', type=str)
+    args = parser.parse_args()
+
+    main(args)
