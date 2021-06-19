@@ -33,7 +33,8 @@ if __name__ == "__main__":
     env = NormalizedBoxEnv(GraspWidowXEnv(
         {'transpose_image_to_chw': True,
          'wait_time': 0.2,
-         'return_full_image': full_image}
+         'return_full_image': full_image,
+         'action_mode': '3trans'}
     ))
 
     enable_gpus(args.gpu)
