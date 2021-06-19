@@ -61,11 +61,15 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         if not self._eval_only:
             for _ in range(self.num_train_loops_per_epoch):
                 timer.start_timer('exploration sampling', unique=False)
+                print("collecting explorations")
                 new_expl_paths = self.expl_data_collector.collect_new_paths(
                     self.max_path_length,
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
+                    object_detector=self.object_detector,
                 )
+                print("done collecting explorations")
+                print("self.replay_buffer._size", self.replay_buffer._size)
                 timer.stop_timer('exploration sampling')
 
                 timer.start_timer('replay buffer data storing', unique=False)

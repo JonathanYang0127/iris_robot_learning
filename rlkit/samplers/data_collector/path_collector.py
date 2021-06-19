@@ -6,6 +6,7 @@ import numpy as np
 from rlkit.misc.eval_util import create_stats_ordered_dict
 from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.samplers.rollout_functions import rollout
+from rlkit.data_management.path_reward_label_utils import relabel_path_rewards
 
 
 class MdpPathCollector(PathCollector):
@@ -51,19 +52,31 @@ class MdpPathCollector(PathCollector):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
+            object_detector=None,
     ):
         paths = []
         num_steps_collected = 0
+        print("num_steps", num_steps)
         while num_steps_collected < num_steps:
+            print("num_steps_collected", num_steps_collected)
             max_path_length_this_loop = min(  # Do not go over num_steps
                 max_path_length,
                 num_steps - num_steps_collected,
             )
+
+            if object_detector is not None:
+                input('Press enter when ready for online path rollout...')
+
             path = self._rollout_fn(
                 self._env,
                 self._policy,
                 max_path_length=max_path_length_this_loop,
             )
+            self._env.reset()
+
+            if object_detector is not None:
+                path = relabel_path_rewards(object_detector, path, max_path_length_this_loop)
+
             path_len = len(path['actions'])
             if (
                     path_len != max_path_length

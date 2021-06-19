@@ -1,4 +1,3 @@
-
 import argparse
 import time
 import os.path as osp
@@ -7,21 +6,30 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
-from rlkit.torch.networks.cnn import CNN, ConcatCNN
+from rlkit.torch.sac.policies import GaussianVQVAEPolicy, MakeDeterministic
+from rlkit.torch.networks.vqvae import VQVAEWrapper, ConcatVQVAEWrapper
 
-from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
+from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBufferVQVAE
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
+from rlkit.pythonplusplus import identity
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
 from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv
 
-# import roboverse
+import roboverse
+import vqvae
 import numpy as np
+import torch
+import sys
 
-from rlkit.launchers.config import LOCAL_LOG_DIR
+from doodad.easy_launch.config import LOCAL_LOG_DIR
+#CUSTOM_LOG_DIR = '/home/jonathanyang0127/doodad-output'
+#LOCAL_LOG_DIR = '/home/jonathanyang0127/doodad-output/'
+
+BUFFER = '/home/jonathanyang0127/minibullet/data/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01_20000.npy'
+
 
 def get_buffer_size(data):
     num_transitions = 0
@@ -33,7 +41,7 @@ def get_buffer_size(data):
 
 def experiment(variant):
     image_size = 64
-    eval_env = DummyEnv(image_size=image_size, use_wrist=True)
+    eval_env = DummyEnv(image_size=image_size)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
 
@@ -50,13 +58,18 @@ def experiment(variant):
         added_fc_input_size=state_observation_dim,
     )
 
-    policy = GaussianCNNPolicy(max_log_std=0,
+    vqvae = torch.load(variant['vqvae'])
+    policy = GaussianVQVAEPolicy(vqvae=vqvae,
+                               encoding_type=variant['encoding_type'],
+                               max_log_std=0,
                                min_log_std=-6,
                                obs_dim=None,
                                action_dim=action_dim,
                                std_architecture="values",
                                **cnn_params)
-    buffer_policy = GaussianCNNPolicy(max_log_std=0,
+    buffer_policy = GaussianVQVAEPolicy(vqvae=vqvae,
+                                      encoding_type=variant['encoding_type'],
+                                      max_log_std=0,
                                       min_log_std=-6,
                                       obs_dim=None,
                                       action_dim=action_dim,
@@ -71,19 +84,28 @@ def experiment(variant):
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
 
-    qf1 = ConcatCNN(**cnn_params)
-    qf2 = ConcatCNN(**cnn_params)
-    target_qf1 = ConcatCNN(**cnn_params)
-    target_qf2 = ConcatCNN(**cnn_params)
+    qf1 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
+    qf2 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
+    target_qf1 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
+    target_qf2 = ConcatVQVAEWrapper(vqvae, 
+        encoding_type=variant['encoding_type'], **cnn_params)
 
-    replay_buffer = ObsDictReplayBuffer(
+    image_dim = (64, 64, 3)
+    replay_buffer = ObsDictReplayBufferVQVAE(
+        vqvae, 
         int(1E6),
         expl_env,
+        encoding_type=variant['encoding_type'],
+        image_dim=image_dim,
         observation_keys=observation_keys
     )
-    add_data_to_buffer_real_robot(variant['buffer'], replay_buffer,
+
+    add_data_to_buffer_real_robot(variant['buffer'], replay_buffer, 
                        validation_replay_buffer=None,
-                       validation_fraction=0.8, num_trajs_limit=variant['num_trajs_limit'])
+                       validation_fraction=0.8)
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -101,6 +123,8 @@ def experiment(variant):
         **variant['trainer_kwargs']
     )
 
+    # expl_path_collector = None
+    # eval_path_collector = None
     eval_policy = MakeDeterministic(policy)
     expl_path_collector = ObsDictPathCollector(
         expl_env,
@@ -133,15 +157,7 @@ def experiment(variant):
     algorithm.post_train_funcs.append(video_func)
 
     algorithm.to(ptu.device)
-
-    if variant['use_bc']:
-        trainer.pretrain_policy_with_bc(
-            policy,
-            replay_buffer,
-            1000 * variant['num_epochs'],
-        )
-    else:
-        algorithm.train()
+    algorithm.train()
 
 
 def enable_gpus(gpu_str):
@@ -152,21 +168,20 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--buffer", type=str, required=True)
+    parser.add_argument("--buffer", type=str, default=BUFFER)
+
     parser.add_argument("--beta", type=float, default=1.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
+    parser.add_argument('--vqvae', type=str, required=True)
+    parser.add_argument('--encoding-type', type=str, default='e')
     parser.add_argument("--gpu", default='0', type=str)
-    parser.add_argument("--seed", default=0, type=int)
-    parser.add_argument("--use-bc", action="store_true", default=False)
-    parser.add_argument("--num-trajs-limit", default=0, type=int)
+
     args = parser.parse_args()
 
-    alg = 'BC' if args.use_bc else 'AWAC-Pixel'
-
     variant = dict(
-        algorithm=alg,
+        algorithm="AWAC-Pixel",
 
         num_epochs=3000,
         batch_size=256,
@@ -209,7 +224,7 @@ if __name__ == '__main__':
             use_reparam_update=False,
             reparam_weight=0.0,
             awr_weight=1.0,
-            bc_weight=1.0,
+            bc_weight=0.0,
 
             reward_transform_kwargs=None,
             terminal_transform_kwargs=dict(m=0, b=0),
@@ -232,21 +247,22 @@ if __name__ == '__main__':
         pool_sizes=[2, 2, 1],  # the one at the end means no pool
         pool_strides=[2, 2, 1],
         pool_paddings=[0, 0, 0],
-        image_augmentation=True,
+        image_augmentation=False,
         image_augmentation_padding=4,
     )
-    variant['seed'] = args.seed
-    variant['use_bc'] = args.use_bc
-    if args.num_trajs_limit > 0:
-        variant['num_trajs_limit'] = args.num_trajs_limit
-    else:
-        variant['num_trajs_limit'] = None
+    variant['vqvae'] = args.vqvae
+    variant['encoding_type'] = args.encoding_type
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-{}-wx250'.format(time.strftime("%y-%m-%d"), alg)
-    setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
+    exp_prefix = '{}-awac-image-vqvae-wx250'.format(time.strftime("%y-%m-%d"))
+    base_log_dir = LOCAL_LOG_DIR
+    #if osp.isdir(CUSTOM_LOG_DIR):
+    #    base_log_dir = CUSTOM_LOG_DIR
+    #else:
+    #    base_log_dir = LOCAL_LOG_DIR
+    setup_logger(logger, exp_prefix, base_log_dir, variant=variant,
+                 snapshot_mode='gap_and_last', snapshot_gap=10, )
 
     experiment(variant)

@@ -22,14 +22,11 @@ import roboverse
 import numpy as np
 import torch
 import sys
+from vqvae import models
 
-VQVAE_DIR = '/home/jonathanyang0127/vqvae'
 from rlkit.launchers.config import LOCAL_LOG_DIR
 
-
 BUFFER = '/home/jonathanyang0127/minibullet/data/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01_20000.npy'
-
-sys.path.append(VQVAE_DIR)
 
 
 def get_buffer_size(data):
@@ -251,7 +248,7 @@ if __name__ == '__main__':
         pool_sizes=[2, 2, 1],  # the one at the end means no pool
         pool_strides=[2, 2, 1],
         pool_paddings=[0, 0, 0],
-        image_augmentation=True,
+        image_augmentation=False,
         image_augmentation_padding=4,
     )
     variant['vqvae'] = args.vqvae

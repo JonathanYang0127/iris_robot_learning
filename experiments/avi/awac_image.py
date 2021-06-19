@@ -158,7 +158,6 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
