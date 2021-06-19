@@ -29,7 +29,7 @@ if __name__ == '__main__':
     env = NormalizedBoxEnv(GraspWidowXEnv(
         {'transpose_image_to_chw': True,
          'wait_time': 0.2,
-         'return_full_image': True}
+         'return_full_image': full_image}
     ))
 
     checkpoint_path = args.checkpoint_path
