@@ -69,12 +69,12 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                     object_detector=self.object_detector,
                 )
                 print("done collecting explorations")
-                print("self.replay_buffer._size", self.replay_buffer._size)
                 timer.stop_timer('exploration sampling')
 
                 timer.start_timer('replay buffer data storing', unique=False)
                 self.replay_buffer.add_paths(new_expl_paths)
                 timer.stop_timer('replay buffer data storing')
+                print("self.replay_buffer._size", self.replay_buffer._size)
 
                 timer.start_timer('training', unique=False)
                 for _ in range(self.num_trains_per_train_loop):
