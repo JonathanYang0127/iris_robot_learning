@@ -498,10 +498,10 @@ class AWACTrainer(TorchTrainer):
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
         new_log_pi = new_log_pi.unsqueeze(1)
-        target_q_values = torch.min(
-            self.target_qf1(next_obs, new_next_actions),
-            self.target_qf2(next_obs, new_next_actions),
-        ) - alpha * new_log_pi
+        target_q_values = (
+            self.target_qf1(next_obs, new_next_actions) +  \
+            self.target_qf2(next_obs, new_next_actions) 
+        ) / 2 - alpha * new_log_pi
 
         q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())

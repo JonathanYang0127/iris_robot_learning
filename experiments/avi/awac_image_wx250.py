@@ -7,9 +7,9 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
+from rlkit.torch.sac.policies import GaussianCNNPolicy, GaussianIMPALACNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
-
+from rlkit.torch.networks.impala_cnn import IMPALACNN, ConcatIMPALACNN
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
@@ -47,6 +47,15 @@ def experiment(variant):
         observation_keys = ['image']
         state_observation_dim = 0
 
+    if variant['cnn'] == 'medium':
+        cnn_class = CNN
+        concat_cnn_class = ConcatCNN
+        policy_class = GaussianCNNPolicy
+    if variant['cnn'] == 'impala':
+        cnn_class = CNN
+        concat_cnn_class = ConcatCNN
+        policy_class = GaussianIMPALACNNPolicy
+
     cnn_params = variant['cnn_params']
     cnn_params.update(
         # output_size=action_dim,
@@ -74,10 +83,10 @@ def experiment(variant):
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
 
-    qf1 = ConcatCNN(**cnn_params)
-    qf2 = ConcatCNN(**cnn_params)
-    target_qf1 = ConcatCNN(**cnn_params)
-    target_qf2 = ConcatCNN(**cnn_params)
+    qf1 = concat_cnn_class(**cnn_params)
+    qf2 = concat_cnn_class(**cnn_params)
+    target_qf1 = concat_cnn_class(**cnn_params)
+    target_qf2 = concat_cnn_class(**cnn_params)
 
     
     replay_buffer = ObsDictReplayBuffer(
@@ -154,7 +163,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-
+    parser.add_argument('--cnn', required=True, choices=('medium', 'impala'))
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -213,22 +222,42 @@ if __name__ == '__main__':
         ),
         )
 
-    variant['cnn_params'] = dict(
-        input_width=64,
-        input_height=64,
-        input_channels=3,
-        kernel_sizes=[3, 3, 3],
-        n_channels=[16, 16, 16],
-        strides=[1, 1, 1],
-        hidden_sizes=[1024, 512, 256],
-        paddings=[1, 1, 1],
-        pool_type='max2d',
-        pool_sizes=[2, 2, 1],  # the one at the end means no pool
-        pool_strides=[2, 2, 1],
-        pool_paddings=[0, 0, 0],
-        image_augmentation=True,
-        image_augmentation_padding=4,
-    )
+    variant['cnn'] = args.cnn
+
+    if variant['cnn'] == 'medium':
+        variant['cnn_params'] = dict(
+            input_width=64,
+            input_height=64,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            image_augmentation=True,
+            image_augmentation_padding=4,
+        )
+    elif variant['cnn'] == 'impala':
+        variant['cnn_params'] = dict(
+            input_width=64,
+            input_height=64,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 32, 32],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            image_augmentation=True,
+            image_augmentation_padding=4,
+        )
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
