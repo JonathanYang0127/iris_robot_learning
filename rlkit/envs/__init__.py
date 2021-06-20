@@ -1,5 +1,6 @@
 # from envs.env_utils import register_environments
 from gym.envs.registration import register
+from rlkit.envs.normalized_box_env import *
 
 register(id='OneDPoint-v0', entry_point='railrl.envs.oned_point:OneDPoint')
 register(id='TwoDPoint-v0', entry_point='railrl.envs.twod_point:TwoDPoint')

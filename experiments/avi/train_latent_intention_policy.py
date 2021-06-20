@@ -22,16 +22,26 @@ BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/june15_test_Wi
 class DataLoader:
 
     def __init__(self, data, batch_size=32):
+        self.data = data
         self.dataset_size = len(data)
         self.batch_size = batch_size
         self.trajectory_length = len(data[0]['actions'])
+
+        self.action_dim = data[0]['actions'][0].shape[0]
+        self.state_observation_dim = data[0]['observations'][0]['state'].shape[0]
+        self.image_flat_dim = data[0]['observations'][0]['image'].shape[0]
+        self.image_channels = 3
+        self.image_height = int(np.sqrt(data[0]['observations'][0]['image'].shape[0]/3))
+        self.image_width = int(np.sqrt(data[0]['observations'][0]['image'].shape[0]/3))
+
         self.action_sequences = []
 
         for i in range(self.dataset_size):
             self.action_sequences.append(data[i]['actions'])
 
+        self.is_image_float = isinstance(self.data[0]['actions'][0][0].item(), float)
+
         self.action_sequences = np.asarray(self.action_sequences)
-        self.data = data
 
     def get_batch(self):
         trajectory_indices = np.random.randint(self.dataset_size, size=self.batch_size)
@@ -42,12 +52,17 @@ class DataLoader:
         target_actions = []
 
         for i in range(self.batch_size):
+
             j = trajectory_indices[i]
             k = timestep_indices[i]
 
-            input_image_observations.append(data[j]['observations'][k]['image']/255.0)
-            input_state_observations.append(data[j]['observations'][k]['state'])
-            target_actions.append(data[j]['actions'][k])
+            if self.is_image_float:
+                input_image_observations.append(self.data[j]['observations'][k]['image'])
+            else:
+                input_image_observations.append(self.data[j]['observations'][k]['image']/255.0)
+
+            input_state_observations.append(self.data[j]['observations'][k]['state'])
+            target_actions.append(self.data[j]['actions'][k])
 
         input_image_observations = np.asarray(input_image_observations)
         input_state_observations = np.asarray(input_state_observations)
@@ -94,11 +109,11 @@ class TrajectoryConditionedPolicy(nn.Module):
         self.cnn = ConcatCNN(**cnn_params)
 
     def forward(self, input):
-        hidden = self.init_hidden(self.batch_size)
+
         if not self.use_fc:
+            hidden = self.init_hidden(self.batch_size)
             rnn_output, rnn_hidden = self.gru(input['input_action_sequence'], hidden)
             sequence_encoding = rnn_hidden[0]
-
         else:
             x = input['input_action_sequence'].view(self.batch_size, -1)
             x = F.relu(self.fc1(x))
@@ -152,27 +167,28 @@ def enable_gpus(gpu_str):
     return
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--buffer", type=str, default=BUFFER)
-    parser.add_argument("--batch-size", type=int, default=128)
-    parser.add_argument("--beta-target", type=float, default=0.01)
-    parser.add_argument("--ignore-z", default=False, action='store_true')
-    parser.add_argument("--use-fc", default=False, action='store_true')
-    parser.add_argument("--gpu", default='0', type=str)
-    args = parser.parse_args()
+def main(args):
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    state_observation_dim = 10
-    action_dim = 8
-    latent_dim = 5
+    with open(args.buffer, 'rb') as fl:
+        data = np.load(fl, allow_pickle=True)
+
     batch_size = args.batch_size
+    train_size = int(0.8*len(data))
+    indices = np.random.permutation(data.shape[0])
+    training_idx, val_idx = indices[:train_size], indices[train_size:]
+    train_dataloader = DataLoader(data[training_idx], batch_size=batch_size)
+    val_dataloader = DataLoader(data[val_idx], batch_size=batch_size)
+
+    state_observation_dim = train_dataloader.state_observation_dim
+    action_dim = train_dataloader.action_dim
+    latent_dim = 5
 
     total_steps = int(5e5)
     log_freq = 1000
-    half_beta_target_steps = min(total_steps // 2, 25000)
+    half_beta_target_steps = min(total_steps // 2, args.beta_anneal_steps)
     beta_target = args.beta_target
 
     variant = dict(
@@ -184,10 +200,12 @@ if __name__ == "__main__":
         ignore_z=args.ignore_z,
         batch_size=batch_size,
         beta_target=beta_target,
+        beta_anneal_steps=args.beta_anneal_steps,
         cnn_params=dict(
-            input_width=48,
-            input_height=48,
-            input_channels=3,
+
+            input_width=train_dataloader.image_width,
+            input_height=train_dataloader.image_height,
+            input_channels=train_dataloader.image_channels,
 
             kernel_sizes=[3, 3, 3],
             n_channels=[16, 16, 16],
@@ -218,12 +236,6 @@ if __name__ == "__main__":
     exp_prefix = '{}-latent_intention_model'.format(time.strftime("%y-%m-%d"))
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
-
-    with open(args.buffer, 'rb') as fl:
-        data = np.load(fl, allow_pickle=True)
-    train_size = int(0.8*len(data))
-    train_dataloader = DataLoader(data[:train_size], batch_size=batch_size)
-    val_dataloader = DataLoader(data[train_size:], batch_size=batch_size)
 
     seq_cond_policy = TrajectoryConditionedPolicy(
         action_dim=action_dim,
@@ -301,3 +313,17 @@ if __name__ == "__main__":
             running_loss_mse = 0.
             running_loss_kl = 0.
             logger.dump_tabular(with_prefix=True, with_timestamp=False)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--buffer", type=str, default=BUFFER)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--beta-target", type=float, default=0.01)
+    parser.add_argument("--beta-anneal-steps", type=int, default=25000)
+    parser.add_argument("--ignore-z", default=False, action='store_true')
+    parser.add_argument("--use-fc", default=False, action='store_true')
+    parser.add_argument("--gpu", default='0', type=str)
+    args = parser.parse_args()
+
+    main(args)
