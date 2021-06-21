@@ -227,9 +227,8 @@ if __name__ == '__main__':
             awr_use_mle_for_vf=True,
             clip_score=0.5,
         ),
-        )
+    )
 
-<<<<<<< HEAD
     variant['cnn'] = args.cnn
 
     if variant['cnn'] == 'medium':
@@ -266,30 +265,12 @@ if __name__ == '__main__':
             image_augmentation=True,
             image_augmentation_padding=4,
         )
-=======
-    variant['cnn_params'] = dict(
-        input_width=64,
-        input_height=64,
-        input_channels=3,
-        kernel_sizes=[3, 3, 3],
-        n_channels=[16, 16, 16],
-        strides=[1, 1, 1],
-        hidden_sizes=[1024, 512, 256],
-        paddings=[1, 1, 1],
-        pool_type='max2d',
-        pool_sizes=[2, 2, 1],  # the one at the end means no pool
-        pool_strides=[2, 2, 1],
-        pool_paddings=[0, 0, 0],
-        image_augmentation=True,
-        image_augmentation_padding=4,
-    )
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:
         variant['num_trajs_limit'] = args.num_trajs_limit
     else:
         variant['num_trajs_limit'] = None
->>>>>>> d7f563843ada412d1df32b30d1415b643878317a
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)

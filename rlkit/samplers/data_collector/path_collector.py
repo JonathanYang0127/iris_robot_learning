@@ -6,8 +6,6 @@ import numpy as np
 from rlkit.misc.eval_util import create_stats_ordered_dict
 from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.samplers.rollout_functions import rollout
-from widowx_envs.scripts.label_pickplace_rewards import (
-    relabel_path_rewards_with_obj_model_and_thresh)
 
 
 class MdpPathCollector(PathCollector):
@@ -76,6 +74,8 @@ class MdpPathCollector(PathCollector):
             self._env.reset()
 
             if object_detector is not None:
+                from widowx_envs.scripts.label_pickplace_rewards import (
+                    relabel_path_rewards_with_obj_model_and_thresh)
                 path = relabel_path_rewards_with_obj_model_and_thresh(
                     object_detector, path, max_path_length_this_loop)
 
