@@ -82,6 +82,7 @@ class AWACTrainer(TorchTrainer):
             terminal_transform_kwargs=None,
 
             pretraining_logging_period=1000,
+            pretraining_dump_period=20000,
 
             train_bc_on_rl_buffer=False,
             use_automatic_beta_tuning=False,
@@ -204,6 +205,7 @@ class AWACTrainer(TorchTrainer):
         self.post_bc_pretrain_hyperparams = post_bc_pretrain_hyperparams
         self.update_policy = True
         self.pretraining_logging_period = pretraining_logging_period
+        self.pretraining_dump_period = pretraining_dump_period
         self.normalize_over_batch = normalize_over_batch
         self.normalize_over_state = normalize_over_state
         self.Z_K = Z_K
@@ -276,11 +278,11 @@ class AWACTrainer(TorchTrainer):
 
             if i % self.pretraining_logging_period==0:
                 stats = {
-                "pretrain_bc/batch": i,
-                "pretrain_bc/Train Logprob Loss": ptu.get_numpy(train_logp_loss),
-                "pretrain_bc/Train MSE": ptu.get_numpy(train_mse_loss),
-                "pretrain_bc/train_policy_loss": ptu.get_numpy(train_policy_loss),
-                "pretrain_bc/epoch_time":time.time()-prev_time,
+                    "pretrain_bc/batch": i,
+                    "pretrain_bc/Train Logprob Loss": ptu.get_numpy(train_logp_loss),
+                    "pretrain_bc/Train MSE": ptu.get_numpy(train_mse_loss),
+                    "pretrain_bc/train_policy_loss": ptu.get_numpy(train_policy_loss),
+                    "pretrain_bc/epoch_time":time.time()-prev_time,
                 }
 
                 if test_buffer is not None:
@@ -288,13 +290,16 @@ class AWACTrainer(TorchTrainer):
                         "pretrain_bc/Test Logprob Loss": ptu.get_numpy(test_logp_loss),
                         "pretrain_bc/Test MSE": ptu.get_numpy(test_mse_loss),
                         "pretrain_bc/test_policy_loss": ptu.get_numpy(test_policy_loss),
-
                     })
 
                 logger.record_dict(stats)
                 logger.dump_tabular(with_prefix=True, with_timestamp=False)
-                pickle.dump(self.policy, open(logger.get_snapshot_dir() + '/bc_%s.pkl' % label, "wb"))
                 prev_time = time.time()
+
+            if i % self.pretraining_dump_period == 0:
+                checkpoint_save_path = logger.get_snapshot_dir() + '/itr_{}.pt'.format(i // 1000)
+                snapshot = {"evaluation/policy": self.policy}
+                torch.save(snapshot, checkpoint_save_path)
 
         logger.remove_tabular_output(
             'pretrain_%s.csv' % label, relative_to_snapshot_dir=True,
@@ -498,10 +503,7 @@ class AWACTrainer(TorchTrainer):
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
         new_log_pi = new_log_pi.unsqueeze(1)
-        target_q_values = torch.min(
-            self.target_qf1(next_obs, new_next_actions),
-            self.target_qf2(next_obs, new_next_actions),
-        ) - alpha * new_log_pi
+        target_q_values = (self.target_qf1(next_obs, new_next_actions) + self.target_qf2(next_obs, new_next_actions)) / 2 - alpha * new_log_pi
 
         q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
@@ -906,3 +908,4 @@ class AWACTrainer(TorchTrainer):
             target_qf2=self.qf2,
             buffer_policy=self.buffer_policy,
         )
+

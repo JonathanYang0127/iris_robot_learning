@@ -16,15 +16,17 @@ from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.pythonplusplus import identity
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
-
+from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv
 
 import roboverse
+import vqvae
 import numpy as np
 import torch
 import sys
-from vqvae import models
 
-from rlkit.launchers.config import LOCAL_LOG_DIR
+from doodad.easy_launch.config import LOCAL_LOG_DIR
+#CUSTOM_LOG_DIR = '/home/jonathanyang0127/doodad-output'
+#LOCAL_LOG_DIR = '/home/jonathanyang0127/doodad-output/'
 
 BUFFER = '/home/jonathanyang0127/minibullet/data/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01/may18_Widow250OneObjectGraspTrain-v0_20K_save_all_noise_0.1_2021-05-18T21-59-01_20000.npy'
 
@@ -38,7 +40,8 @@ def get_buffer_size(data):
 
 
 def experiment(variant):
-    eval_env = roboverse.make(variant['env'], transpose_image=True)
+    image_size = 64
+    eval_env = DummyEnv(image_size=image_size)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
 
@@ -90,21 +93,19 @@ def experiment(variant):
     target_qf2 = ConcatVQVAEWrapper(vqvae, 
         encoding_type=variant['encoding_type'], **cnn_params)
 
-    with open(variant['buffer'], 'rb') as fl:
-        data = np.load(fl, allow_pickle=True)
-    num_transitions = get_buffer_size(data)
-    max_replay_buffer_size = num_transitions + 10
-
-    image_dim = (48, 48, 3)
+    image_dim = (64, 64, 3)
     replay_buffer = ObsDictReplayBufferVQVAE(
         vqvae, 
-        max_replay_buffer_size,
+        int(1E6),
         expl_env,
         encoding_type=variant['encoding_type'],
         image_dim=image_dim,
         observation_keys=observation_keys
     )
-    add_data_to_buffer(data, replay_buffer, observation_keys)
+
+    add_data_to_buffer_real_robot(variant['buffer'], replay_buffer, 
+                       validation_replay_buffer=None,
+                       validation_fraction=0.8)
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -167,7 +168,6 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default='Widow250MultiTaskGraspShed-v0')
     parser.add_argument("--buffer", type=str, default=BUFFER)
 
     parser.add_argument("--beta", type=float, default=1.0)
@@ -187,7 +187,7 @@ if __name__ == '__main__':
         batch_size=256,
         max_path_length=25,
         num_trains_per_train_loop=1000,
-        num_eval_steps_per_epoch=125,
+        num_eval_steps_per_epoch=0,
         num_expl_steps_per_train_loop=0,
         min_num_steps_before_training=0,
 
@@ -195,7 +195,6 @@ if __name__ == '__main__':
             save_video_period=1,
         ),
 
-        env=args.env,
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
@@ -236,8 +235,8 @@ if __name__ == '__main__':
         )
 
     variant['cnn_params'] = dict(
-        input_width=48,
-        input_height=48,
+        input_width=64,
+        input_height=64,
         input_channels=3,
         kernel_sizes=[3, 3, 3],
         n_channels=[16, 16, 16],
@@ -257,8 +256,13 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
-    setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
+    exp_prefix = '{}-awac-image-vqvae-wx250'.format(time.strftime("%y-%m-%d"))
+    base_log_dir = LOCAL_LOG_DIR
+    #if osp.isdir(CUSTOM_LOG_DIR):
+    #    base_log_dir = CUSTOM_LOG_DIR
+    #else:
+    #    base_log_dir = LOCAL_LOG_DIR
+    setup_logger(logger, exp_prefix, base_log_dir, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
 
     experiment(variant)
