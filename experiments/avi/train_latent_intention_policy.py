@@ -176,8 +176,11 @@ def main(args):
         data = np.load(fl, allow_pickle=True)
 
     batch_size = args.batch_size
+
     train_size = int(0.8*len(data))
-    indices = np.random.permutation(data.shape[0])
+    indices = np.random.permutation(len(data))
+    if isinstance(data, list):
+        data = np.asarray(data)
     training_idx, val_idx = indices[:train_size], indices[train_size:]
     train_dataloader = DataLoader(data[training_idx], batch_size=batch_size)
     val_dataloader = DataLoader(data[val_idx], batch_size=batch_size)
