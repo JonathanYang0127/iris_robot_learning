@@ -15,6 +15,7 @@ from rlkit.torch.sac.policies.gaussian_policy import (
     TanhGaussianObsProcessorPolicy,
     TanhCNNGaussianPolicy,
 )
+from rlkit.torch.sac.policies.rnvp_policy import ObservationConditionedRealNVP
 from rlkit.torch.sac.policies.lvm_policy import LVMPolicy
 from rlkit.torch.sac.policies.policy_from_q import PolicyFromQ
 
