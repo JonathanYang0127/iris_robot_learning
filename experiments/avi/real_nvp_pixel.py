@@ -9,6 +9,7 @@ from rlkit.torch.networks import CNN
 from rlkit.torch.sac.policies import ObservationConditionedRealNVP
 
 from rlkit.torch.sac.rnvp_trainer import RealNVPTrainer
+from rlkit.misc.roboverse_utils import add_data_to_buffer
 
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.launchers.config import LOCAL_LOG_DIR
@@ -17,22 +18,31 @@ from rlkit.core import logger
 
 import time
 
-DEFAULT_BUFFER = ('/media/avi/data/Work/data/widow250/'
-                  'Widow250MultiTaskGrasp-v0_grasping_two_both_trajs.npy')
+DEFAULT_BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/june15_test_Widow250PickPlaceMedium-v0_100_noise_0.1_2021-06-15T14-36-15/june15_test_Widow250PickPlaceMedium-v0_100_noise_0.1_2021-06-15T14-36-15_100.npy'
 
 
 def experiment(variant):
 
-    image_size = 64
-    eval_env = DummyEnv(image_size=image_size, use_wrist=False)
+    if variant['env'] == 'robot':
+        image_size = 64
+        eval_env = DummyEnv(image_size=image_size, use_wrist=False)
+    else:
+        import roboverse
+        eval_env = roboverse.make(variant['env'], transpose_image=True)
+        image_size = 48
+
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
-    # import IPython; IPython.embed()
-
     img_width, img_height = image_size, image_size
     num_channels = 3
 
-    action_dim = int(np.prod(eval_env.action_space.shape))
+    if variant['use_robot_state']:
+        observation_keys = ['image', 'state']
+        state_observation_dim = eval_env.observation_space.spaces['state'].low.size
+    else:
+        observation_keys = ['image']
+        state_observation_dim = 0
+
     cnn_params = variant['cnn_params']
     cnn_params.update(
         input_width=img_width,
@@ -70,13 +80,6 @@ def experiment(variant):
         use_atanh_preprocessing=variant['use_atanh'],
     )
 
-    if variant['use_robot_state']:
-        observation_keys = ['image', 'state']
-        state_observation_dim = eval_env.observation_space.spaces['state'].low.size
-    else:
-        observation_keys = ['image']
-        state_observation_dim = 0
-
     expl_path_collector = ObsDictPathCollector(
         expl_env,
         real_nvp_policy,
@@ -93,9 +96,15 @@ def experiment(variant):
         expl_env,
         observation_keys=observation_keys
     )
-    add_data_to_buffer_real_robot(variant['buffer'], replay_buffer,
-                                  validation_replay_buffer=None,
-                                  validation_fraction=0.8, num_trajs_limit=variant['num_trajs_limit'])
+
+    if variant['env'] == 'robot':
+        add_data_to_buffer_real_robot(variant['buffer'], replay_buffer,
+                                      validation_replay_buffer=None,
+                                      validation_fraction=0.8, num_trajs_limit=variant['num_trajs_limit'])
+    else:
+        with open(variant['buffer'], 'rb') as fl:
+            data = np.load(fl, allow_pickle=True)
+        add_data_to_buffer(data, replay_buffer, observation_keys)
 
     trainer = RealNVPTrainer(
         env=eval_env,
@@ -175,7 +184,7 @@ if __name__ == "__main__":
 
     import argparse
     parser = argparse.ArgumentParser()
-    # parser.add_argument("--env", type=str, required=True)
+    parser.add_argument("--env", type=str, required=True)
     parser.add_argument("--buffer", type=str, default=DEFAULT_BUFFER)
     parser.add_argument("--buffer-val", type=str, default='')
     parser.add_argument("--obs", default='pixels',
@@ -197,7 +206,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # variant['env'] = args.env
+    variant['env'] = args.env
     variant['obs'] = args.obs
     variant['buffer'] = args.buffer
     variant['buffer_validation'] = args.buffer_val
@@ -254,10 +263,11 @@ if __name__ == "__main__":
         if gpu_str != "":
             os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
         return
+
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-rnvp-{}'.format(time.strftime("%y-%m-%d"), 'robot')
+    exp_prefix = '{}-rnvp-{}'.format(time.strftime("%y-%m-%d"), args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
     experiment(variant)
