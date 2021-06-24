@@ -25,6 +25,7 @@ from rlkit.torch.networks.two_headed_mlp import TwoHeadMlp
 from rlkit.torch.networks.vqvae import (
         VQVAEWrapper, ConcatVQVAEWrapper
 )
+from rlkit.torch.networks.impala_cnn import IMPALACNN, ConcatIMPALACNN
 
 __all__ = [
     'Clamp',
@@ -34,6 +35,8 @@ __all__ = [
     'BasicCNN',
     'CNN',
     'CNNPolicy',
+    'IMPALACNN',
+    'ConcatIMPALACNN',
     'DCNN',
     'Detach',
     'FeedForwardPolicy',

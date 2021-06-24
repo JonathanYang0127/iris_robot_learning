@@ -51,19 +51,34 @@ class MdpPathCollector(PathCollector):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
+            object_detector=None,
     ):
         paths = []
         num_steps_collected = 0
+        print("num_steps", num_steps)
         while num_steps_collected < num_steps:
+            print("num_steps_collected", num_steps_collected)
             max_path_length_this_loop = min(  # Do not go over num_steps
                 max_path_length,
                 num_steps - num_steps_collected,
             )
+
+            if object_detector is not None:
+                input('Press enter when ready for online path rollout...')
+
             path = self._rollout_fn(
                 self._env,
                 self._policy,
                 max_path_length=max_path_length_this_loop,
             )
+            self._env.reset()
+
+            if object_detector is not None:
+                from widowx_envs.scripts.label_pickplace_rewards import (
+                    relabel_path_rewards_with_obj_model_and_thresh)
+                path = relabel_path_rewards_with_obj_model_and_thresh(
+                    object_detector, path, max_path_length_this_loop)
+
             path_len = len(path['actions'])
             if (
                     path_len != max_path_length

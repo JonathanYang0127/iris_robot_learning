@@ -7,9 +7,9 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
+from rlkit.torch.sac.policies import GaussianCNNPolicy, GaussianIMPALACNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
-
+from rlkit.torch.networks.impala_cnn import IMPALACNN, ConcatIMPALACNN
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
@@ -18,13 +18,10 @@ from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
 from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv
 
-import roboverse
+# import roboverse
 import numpy as np
 
 from rlkit.launchers.config import LOCAL_LOG_DIR
-
-BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16_1000.npy'
-
 
 def get_buffer_size(data):
     num_transitions = 0
@@ -36,7 +33,7 @@ def get_buffer_size(data):
 
 def experiment(variant):
     image_size = 64
-    eval_env = DummyEnv(image_size=image_size)
+    eval_env = DummyEnv(image_size=image_size, use_wrist=True)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
 
@@ -46,6 +43,15 @@ def experiment(variant):
     else:
         observation_keys = ['image']
         state_observation_dim = 0
+
+    if variant['cnn'] == 'medium':
+        cnn_class = CNN
+        concat_cnn_class = ConcatCNN
+        policy_class = GaussianCNNPolicy
+    if variant['cnn'] == 'impala':
+        cnn_class = CNN
+        concat_cnn_class = ConcatCNN
+        policy_class = GaussianIMPALACNNPolicy
 
     cnn_params = variant['cnn_params']
     cnn_params.update(
@@ -74,12 +80,11 @@ def experiment(variant):
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
 
-    qf1 = ConcatCNN(**cnn_params)
-    qf2 = ConcatCNN(**cnn_params)
-    target_qf1 = ConcatCNN(**cnn_params)
-    target_qf2 = ConcatCNN(**cnn_params)
+    qf1 = concat_cnn_class(**cnn_params)
+    qf2 = concat_cnn_class(**cnn_params)
+    target_qf1 = concat_cnn_class(**cnn_params)
+    target_qf2 = concat_cnn_class(**cnn_params)
 
-    
     replay_buffer = ObsDictReplayBuffer(
         int(1E6),
         expl_env,
@@ -87,7 +92,7 @@ def experiment(variant):
     )
     add_data_to_buffer_real_robot(variant['buffer'], replay_buffer,
                        validation_replay_buffer=None,
-                       validation_fraction=0.8)
+                       validation_fraction=0.8, num_trajs_limit=variant['num_trajs_limit'])
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -137,7 +142,15 @@ def experiment(variant):
     algorithm.post_train_funcs.append(video_func)
 
     algorithm.to(ptu.device)
-    algorithm.train()
+
+    if variant['use_bc']:
+        trainer.pretrain_policy_with_bc(
+            policy,
+            replay_buffer,
+            1000 * variant['num_epochs'],
+        )
+    else:
+        algorithm.train()
 
 
 def enable_gpus(gpu_str):
@@ -148,19 +161,22 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--buffer", type=str, default=BUFFER)
-
+    parser.add_argument("--buffer", type=str, required=True)
     parser.add_argument("--beta", type=float, default=1.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-
+    parser.add_argument('--cnn', required=True, choices=('medium', 'impala'))
     parser.add_argument("--gpu", default='0', type=str)
-
+    parser.add_argument("--seed", default=0, type=int)
+    parser.add_argument("--use-bc", action="store_true", default=False)
+    parser.add_argument("--num-trajs-limit", default=0, type=int)
     args = parser.parse_args()
 
+    alg = 'BC' if args.use_bc else 'AWAC-Pixel'
+
     variant = dict(
-        algorithm="AWAC-Pixel",
+        algorithm=alg,
 
         num_epochs=3000,
         batch_size=256,
@@ -203,7 +219,7 @@ if __name__ == '__main__':
             use_reparam_update=False,
             reparam_weight=0.0,
             awr_weight=1.0,
-            bc_weight=0.0,
+            bc_weight=1.0,
 
             reward_transform_kwargs=None,
             terminal_transform_kwargs=dict(m=0, b=0),
@@ -211,30 +227,56 @@ if __name__ == '__main__':
             awr_use_mle_for_vf=True,
             clip_score=0.5,
         ),
-        )
-
-    variant['cnn_params'] = dict(
-        input_width=64,
-        input_height=64,
-        input_channels=3,
-        kernel_sizes=[3, 3, 3],
-        n_channels=[16, 16, 16],
-        strides=[1, 1, 1],
-        hidden_sizes=[1024, 512, 256],
-        paddings=[1, 1, 1],
-        pool_type='max2d',
-        pool_sizes=[2, 2, 1],  # the one at the end means no pool
-        pool_strides=[2, 2, 1],
-        pool_paddings=[0, 0, 0],
-        image_augmentation=True,
-        image_augmentation_padding=4,
     )
+
+    variant['cnn'] = args.cnn
+
+    if variant['cnn'] == 'medium':
+        variant['cnn_params'] = dict(
+            input_width=64,
+            input_height=64,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            image_augmentation=True,
+            image_augmentation_padding=4,
+        )
+    elif variant['cnn'] == 'impala':
+        variant['cnn_params'] = dict(
+            input_width=64,
+            input_height=64,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 32, 32],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            image_augmentation=True,
+            image_augmentation_padding=4,
+        )
+    variant['seed'] = args.seed
+    variant['use_bc'] = args.use_bc
+    if args.num_trajs_limit > 0:
+        variant['num_trajs_limit'] = args.num_trajs_limit
+    else:
+        variant['num_trajs_limit'] = None
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-awac-image-wx250'.format(time.strftime("%y-%m-%d"))
+    exp_prefix = '{}-{}-wx250'.format(time.strftime("%y-%m-%d"), alg)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+                 snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
 
     experiment(variant)

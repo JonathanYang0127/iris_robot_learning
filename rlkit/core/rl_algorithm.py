@@ -41,6 +41,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             save_extra_manual_epoch_list=(),
             save_extra_manual_beginning_epoch_list=(),
             keep_only_last_extra=True,
+            log_keys_to_remove = [],
     ):
         self.trainer = trainer
         self.expl_env = exploration_env
@@ -78,6 +79,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
 
         self._eval_epoch_freq = eval_epoch_freq
         self._eval_only = eval_only
+        self.log_keys_to_remove = log_keys_to_remove
 
     def train(self):
         timer.return_global_times = True
@@ -149,6 +151,9 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             snapshot['evaluation/' + k] = v
         for k, v in self.replay_buffer.get_snapshot().items():
             snapshot['replay_buffer/' + k] = v
+
+        for key_to_remove in self.log_keys_to_remove:
+            snapshot.pop(key_to_remove)
         return snapshot
 
     def get_extra_data_to_save(self, epoch):
