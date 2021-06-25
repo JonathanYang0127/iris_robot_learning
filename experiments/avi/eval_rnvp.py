@@ -28,6 +28,7 @@ if __name__ == "__main__":
         # params = pickle.load(f)
 
     rnvp_policy = params['trainer/bijector']
+    rnvp_policy.eval()
 
     variant = dict(env='Widow250PickPlaceMedium-v0')
 
