@@ -107,7 +107,17 @@ class ObsDictReplayBuffer(ReplayBuffer):
 
     def add_sample(self, observation, action, reward, terminal,
                    next_observation, **kwargs):
-        raise NotImplementedError("Only use add_path")
+        # raise NotImplementedError("Only use add_path")
+        self._actions[self._top] = action
+        self._terminals[self._top] = terminal
+        self._rewards[self._top] = reward
+
+        for key in self.ob_keys_to_save + self.internal_keys:
+            self._obs[key][self._top] = observation[key]
+            self._next_obs[key][self._top] = next_observation[key]
+
+        self._top = (self._top + 1) % self.max_size
+        self._size = min(self._size + 1, self.max_size)
 
     def terminate_episode(self):
         pass
