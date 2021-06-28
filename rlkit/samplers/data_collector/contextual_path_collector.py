@@ -24,7 +24,10 @@ class ContextualPathCollector(MdpPathCollector):
             observation_keys=observation_keys,
         )
         super().__init__(
-            env, policy, max_num_epoch_paths_saved, render, render_kwargs,
+            env, policy,
+            max_num_epoch_paths_saved=max_num_epoch_paths_saved,
+            render=render,
+            render_kwargs=render_kwargs,
             rollout_fn=rollout_fn,
             **kwargs
         )

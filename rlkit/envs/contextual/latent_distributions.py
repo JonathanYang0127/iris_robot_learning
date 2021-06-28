@@ -4,6 +4,8 @@ from rlkit.core.distribution import DictDistribution, DictDistributionGenerator
 from rlkit.misc.asset_loader import load_local_or_remote_file
 from rlkit.torch import pytorch_util as ptu
 
+from rlkit.core import logger
+
 
 class AddLatentDistribution(DictDistribution):
     def __init__(
@@ -137,6 +139,7 @@ class PresamplePriorDistribution(DictDistribution):
             num_presample=5000,
             samples_per_batch=50,
             dist=None,
+            save_goals=False,
     ):
         self.representation_size = model.representation_size
         self._spaces = dist.spaces if dist else {}
@@ -147,6 +150,10 @@ class PresamplePriorDistribution(DictDistribution):
         self.samples_per_batch = samples_per_batch
         self.dist = dist
         self._presampled_goals = self.presample_goals()
+
+        if save_goals:
+            logger.save_extra_data(self._presampled_goals, "presampled_goals", "pickle")
+
         self._num_presampled_goals = self._presampled_goals.shape[0]
         latent_space = Box(
             -10 * np.ones(self.representation_size),

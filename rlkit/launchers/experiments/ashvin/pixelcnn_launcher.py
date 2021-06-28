@@ -41,8 +41,8 @@ def train_pixelcnn(
     data_filter_fn=lambda x: x,
     debug=False,
     data_size=float('inf'),
-    num_train_batches_per_epoch=100,
-    num_test_batches_per_epoch=10,
+    num_train_batches_per_epoch=None,
+    num_test_batches_per_epoch=None,
 ):
     trainer_kwargs = {} if trainer_kwargs is None else trainer_kwargs
     model_kwargs = {} if model_kwargs is None else model_kwargs
