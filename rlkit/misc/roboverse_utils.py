@@ -123,6 +123,35 @@ def add_data_to_positive_and_zero_buffers_multitask(
         # replay_buffer.add_path(data[j]['env_infos'][0]['task_idx'], path)
 
 
+def add_reward_filtered_data_to_buffers_multitask(
+        data, observation_keys,
+        *args):
+    for arg in args:
+        assert len(arg) == 2
+
+    for j in range(len(data)):
+        path_len = len(data[j]['actions'])
+        assert (len(data[j]['actions']) == len(data[j]['observations']) == len(
+            data[j]['next_observations']))
+
+        path = dict(
+            rewards=[np.asarray([r]) for r in data[j]['rewards']],
+            actions=data[j]['actions'],
+            terminals=[np.asarray([t]) for t in data[j]['terminals']],
+            observations=process_keys(data[j]['observations'], observation_keys),
+            next_observations=process_keys(
+                data[j]['next_observations'], observation_keys),
+        )
+
+        for i in range(path_len):
+            for arg in args:
+                if arg[1](path['rewards'][i]):
+                    arg[0].add_sample(data[j]['env_infos'][0]['task_idx'],
+                                      path['observations'][i], path['actions'][i], path['rewards'][i],
+                                      path['terminals'][i], path['next_observations'][i]
+                                      )
+
+
 class VideoSaveFunctionBullet:
     def __init__(self, variant):
         self.logdir = logger.get_snapshot_dir()
