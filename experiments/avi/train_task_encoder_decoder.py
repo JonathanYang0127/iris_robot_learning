@@ -217,9 +217,12 @@ def main(args):
 
     optimizer = optim.Adam(net.parameters(), lr=3e-4)
     log_alpha = ptu.zeros(1, requires_grad=True)
-    alpha_optimizer = optim.Adam([log_alpha], lr=3e-4)
+    alpha_optimizer = optim.Adam([log_alpha], lr=1e-3)
+    # alpha = ptu.ones(1, requires_grad=True)
+    # alpha_optimizer = optim.Adam([alpha], lr=3e-4)
+
     # criterion = nn.MSELoss()
-    print_freq = 1000
+    print_freq = 100
     total_steps = variant['total_steps']
     half_beta_target_steps = min(total_steps // 2, args.beta_anneal_steps)
     beta_target = args.beta_target
@@ -274,12 +277,12 @@ def main(args):
         entropy_loss = criterion(reward_predictions, gt_rewards)
         KLD = td.kl_divergence(q_z, p_z).sum()
 
-        alpha_loss = (log_alpha * (KLD - 1.0).detach()).mean()
+        # alpha = torch.clamp(log_alpha.exp(), min=0.0, max=beta)
         alpha = log_alpha.exp()
         alpha_optimizer.zero_grad()
-        alpha_loss.backward()
+        alpha_loss = (alpha * (KLD - 1.0).detach()).mean()
+        alpha_loss.backward(retain_graph=True)
         alpha_optimizer.step()
-        # print(alpha.item())
 
         if beta > alpha.item():
             loss = entropy_loss + (beta-alpha)*KLD
@@ -295,6 +298,7 @@ def main(args):
 
             logger.record_tabular('steps', i)
 
+            logger.record_tabular('train/alpha_loss', alpha_loss.item())
             logger.record_tabular('train/alpha', alpha.item())
             logger.record_tabular('train/beta', beta)
 
