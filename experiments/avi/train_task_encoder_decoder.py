@@ -216,6 +216,8 @@ def main(args):
     val_batch_size = batch_size*4
 
     optimizer = optim.Adam(net.parameters(), lr=3e-4)
+    log_alpha = ptu.zeros(1, requires_grad=True)
+    alpha_optimizer = optim.Adam([log_alpha], lr=3e-4)
     # criterion = nn.MSELoss()
     print_freq = 1000
     total_steps = variant['total_steps']
@@ -252,6 +254,8 @@ def main(args):
             beta = beta_target*kl_anneal_sigmoid_function(i, half_beta_target_steps)
         elif args.anneal == 'linear':
             beta = beta_target*kl_anneal_linear_function(i, half_beta_target_steps)
+        elif args.anneal == 'none':
+            beta = beta_target
         else:
             raise NotImplementedError
 
@@ -269,7 +273,18 @@ def main(args):
 
         entropy_loss = criterion(reward_predictions, gt_rewards)
         KLD = td.kl_divergence(q_z, p_z).sum()
-        loss = entropy_loss + beta*KLD
+
+        alpha_loss = (log_alpha * (KLD - 1.0).detach()).mean()
+        alpha = log_alpha.exp()
+        alpha_optimizer.zero_grad()
+        alpha_loss.backward()
+        alpha_optimizer.step()
+        # print(alpha.item())
+
+        if beta > alpha.item():
+            loss = entropy_loss + (beta-alpha)*KLD
+        else:
+            loss = entropy_loss
 
         running_loss_kl += KLD.item()
         running_loss_entropy += entropy_loss.item()
@@ -279,6 +294,9 @@ def main(args):
         if i % print_freq == 0:
 
             logger.record_tabular('steps', i)
+
+            logger.record_tabular('train/alpha', alpha.item())
+            logger.record_tabular('train/beta', beta)
 
             if i > 0:
                 running_loss_entropy /= print_freq
@@ -334,7 +352,7 @@ if __name__ == "__main__":
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--val-buffer", type=str, default=VALIDATION_BUFFER)
     parser.add_argument("--anneal", type=str, default='sigmoid',
-                        choices=('sigmoid, linear'))
+                        choices=('sigmoid', 'linear', 'none'))
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--beta-target", type=float, default=0.01)
     parser.add_argument("--beta-anneal-steps", type=int, default=10000)
