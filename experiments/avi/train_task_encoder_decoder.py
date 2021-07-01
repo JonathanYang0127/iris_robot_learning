@@ -7,6 +7,7 @@ from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplay
 from rlkit.misc.roboverse_utils import add_reward_filtered_data_to_buffers_multitask, get_buffer_size_multitask, process_keys
 import roboverse
 import rlkit.torch.pytorch_util as ptu
+import torch.distributions as td
 
 import torch
 import torch.nn as nn
@@ -33,9 +34,14 @@ VALIDATION_BUFFER = ('/nfs/kun1/users/jonathan/minibullet_data/'
 ENV = 'Widow250PickPlaceMetaTestMultiObjectMultiContainer-v0'
 
 
+def kl_anneal_function(step, x0, k=0.0025):
+    return float(1 / (1 + np.exp(-k * (step - x0))))
+
+
 class EncoderNet(nn.Module):
-    def __init__(self):
+    def __init__(self, latent_dim):
         super().__init__()
+        self.latent_dim = latent_dim
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
@@ -43,7 +49,8 @@ class EncoderNet(nn.Module):
 
         # self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, 10)
+        self.fc_mu = nn.Linear(256, latent_dim)
+        self.fc_var = nn.Linear(256, latent_dim)
 
     def forward(self, encoder_input):
         t, b, obs_dim = encoder_input.shape
@@ -54,19 +61,36 @@ class EncoderNet(nn.Module):
         x = torch.flatten(x, 1) # flatten all dimensions except batch
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        mu = self.fc_mu(x)
+        log_var = self.fc_var(x)
+        z, q_z = self.reparameterize(mu, log_var)
+        return z, q_z
+
+    def reparameterize(self, mu, logvar):
+        """
+        From https://github.com/AntixK/PyTorch-VAE/blob/master/models/beta_vae.py
+        Reparameterization trick to sample from N(mu, var) from
+        N(0,1).
+        :param mu: (Tensor) Mean of the latent Gaussian [B x D]
+        :param logvar: (Tensor) Standard deviation of the latent Gaussian [B x D]
+        :return: (Tensor) [B x D]
+        """
+        std = torch.exp(0.5 * logvar)
+        q_z = td.normal.Normal(mu, std)     # create a torch distribution
+        eps = torch.randn_like(std)
+        z = eps * std + mu
+        return z, q_z
 
 
 class DecoderNet(nn.Module):
-    def __init__(self):
+    def __init__(self, latent_dim):
         super().__init__()
-        self.encoder_output_dim = 10
+        self.latent_dim = latent_dim
 
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16*9*9 + self.encoder_output_dim, 512)
+        self.fc1 = nn.Linear(16*9*9 + self.latent_dim, 512)
 
         # self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(512, 256)
@@ -88,22 +112,24 @@ class DecoderNet(nn.Module):
 
 
 class EncoderDecoderNet(nn.Module):
-    def __init__(self):
+    def __init__(self, latent_dim):
         super().__init__()
 
-        self.encoder_net = EncoderNet()
-        self.decoder_net = DecoderNet()
+        self.encoder_net = EncoderNet(latent_dim)
+        self.decoder_net = DecoderNet(latent_dim)
 
     def forward(self, encoder_input, decoder_input):
-        task_embedding = self.encoder_net(encoder_input)
-        predicted_reward = self.decoder_net(task_embedding, decoder_input)
-        return predicted_reward
+        z, q_z = self.encoder_net(encoder_input)
+        predicted_reward = self.decoder_net(z, decoder_input)
+        return predicted_reward, q_z
 
 
 def main(args):
     variant = dict(
         buffer=args.buffer,
         val_buffer=args.val_buffer,
+        latent_dim=4,
+        total_steps=int(5e5),
         batch_size=128,
         num_tasks=8,
     )
@@ -171,25 +197,31 @@ def main(args):
                                                   (replay_buffer_positive_val, lambda r: r > 0),
                                                   (replay_buffer_full_val, lambda r: True))
 
-    net = EncoderDecoderNet()
+    latent_dim = variant['latent_dim']
+    net = EncoderDecoderNet(latent_dim)
     net.to(ptu.device)
     exp_prefix = '{}-task-encoder-decoder'.format(time.strftime("%y-%m-%d"))
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )
 
-    running_loss = 0.
-    # running_loss_kl = 0.
+    running_loss_entropy = 0.
+    running_loss_kl = 0.
     batch_size = variant['batch_size']
     val_batch_size = batch_size*4
 
     optimizer = optim.Adam(net.parameters(), lr=3e-4)
     # criterion = nn.MSELoss()
     print_freq = 1000
+    total_steps = variant['total_steps']
+    half_beta_target_steps = min(total_steps // 2, args.beta_anneal_steps)
+    beta_target = args.beta_target
     criterion = nn.CrossEntropyLoss()
     tasks_to_sample = list(range(variant['num_tasks']))
     start_time = time.time()
+    p_z = td.normal.Normal(ptu.from_numpy(np.zeros((latent_dim,))),
+                           ptu.from_numpy(np.ones((latent_dim,))))
 
-    for i in range(50000):
+    for i in range(total_steps):
         optimizer.zero_grad()
         encoder_batch = replay_buffer_positive.sample_batch(tasks_to_sample, batch_size)
         # positives
@@ -207,9 +239,10 @@ def main(args):
                                       ),
                                      axis=1)
 
-        reward_predictions = net.forward(ptu.from_numpy(encoder_batch['observations']),
-                                         ptu.from_numpy(decoder_obs)
-                                         )
+        reward_predictions, q_z = net.forward(
+            ptu.from_numpy(encoder_batch['observations']), ptu.from_numpy(decoder_obs))
+        beta = beta_target*kl_anneal_function(i, half_beta_target_steps)
+
         # gt_rewards = torch.from_numpy(decoder_batch['rewards'].astype(np.int64)).cuda()
         decoder_rewards = np.concatenate(
             (decoder_batch_1['rewards'],
@@ -222,32 +255,39 @@ def main(args):
         assert rew_dim == 1
         gt_rewards = gt_rewards.view(t*b,)
 
-        loss = criterion(reward_predictions, gt_rewards)
-        running_loss += loss.item()
+        entropy_loss = criterion(reward_predictions, gt_rewards)
+        KLD = td.kl_divergence(q_z, p_z).sum()
+        loss = entropy_loss + beta*KLD
+
+        running_loss_kl += KLD.item()
+        running_loss_entropy += entropy_loss.item()
         loss.backward()
         optimizer.step()
 
-        if i%print_freq == 0:
+        if i % print_freq == 0:
 
             logger.record_tabular('steps', i)
 
             if i > 0:
-                running_loss /= print_freq
+                running_loss_entropy /= print_freq
+                running_loss_kl /= print_freq
                 logger.record_tabular('time/epoch_time', time.time() - start_time)
                 start_time = time.time()
             else:
                 logger.record_tabular('time/epoch_time', 0.0)
 
             # print('steps: {} train loss: {}'.format(i, running_loss))
-            logger.record_tabular('train/entropy_loss', running_loss)
-
-            running_loss = 0.0
+            logger.record_tabular('train/entropy_loss', running_loss_entropy)
+            logger.record_tabular('train/KLD', running_loss_kl)
+            running_loss_entropy = 0.
+            running_loss_kl = 0.
 
             encoder_batch_val = replay_buffer_positive_val.sample_batch(tasks_to_sample, val_batch_size)
             decoder_batch_val = replay_buffer_full_val.sample_batch(tasks_to_sample, val_batch_size)
-            reward_predictions = net.forward(ptu.from_numpy(encoder_batch_val['observations']),
-                                             ptu.from_numpy(decoder_batch_val['observations'])
-                                             )
+            reward_predictions, q_z = net.forward(
+                ptu.from_numpy(encoder_batch_val['observations']),
+                ptu.from_numpy(decoder_batch_val['observations']))
+
             # gt_rewards = ptu.from_numpy(decoder_batch_val['rewards'])
             # t, b, rew_dim = gt_rewards.shape
             # gt_rewards = gt_rewards.view(t*b, rew_dim)
@@ -256,9 +296,11 @@ def main(args):
             t, b, rew_dim = gt_rewards.shape
             assert rew_dim == 1
             gt_rewards = gt_rewards.view(t*b,)
-            loss = criterion(reward_predictions, gt_rewards)
+            entropy_loss = criterion(reward_predictions, gt_rewards)
+            KLD = td.kl_divergence(q_z, p_z).sum()
             # print('steps: {} val loss: {}'.format(i, loss.item()))
-            logger.record_tabular('val/entropy_loss', loss.item())
+            logger.record_tabular('val/entropy_loss', entropy_loss.item())
+            logger.record_tabular('val/KLD', KLD.item())
 
             gt_rewards = ptu.get_numpy(gt_rewards)
             reward_predictions = ptu.get_numpy(reward_predictions)
@@ -278,5 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--val-buffer", type=str, default=VALIDATION_BUFFER)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument("--beta-target", type=float, default=0.01)
+    parser.add_argument("--beta-anneal-steps", type=int, default=25000)
     args = parser.parse_args()
     main(args)
