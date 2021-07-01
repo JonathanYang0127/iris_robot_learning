@@ -128,6 +128,8 @@ def main(args):
     variant = dict(
         buffer=args.buffer,
         val_buffer=args.val_buffer,
+        beta_target=args.beta_target,
+        beta_anneal_steps=args.beta_anneal_steps,
         latent_dim=4,
         total_steps=int(5e5),
         batch_size=128,
