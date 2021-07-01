@@ -312,6 +312,8 @@ def main(args):
             # print('accuracy', accuracy_score(gt_rewards, reward_predictions))
             # print('recall', recall_score(gt_rewards, reward_predictions))
             # print('precision', precision_score(gt_rewards, reward_predictions))
+            params = net.state_dict()
+            logger.save_itr_params(i // print_freq, params)
             logger.dump_tabular(with_prefix=True, with_timestamp=False)
 
 
