@@ -34,8 +34,12 @@ VALIDATION_BUFFER = ('/nfs/kun1/users/jonathan/minibullet_data/'
 ENV = 'Widow250PickPlaceMetaTestMultiObjectMultiContainer-v0'
 
 
-def kl_anneal_function(step, x0, k=0.0025):
+def kl_anneal_sigmoid_function(step, x0, k=0.0025):
     return float(1 / (1 + np.exp(-k * (step - x0))))
+
+
+def kl_anneal_linear_function(step, x0):
+    return min(1.0, step/x0)
 
 
 class EncoderNet(nn.Module):
@@ -243,7 +247,13 @@ def main(args):
 
         reward_predictions, q_z = net.forward(
             ptu.from_numpy(encoder_batch['observations']), ptu.from_numpy(decoder_obs))
-        beta = beta_target*kl_anneal_function(i, half_beta_target_steps)
+
+        if args.anneal == 'sigmoid':
+            beta = beta_target*kl_anneal_sigmoid_function(i, half_beta_target_steps)
+        elif args.anneal == 'linear':
+            beta = beta_target*kl_anneal_linear_function(i, half_beta_target_steps)
+        else:
+            raise NotImplementedError
 
         # gt_rewards = torch.from_numpy(decoder_batch['rewards'].astype(np.int64)).cuda()
         decoder_rewards = np.concatenate(
@@ -323,8 +333,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--val-buffer", type=str, default=VALIDATION_BUFFER)
+    parser.add_argument("--anneal", type=str, default='sigmoid',
+                        choices=('sigmoid, linear'))
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--beta-target", type=float, default=0.01)
-    parser.add_argument("--beta-anneal-steps", type=int, default=25000)
+    parser.add_argument("--beta-anneal-steps", type=int, default=10000)
     args = parser.parse_args()
     main(args)
