@@ -135,7 +135,7 @@ def main(args):
         val_buffer=args.val_buffer,
         beta_target=args.beta_target,
         beta_anneal_steps=args.beta_anneal_steps,
-        latent_dim=4,
+        latent_dim=args.latent_dim,
         total_steps=int(5e5),
         batch_size=128,
         num_tasks=8,
@@ -364,6 +364,7 @@ if __name__ == "__main__":
     parser.add_argument("--val-buffer", type=str, default=VALIDATION_BUFFER)
     parser.add_argument("--anneal", type=str, default='sigmoid',
                         choices=('sigmoid', 'linear', 'none'))
+    parser.add_argument("--latent-dim", default=4, type=int)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--beta-target", type=float, default=0.01)
     parser.add_argument("--beta-anneal-steps", type=int, default=10000)
