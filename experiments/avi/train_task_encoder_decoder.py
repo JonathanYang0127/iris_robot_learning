@@ -300,9 +300,9 @@ def main(args):
         if i % print_freq == 0:
 
             logger.record_tabular('steps', i)
-
-            logger.record_tabular('train/alpha_loss', alpha_loss.item())
-            logger.record_tabular('train/alpha', alpha.item())
+            if args.use_alpha:
+                logger.record_tabular('train/alpha_loss', alpha_loss.item())
+                logger.record_tabular('train/alpha', alpha.item())
             logger.record_tabular('train/beta', beta)
 
             if i > 0:
