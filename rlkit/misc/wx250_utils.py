@@ -65,3 +65,21 @@ def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_bu
 
     print("replay_buffer._size", replay_buffer._size)
 
+
+# TODO: Add validation buffers
+def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer):
+
+    assert isinstance(data_paths, dict)
+    assert 'context' in replay_buffer.observation_keys
+
+    for task, data_path in data_paths.items():
+        add_data_to_buffer_real_robot(data_path, replay_buffer)
+
+
+def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_replay_buffer):
+
+    assert isinstance(data_paths, dict)
+
+    for task, data_path in data_paths.items():
+        add_data_to_buffer_real_robot(data_path, multitask_replay_buffer.task_buffers[task])
+
