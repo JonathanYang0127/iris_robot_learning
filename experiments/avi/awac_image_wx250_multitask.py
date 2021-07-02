@@ -163,6 +163,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--buffers", type=str, nargs='+', required=True)
     parser.add_argument("--beta", type=float, default=1.0)
+    parser.add_argument("--clip-score", type=float, default=5.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
@@ -225,7 +226,7 @@ if __name__ == '__main__':
             terminal_transform_kwargs=dict(m=0, b=0),
 
             awr_use_mle_for_vf=True,
-            clip_score=0.5,
+            clip_score=args.clip_score,
         ),
     )
 
