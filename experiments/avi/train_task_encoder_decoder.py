@@ -19,6 +19,8 @@ from rlkit.launchers.config import LOCAL_LOG_DIR
 from rlkit.core import logger
 from rlkit.launchers.launcher_util import setup_logger
 
+from wide_resnet import Wide_ResNet
+
 def enable_gpus(gpu_str):
     if gpu_str != "":
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
@@ -40,6 +42,21 @@ def kl_anneal_sigmoid_function(step, x0, k=0.0025):
 
 def kl_anneal_linear_function(step, x0):
     return min(1.0, step/x0)
+
+def reparameterize(mu, logvar):
+    """
+    From https://github.com/AntixK/PyTorch-VAE/blob/master/models/beta_vae.py
+    Reparameterization trick to sample from N(mu, var) from
+    N(0,1).
+    :param mu: (Tensor) Mean of the latent Gaussian [B x D]
+    :param logvar: (Tensor) Standard deviation of the latent Gaussian [B x D]
+    :return: (Tensor) [B x D]
+    """
+    std = torch.exp(0.5 * logvar)
+    # q_z = td.normal.Normal(mu, std)     # create a torch distribution
+    eps = torch.randn_like(std)
+    z = eps * std + mu
+    return z
 
 
 class EncoderNet(nn.Module):
@@ -67,23 +84,31 @@ class EncoderNet(nn.Module):
         x = F.relu(self.fc2(x))
         mu = self.fc_mu(x)
         log_var = self.fc_var(x)
-        z = self.reparameterize(mu, log_var)
+        z = reparameterize(mu, log_var)
         return z, mu, log_var
 
-    def reparameterize(self, mu, logvar):
-        """
-        From https://github.com/AntixK/PyTorch-VAE/blob/master/models/beta_vae.py
-        Reparameterization trick to sample from N(mu, var) from
-        N(0,1).
-        :param mu: (Tensor) Mean of the latent Gaussian [B x D]
-        :param logvar: (Tensor) Standard deviation of the latent Gaussian [B x D]
-        :return: (Tensor) [B x D]
-        """
-        std = torch.exp(0.5 * logvar)
-        # q_z = td.normal.Normal(mu, std)     # create a torch distribution
-        eps = torch.randn_like(std)
-        z = eps * std + mu
-        return z
+
+class WideResEncoderNet(Wide_ResNet):
+
+    def forward(self, x):
+        t, b, obs_dim = x.shape
+        x = x.view(t*b, obs_dim)
+        x = x.view(t*b, 3, 48, 48)
+
+        out = self.conv1(x)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = F.relu(self.bn1(out))
+        out = F.avg_pool2d(out, 8)
+        out = out.view(out.size(0), -1)
+
+        out = self.linear(out)
+
+        mu = out[:, :self.latent_dim]
+        log_var = out[:, self.latent_dim:]
+        z = reparameterize(mu, log_var)
+        return z, mu, log_var
 
 
 class DecoderNet(nn.Module):
@@ -116,11 +141,14 @@ class DecoderNet(nn.Module):
 
 
 class EncoderDecoderNet(nn.Module):
-    def __init__(self, latent_dim):
+    def __init__(self, latent_dim, encoder_resent=False):
         super().__init__()
 
         self.latent_dim = latent_dim
-        self.encoder_net = EncoderNet(latent_dim)
+        if encoder_resent:
+            self.encoder_net = WideResEncoderNet(10, 5, 0.3, latent_dim*2)
+        else:
+            self.encoder_net = EncoderNet(latent_dim)
         self.decoder_net = DecoderNet(latent_dim)
 
     def forward(self, encoder_input, decoder_input):
@@ -136,8 +164,10 @@ def main(args):
         beta_target=args.beta_target,
         beta_anneal_steps=args.beta_anneal_steps,
         latent_dim=args.latent_dim,
+        encoder_resnet=args.encoder_resnet,
+        decoder_resnet=args.decoder_resnet,
         total_steps=int(5e5),
-        batch_size=128,
+        batch_size=args.batch_size,
         num_tasks=8,
     )
 
@@ -205,11 +235,11 @@ def main(args):
                                                   (replay_buffer_full_val, lambda r: True))
 
     latent_dim = variant['latent_dim']
-    net = EncoderDecoderNet(latent_dim)
+    net = EncoderDecoderNet(latent_dim, encoder_resent=args.encoder_resnet)
     net.to(ptu.device)
     exp_prefix = '{}-task-encoder-decoder'.format(time.strftime("%y-%m-%d"))
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+                 snapshot_mode='gap_and_last', snapshot_gap=100, )
 
     running_loss_entropy = 0.
     running_loss_kl = 0.
@@ -219,8 +249,6 @@ def main(args):
     optimizer = optim.Adam(net.parameters(), lr=3e-4)
     log_alpha = ptu.zeros(1, requires_grad=True)
     alpha_optimizer = optim.Adam([log_alpha], lr=0.01)
-    # alpha = ptu.ones(1, requires_grad=True)
-    # alpha_optimizer = optim.Adam([alpha], lr=3e-4)
 
     # criterion = nn.MSELoss()
     print_freq = 100
@@ -230,8 +258,6 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
     tasks_to_sample = list(range(variant['num_tasks']))
     start_time = time.time()
-    p_z = td.normal.Normal(ptu.from_numpy(np.zeros((latent_dim,))),
-                           ptu.from_numpy(np.ones((latent_dim,))))
 
     for i in range(total_steps):
         optimizer.zero_grad()
@@ -365,9 +391,12 @@ if __name__ == "__main__":
     parser.add_argument("--anneal", type=str, default='sigmoid',
                         choices=('sigmoid', 'linear', 'none'))
     parser.add_argument("--latent-dim", default=4, type=int)
+    parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--beta-target", type=float, default=0.01)
     parser.add_argument("--beta-anneal-steps", type=int, default=10000)
+    parser.add_argument("--encoder-resnet", default=False, action='store_true')
+    parser.add_argument("--decoder-resnet", default=False, action='store_true')
     parser.add_argument("--use-alpha", default=False, action='store_true')
     args = parser.parse_args()
     main(args)
