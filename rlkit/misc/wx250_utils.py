@@ -5,7 +5,7 @@ import random
 
 class DummyEnv:
 
-    def __init__(self, image_size, use_wrist=False):
+    def __init__(self, image_size, use_wrist=False, num_tasks=0):
         from gym import spaces
         self.image_size = image_size
         if not use_wrist:
@@ -26,6 +26,12 @@ class DummyEnv:
             "state": spaces.Box(-np.full(8, np.inf), np.full(8, np.inf),
                                 dtype=np.float64),
         })
+        if num_tasks > 0:
+            self.observation_space.spaces.update({
+                'task': spaces.Box(
+                     low=np.array([0] * num_tasks),
+                     high=np.array([1] * num_tasks),
+                 )})
 
     def step(self):
         raise NotImplementedError
@@ -34,13 +40,22 @@ class DummyEnv:
         raise NotImplementedError
 
 
-def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_buffer=None,
-                       validation_fraction=0.8, num_trajs_limit=None):
-    with open(data_path, 'rb') as handle:
-        paths = pickle.load(handle)
+def load_data(data_object):
+    if isinstance(data_object, str):
+        with open(data_object, 'rb') as handle:
+            data = pickle.load(handle)
+        return data
+    elif isinstance(data_object, list):
+        return data_object
+    else:
+        raise NotImplementedError
 
+def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=None,
+                       validation_fraction=0.8, num_trajs_limit=None):
     assert validation_fraction >= 0.0
     assert validation_fraction < 1.0
+
+    paths = load_data(data)
 
     if num_trajs_limit is not None:
         assert num_trajs_limit <= len(paths)
@@ -70,10 +85,17 @@ def add_data_to_buffer_real_robot(data_path, replay_buffer, validation_replay_bu
 def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer):
 
     assert isinstance(data_paths, dict)
-    assert 'context' in replay_buffer.observation_keys
+    assert 'task' in replay_buffer.observation_keys
 
     for task, data_path in data_paths.items():
-        add_data_to_buffer_real_robot(data_path, replay_buffer)
+        paths = load_data(data_path)
+        for path in paths:
+            for i in range(len(path['observations'])):
+                path['observations'][i]['task'] = np.array([0] * len(data_paths.keys()))
+                path['observations'][i]['task'][task] = 1
+                path['next_observations'][i]['task'] = np.array([0] * len(data_paths.keys()))
+                path['next_observations'][i]['task'][task] = 1
+        add_data_to_buffer_real_robot(paths, replay_buffer)
 
 
 def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_replay_buffer):
