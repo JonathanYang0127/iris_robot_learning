@@ -18,23 +18,20 @@ class DummyEnv:
 		np.asarray([-0.05, -0.05, -0.05, -1.0, -1.0]),
 		np.asarray([0.05, 0.05, 0.05, 1.0, 1.0]),
 		dtype=np.float32)
-        obs_space_params = {
+        self.observation_space = spaces.dict.Dict({
             "image": spaces.Box(
                 low=np.array([0]*self.image_size*self.image_size*3),
                 high=np.array([255]*self.image_size*self.image_size*3),
                 dtype=np.uint8),
             "state": spaces.Box(-np.full(8, np.inf), np.full(8, np.inf),
                                 dtype=np.float64),
-        }
+        })
         if num_tasks > 0:
-            obs_space_params.update({
+            self.observation_space.spaces.update({
                 'task': spaces.Box(
                      low=np.array([0] * num_tasks),
                      high=np.array([1] * num_tasks),
                  )})
-        
-        self.observation_space = spaces.dict.Dict(obs_space_params)       
-        
 
     def step(self):
         raise NotImplementedError
