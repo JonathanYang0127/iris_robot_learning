@@ -52,12 +52,17 @@ class MdpPathCollector(PathCollector):
             num_steps,
             discard_incomplete_paths,
             object_detector=None,
+            multi_task=False,
+            task_index=0,
     ):
         paths = []
         num_steps_collected = 0
-        print("num_steps", num_steps)
+        if multi_task:
+            self._env.reset_task(task_index)
+        # print("num_steps", num_steps)
+
         while num_steps_collected < num_steps:
-            print("num_steps_collected", num_steps_collected)
+            # print("num_steps_collected", num_steps_collected)
             max_path_length_this_loop = min(  # Do not go over num_steps
                 max_path_length,
                 num_steps - num_steps_collected,

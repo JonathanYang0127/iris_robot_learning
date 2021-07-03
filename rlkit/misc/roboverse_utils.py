@@ -4,6 +4,14 @@ import os.path as osp
 from rlkit.core import logger
 
 
+def get_buffer_size(data):
+    num_transitions = 0
+    for i in range(len(data)):
+        for j in range(len(data[i]['observations'])):
+            num_transitions += 1
+    return num_transitions
+
+
 def process_keys(observations, observation_keys):
     output = []
     for i in range(len(observations)):
@@ -20,12 +28,14 @@ def process_keys(observations, observation_keys):
                     print('image shape: {}'.format(image.shape))
                     raise ValueError
                 observation[key] = image
-            elif key == 'state':
-                observation[key] = np.array(observations[i]['state'])
-            elif key == 'task':
-                observation[key] = np.array(observations[i]['task'])
             else:
-                raise NotImplementedError
+                observation[key] = np.array(observations[i][key])
+            # elif key == 'state':
+            #     observation[key] = np.array(observations[i]['state'])
+            # elif key == 'task':
+            #     observation[key] = np.array(observations[i]['task'])
+            # else:
+            #     raise NotImplementedError
         output.append(observation)
     return output
 
@@ -94,7 +104,7 @@ def add_data_to_buffer_multitask_v2(data, replay_buffer, observation_keys):
 
 
 def add_multitask_data_to_singletask_buffer_v2(data, replay_buffer, observation_keys, num_tasks):
-    assert 'task' in observation_keys
+    assert 'one_hot_task_id' in observation_keys
 
     for j in range(len(data)):
         assert (len(data[j]['actions']) == len(data[j]['observations']) == len(
@@ -103,11 +113,11 @@ def add_multitask_data_to_singletask_buffer_v2(data, replay_buffer, observation_
         task_idx = data[j]['env_infos'][0]['task_idx']
 
         for i in range(len(data[j]['observations'])):
-                data[j]['observations'][i]['task'] = np.array([0] * num_tasks)
-                data[j]['observations'][i]['task'][task_idx] = 1
-                data[j]['next_observations'][i]['task'] = np.array([0] * num_tasks)
-                data[j]['next_observations'][i]['task'][task_idx] = 1
-        
+                data[j]['observations'][i]['one_hot_task_id'] = np.array([0] * num_tasks)
+                data[j]['observations'][i]['one_hot_task_id'][task_idx] = 1
+                data[j]['next_observations'][i]['one_hot_task_id'] = np.array([0] * num_tasks)
+                data[j]['next_observations'][i]['one_hot_task_id'][task_idx] = 1
+
         path = dict(
             rewards=[np.asarray([r]) for r in data[j]['rewards']],
             actions=data[j]['actions'],
@@ -116,7 +126,7 @@ def add_multitask_data_to_singletask_buffer_v2(data, replay_buffer, observation_
             next_observations=process_keys(
                 data[j]['next_observations'], observation_keys),
         )
-	
+
         replay_buffer.add_path(path)
 
 def add_data_to_positive_and_zero_buffers_multitask(

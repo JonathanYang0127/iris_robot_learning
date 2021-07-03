@@ -1,12 +1,8 @@
 from collections import OrderedDict
 
 from rlkit.core.timer import timer
-
-from rlkit.core import logger
-from rlkit.data_management.replay_buffer import ReplayBuffer
-from rlkit.misc import eval_util
-from rlkit.samplers.data_collector.path_collector import PathCollector
 from rlkit.core.rl_algorithm import BaseRLAlgorithm
+
 
 class BatchRLAlgorithm(BaseRLAlgorithm):
     def __init__(
@@ -19,6 +15,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
             object_detector=None,
+            multi_task=False,
+            num_tasks=0,
             biased_sampling=False,
             *args,
             **kwargs
@@ -32,6 +30,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
+        self.multi_task = multi_task
+        self.num_tasks = num_tasks
         self.object_detector = object_detector
         self.biased_sampling = biased_sampling
 
@@ -51,11 +51,21 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
 
         timer.start_timer('evaluation sampling')
         if self.epoch % self._eval_epoch_freq == 0:
-            self.eval_data_collector.collect_new_paths(
-                self.max_path_length,
-                self.num_eval_steps_per_epoch,
-                discard_incomplete_paths=True,
-            )
+            if self.multi_task:
+                for i in range(self.num_tasks):
+                    self.eval_data_collector.collect_new_paths(
+                        self.max_path_length,
+                        self.num_eval_steps_per_epoch,
+                        discard_incomplete_paths=True,
+                        multi_task=True,
+                        task_index=i,
+                    )
+            else:
+                self.eval_data_collector.collect_new_paths(
+                    self.max_path_length,
+                    self.num_eval_steps_per_epoch,
+                    discard_incomplete_paths=True,
+                )
         timer.stop_timer('evaluation sampling')
 
         if not self._eval_only:

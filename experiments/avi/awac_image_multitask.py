@@ -1,48 +1,46 @@
-
 import argparse
 import time
-import os.path as osp
 import os
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
-from rlkit.torch.networks.cnn import CNN, ConcatCNN
+from rlkit.torch.networks.cnn import ConcatCNN
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
-from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
+from rlkit.samplers.data_collector import ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
-from rlkit.misc.roboverse_utils import add_data_to_buffer, \
-    add_data_to_buffer_new, VideoSaveFunctionBullet, get_buffer_size
+from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v2, \
+    VideoSaveFunctionBullet, get_buffer_size
 
 import roboverse
 import numpy as np
-
+from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
 
-BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16/may14_meta_Widow250MultiTaskGraspShed-v0_1000_save_all_noise_0.1_2021-05-14T16-27-16_1000.npy'
+BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06_1000.npy'
+
 
 def experiment(variant):
-    eval_env = roboverse.make(variant['env'], transpose_image=True)
+    num_tasks = variant['num_tasks']
+    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=num_tasks)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
+    observation_keys = ['image', 'one_hot_task_id']
 
     if variant['use_robot_state']:
-        observation_keys = ['image', 'state']
+        observation_keys.append('state')
         state_observation_dim = eval_env.observation_space.spaces['state'].low.size
     else:
-        observation_keys = ['image']
         state_observation_dim = 0
 
     cnn_params = variant['cnn_params']
     cnn_params.update(
-        # output_size=action_dim,
         added_fc_input_size=state_observation_dim,
     )
-
     policy = GaussianCNNPolicy(max_log_std=0,
                                min_log_std=-6,
                                obs_dim=None,
@@ -55,7 +53,6 @@ def experiment(variant):
                                       action_dim=action_dim,
                                       std_architecture="values",
                                       **cnn_params)
-
     cnn_params.update(
         output_size=1,
         added_fc_input_size=state_observation_dim + action_dim,
@@ -69,20 +66,31 @@ def experiment(variant):
     target_qf1 = ConcatCNN(**cnn_params)
     target_qf2 = ConcatCNN(**cnn_params)
 
+    # import IPython; IPython.embed()
+
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
     num_transitions = get_buffer_size(data)
     max_replay_buffer_size = num_transitions + 10
+
+    expl_env.observation_space.spaces.update(
+        {'one_hot_task_id': spaces.Box(
+            low=np.array([0] * num_tasks),
+            high=np.array([1] * num_tasks),
+        )})
     replay_buffer = ObsDictReplayBuffer(
         max_replay_buffer_size,
         expl_env,
         observation_keys=observation_keys
     )
 
-    if len(data[0]['observations'][0]['image'].shape) > 1:
-        add_data_to_buffer(data, replay_buffer, observation_keys)
-    else:
-        add_data_to_buffer_new(data, replay_buffer, observation_keys)
+    add_multitask_data_to_singletask_buffer_v2(data, replay_buffer,
+                                               observation_keys, num_tasks)
+
+    # if len(data[0]['observations'][0]['image'].shape) > 1:
+    #     add_data_to_buffer(data, replay_buffer, observation_keys)
+    # else:
+    #     add_data_to_buffer_new(data, replay_buffer, observation_keys)
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -126,6 +134,8 @@ def experiment(variant):
         num_expl_steps_per_train_loop=variant['num_expl_steps_per_train_loop'],
         num_trains_per_train_loop=variant['num_trains_per_train_loop'],
         min_num_steps_before_training=variant['min_num_steps_before_training'],
+        multi_task=True,
+        num_tasks=num_tasks,
     )
 
     video_func = VideoSaveFunctionBullet(variant)
@@ -143,9 +153,9 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default='Widow250MultiTaskGraspShed-v0')
+    parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTestMultiObjectMultiContainer-v0')
+    parser.add_argument("--num-tasks", type=int, default=32)
     parser.add_argument("--buffer", type=str, default=BUFFER)
-
     parser.add_argument("--beta", type=float, default=1.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
@@ -159,9 +169,10 @@ if __name__ == '__main__':
 
         num_epochs=3000,
         batch_size=256,
-        max_path_length=25,
+        max_path_length=30,
         num_trains_per_train_loop=1000,
-        num_eval_steps_per_epoch=125,
+        # num_eval_steps_per_epoch=150,
+        num_eval_steps_per_epoch=120,
         num_expl_steps_per_train_loop=0,
         min_num_steps_before_training=0,
 
@@ -170,6 +181,7 @@ if __name__ == '__main__':
         ),
 
         env=args.env,
+        num_tasks=args.num_tasks,
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
@@ -207,7 +219,7 @@ if __name__ == '__main__':
             awr_use_mle_for_vf=True,
             clip_score=0.5,
         ),
-        )
+    )
 
     variant['cnn_params'] = dict(
         input_width=48,
