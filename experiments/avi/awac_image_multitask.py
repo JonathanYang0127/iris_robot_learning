@@ -153,7 +153,7 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTestMultiObjectMultiContainer-v0')
+    parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0')
     parser.add_argument("--num-tasks", type=int, default=32)
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--beta", type=float, default=1.0)
