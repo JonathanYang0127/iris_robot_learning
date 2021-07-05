@@ -1,6 +1,8 @@
 import argparse
 import time
 import os
+import gym
+from roboverse.bullet.serializable import Serializable
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
@@ -14,7 +16,7 @@ from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v2, \
-    VideoSaveFunctionBullet, get_buffer_size
+    VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer
 
 import roboverse
 import numpy as np
@@ -24,12 +26,74 @@ from rlkit.launchers.config import LOCAL_LOG_DIR
 BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06_1000.npy'
 
 
+class EmbeddingWrapper(gym.Env, Serializable):
+
+    def __init__(self, env, embeddings):
+        self.env = env
+        self.action_space = env.action_space
+        self.observation_space = env.observation_space
+        self.embeddings = embeddings
+
+    def step(self, action):
+        obs, rew, done, info = self.env.step(action)
+        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
+        return obs, rew, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
+        return obs
+
+    def reset_task(self, task_idx):
+        self.env.reset_task(task_idx)
+
+
 def experiment(variant):
     num_tasks = variant['num_tasks']
     eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=num_tasks)
+
+    with open(variant['buffer'], 'rb') as fl:
+        data = np.load(fl, allow_pickle=True)
+    num_transitions = get_buffer_size(data)
+    max_replay_buffer_size = num_transitions + 10
+
+    if variant['use_task_embedding']:
+        num_traj_total = len(data)
+        latent_dim = data[0]['observations'][0]['task_embedding'].shape[0]
+        task_embeddings = dict()
+        for i in range(variant['num_tasks']):
+            task_embeddings[i] = []
+
+        for j in range(num_traj_total):
+            task_idx = data[j]['env_infos'][0]['task_idx']
+            task_embeddings[task_idx].append(data[j]['observations'][0]['task_embedding'])
+
+        for i in range(variant['num_tasks']):
+            task_embeddings[i] = np.asarray(task_embeddings[i])
+            task_embeddings[i] = np.mean(task_embeddings[i], axis=0)
+
+        eval_env.observation_space.spaces.update(
+            {'task_embedding': spaces.Box(
+                low=np.array([-100] * latent_dim),
+                high=np.array([100] * latent_dim),
+            )})
+        eval_env = EmbeddingWrapper(eval_env, embeddings=task_embeddings)
+    else:
+        eval_env.observation_space.spaces.update(
+            {'one_hot_task_id': spaces.Box(
+                low=np.array([0] * num_tasks),
+                high=np.array([1] * num_tasks),
+            )})
+
     expl_env = eval_env
+
     action_dim = eval_env.action_space.low.size
-    observation_keys = ['image', 'one_hot_task_id']
+    observation_keys = ['image',]
+
+    if variant['use_task_embedding']:
+        observation_keys.append('task_embedding')
+    else:
+        observation_keys.append('one_hot_task_id')
 
     if variant['use_robot_state']:
         observation_keys.append('state')
@@ -38,9 +102,11 @@ def experiment(variant):
         state_observation_dim = 0
 
     cnn_params = variant['cnn_params']
-    cnn_params.update(
-        added_fc_input_size=state_observation_dim,
-    )
+    if variant['use_task_embedding']:
+        cnn_params.update(added_fc_input_size=state_observation_dim + latent_dim)
+    else:
+        cnn_params.update(added_fc_input_size=state_observation_dim + num_tasks)
+
     policy = GaussianCNNPolicy(max_log_std=0,
                                min_log_std=-6,
                                obs_dim=None,
@@ -55,36 +121,32 @@ def experiment(variant):
                                       **cnn_params)
     cnn_params.update(
         output_size=1,
-        added_fc_input_size=state_observation_dim + action_dim,
     )
-
+    if variant['use_task_embedding']:
+        cnn_params.update(
+            added_fc_input_size=state_observation_dim + latent_dim + action_dim,
+        )
+    else:
+        cnn_params.update(
+            added_fc_input_size=state_observation_dim + num_tasks + action_dim,
+        )
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
-
     qf1 = ConcatCNN(**cnn_params)
     qf2 = ConcatCNN(**cnn_params)
     target_qf1 = ConcatCNN(**cnn_params)
     target_qf2 = ConcatCNN(**cnn_params)
 
-    # import IPython; IPython.embed()
-
-    with open(variant['buffer'], 'rb') as fl:
-        data = np.load(fl, allow_pickle=True)
-    num_transitions = get_buffer_size(data)
-    max_replay_buffer_size = num_transitions + 10
-
-    expl_env.observation_space.spaces.update(
-        {'one_hot_task_id': spaces.Box(
-            low=np.array([0] * num_tasks),
-            high=np.array([1] * num_tasks),
-        )})
     replay_buffer = ObsDictReplayBuffer(
         max_replay_buffer_size,
         expl_env,
         observation_keys=observation_keys
     )
 
-    add_multitask_data_to_singletask_buffer_v2(data, replay_buffer,
+    if variant['use_task_embedding']:
+        add_data_to_buffer(data, replay_buffer, observation_keys)
+    else:
+        add_multitask_data_to_singletask_buffer_v2(data, replay_buffer,
                                                observation_keys, num_tasks)
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
@@ -156,7 +218,8 @@ if __name__ == '__main__':
     parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0')
     parser.add_argument("--num-tasks", type=int, default=32)
     parser.add_argument("--buffer", type=str, default=BUFFER)
-    parser.add_argument("--beta", type=float, default=1.0)
+    parser.add_argument("--beta", type=float, default=0.1)
+    parser.add_argument('--use-task-embedding', action='store_true', default=False)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
@@ -170,8 +233,8 @@ if __name__ == '__main__':
         num_epochs=3000,
         batch_size=256,
         max_path_length=30,
-        num_trains_per_train_loop=1000,
-        # num_eval_steps_per_epoch=150,
+        num_trains_per_train_loop=10,
+        # num_eval_steps_per_epoch=0,
         num_eval_steps_per_epoch=120,
         num_expl_steps_per_train_loop=0,
         min_num_steps_before_training=0,
@@ -185,7 +248,7 @@ if __name__ == '__main__':
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
-
+        use_task_embedding=args.use_task_embedding,
         trainer_kwargs=dict(
             discount=0.99,
             soft_target_tau=5e-3,
