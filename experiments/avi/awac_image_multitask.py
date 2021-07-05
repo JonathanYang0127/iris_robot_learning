@@ -233,7 +233,7 @@ if __name__ == '__main__':
         num_epochs=3000,
         batch_size=256,
         max_path_length=30,
-        num_trains_per_train_loop=10,
+        num_trains_per_train_loop=1000,
         # num_eval_steps_per_epoch=0,
         num_eval_steps_per_epoch=120,
         num_expl_steps_per_train_loop=0,
