@@ -21,7 +21,7 @@ CHECKPOINT = '/home/avi/Downloads/itr_4990.pt'
 
 def main(args):
 
-    with open(BUFFER, 'rb') as fl:
+    with open(args.buffer, 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
 
     output_filename = 'embedding_' + os.path.basename(BUFFER)
@@ -56,7 +56,7 @@ def main(args):
 
     latent_dim = 2
     net = EncoderDecoderNet(latent_dim, encoder_resent=False)
-    net.load_state_dict(torch.load(CHECKPOINT))
+    net.load_state_dict(torch.load(args.chkpt))
     net.cuda()
 
     for j in tqdm(range(len(data))):
