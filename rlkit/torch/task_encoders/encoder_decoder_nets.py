@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from wide_resnet import Wide_ResNet
+from rlkit.torch.task_encoders.wide_resnet import Wide_ResNet
 
 
 def reparameterize(mu, logvar):
