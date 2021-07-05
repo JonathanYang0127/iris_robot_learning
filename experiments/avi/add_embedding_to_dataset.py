@@ -24,8 +24,8 @@ def main(args):
     with open(args.buffer, 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
 
-    output_filename = 'embedding_' + os.path.basename(BUFFER)
-    save_path = os.path.join(os.path.dirname(BUFFER), output_filename)
+    output_filename = 'embedding_' + os.path.basename(args.buffer)
+    save_path = os.path.join(os.path.dirname(args.buffer), output_filename)
     num_transitions = get_buffer_size_multitask(data)
     max_replay_buffer_size = num_transitions + 10
     expl_env = roboverse.make(ENV, transpose_image=True)
