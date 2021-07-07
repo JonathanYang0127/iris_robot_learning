@@ -22,13 +22,25 @@ def reparameterize(mu, logvar):
 
 
 class EncoderNet(nn.Module):
-    def __init__(self, latent_dim):
+    def __init__(self, image_size, latent_dim):
         super().__init__()
         self.latent_dim = latent_dim
+        self.image_size = image_size
+
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16*9*9, 512)
+
+        if self.image_size == 48:
+            # (48 - 4)/2 (22 - 4 / 2) = 9
+            flat_dim = 16*9*9
+        elif self.image_size == 64:
+            # (64 - 4)/2 (30 - 4) / 2 = 13
+            flat_dim = 16*13*13
+        else:
+            raise ValueError
+
+        self.fc1 = nn.Linear(flat_dim, 512)
 
         # self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(512, 256)
@@ -38,7 +50,7 @@ class EncoderNet(nn.Module):
     def forward(self, encoder_input):
         t, b, obs_dim = encoder_input.shape
         x = encoder_input.view(t*b, obs_dim)
-        x = x.view(t*b, 3, 48, 48)
+        x = x.view(t*b, 3, self.image_size, self.image_size)
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
@@ -55,7 +67,7 @@ class WideResEncoderNet(Wide_ResNet):
     def forward(self, x):
         t, b, obs_dim = x.shape
         x = x.view(t*b, obs_dim)
-        x = x.view(t*b, 3, 48, 48)
+        x = x.view(t*b, 3, self.image_size, self.image_size)
 
         out = self.conv1(x)
         out = self.layer1(out)
@@ -74,14 +86,24 @@ class WideResEncoderNet(Wide_ResNet):
 
 
 class DecoderNet(nn.Module):
-    def __init__(self, latent_dim):
+    def __init__(self, image_size, latent_dim):
         super().__init__()
+        self.image_size = image_size
         self.latent_dim = latent_dim
 
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16*9*9 + self.latent_dim, 512)
+
+        if self.image_size == 48:
+            # (48 - 4)/2 (22 - 4 / 2) = 9
+            flat_dim = 16*9*9
+        elif self.image_size == 64:
+            # (64 - 4)/2 (30 - 4) / 2 = 13
+            flat_dim = 16*13*13
+        else:
+            raise ValueError
+        self.fc1 = nn.Linear(flat_dim + self.latent_dim, 512)
 
         # self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(512, 256)
@@ -91,7 +113,7 @@ class DecoderNet(nn.Module):
 
         t, b, obs_dim = decoder_input.shape
         x = decoder_input.view(t*b, obs_dim)
-        x = x.view(t*b, 3, 48, 48)
+        x = x.view(t*b, 3, self.image_size, self.image_size)
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
@@ -103,15 +125,15 @@ class DecoderNet(nn.Module):
 
 
 class EncoderDecoderNet(nn.Module):
-    def __init__(self, latent_dim, encoder_resent=False):
+    def __init__(self, image_size, latent_dim, encoder_resent=False):
         super().__init__()
 
         self.latent_dim = latent_dim
         if encoder_resent:
             self.encoder_net = WideResEncoderNet(10, 5, 0.3, latent_dim*2)
         else:
-            self.encoder_net = EncoderNet(latent_dim)
-        self.decoder_net = DecoderNet(latent_dim)
+            self.encoder_net = EncoderNet(image_size, latent_dim)
+        self.decoder_net = DecoderNet(image_size, latent_dim)
 
     def forward(self, encoder_input, decoder_input):
         z, mu, log_var = self.encoder_net(encoder_input)
