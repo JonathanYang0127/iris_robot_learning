@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument("-n", "--num-timesteps", type=int, default=10)
     args = parser.parse_args()
 
-    if not os.path.exists(args.video_save_dir):
+    if not os.path.exists(args.video_save_dir) and args.video_save_dir:
         os.mkdir(args.video_save_dir)
 
     ptu.set_gpu_mode(True)
@@ -60,18 +60,13 @@ if __name__ == '__main__':
         obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
 
         for j in range(args.num_timesteps):
-            # obs = env._get_obs()
-            # obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
-
             action, info = eval_policy.get_action(obs_flat)
-            print(action[-1])
             # if j > 7:
             #     action[-1] = 0.0
             obs, rew, done, info = env.step(action)
             obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
-            # obs_flat = ptu.from_numpy(obs['image'])
 
-            if args.video_save_dir != "":
+            if args.video_save_dir:
                 if full_image:
                     image = obs['full_image']
                 else:
@@ -81,7 +76,7 @@ if __name__ == '__main__':
                 images.append(Image.fromarray(image))
 
         # Save Video
-        if args.video_save_dir != "":
+        if args.video_save_dir:
             print("Saving Video")
             images[0].save('{}/eval_{}.gif'.format(args.video_save_dir, i),
                             format='GIF', append_images=images[1:],
