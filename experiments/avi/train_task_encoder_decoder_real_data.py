@@ -60,13 +60,12 @@ def main(args):
         decoder_resnet=args.decoder_resnet,
         total_steps=int(5e5),
         batch_size=args.batch_size,
-        num_tasks=2,
+        num_tasks=args.num_tasks,
     )
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    train_task_indices = list(range(32))
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
 
@@ -74,7 +73,7 @@ def main(args):
     max_replay_buffer_size = num_transitions + 10
     image_size = 64
     expl_env = DummyEnv(image_size=image_size, use_wrist=True)
-    train_task_indices = [0, 1]
+    train_task_indices = list(range(variant['num_tasks']))
     observation_keys = ['image',]
 
     replay_buffer_positive = ObsDictMultiTaskReplayBuffer(
@@ -158,6 +157,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--val-buffer", type=str, default=VALIDATION_BUFFER)
+    parser.add_argument("--num-tasks", type=int, default=2)
     parser.add_argument("--anneal", type=str, default='linear',
                         choices=('sigmoid', 'linear', 'none'))
     parser.add_argument("--latent-dim", default=2, type=int)
