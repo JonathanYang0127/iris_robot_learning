@@ -131,7 +131,11 @@ class TaskEncoderTrainer:
                 KLD = torch.sum(-logvar + (mu ** 2)*0.5 + var, 1) - self.net.latent_dim
                 KLD = KLD.mean()
 
-                # print('steps: {} val loss: {}'.format(i, loss.item()))
+                mu_max = mu.max()
+                mu_min = mu.min()
+                logger.record_tabular('val/mu/min', mu_min.item())
+                logger.record_tabular('val/mu/max', mu_max.item())
+
                 logger.record_tabular('val/entropy_loss', entropy_loss.item())
                 logger.record_tabular('val/KLD', KLD.item())
 
