@@ -130,7 +130,7 @@ class EncoderDecoderNet(nn.Module):
 
         self.latent_dim = latent_dim
         if encoder_resent:
-            self.encoder_net = WideResEncoderNet(10, 5, 0.3, latent_dim*2)
+            self.encoder_net = WideResEncoderNet(image_size, 10, 5, 0.3, latent_dim*2)
         else:
             self.encoder_net = EncoderNet(image_size, latent_dim)
         self.decoder_net = DecoderNet(image_size, latent_dim)
