@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from rlkit.torch.task_encoders.wide_resnet import Wide_ResNet
+from rlkit.torch.networks.cnn import RandomCrop
 
 
 def reparameterize(mu, logvar):
@@ -22,10 +23,18 @@ def reparameterize(mu, logvar):
 
 
 class EncoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim):
+    def __init__(self, image_size, latent_dim, image_augmentation=False,
+                 augmentation_padding=4):
+
         super().__init__()
         self.latent_dim = latent_dim
         self.image_size = image_size
+        self.image_augmentation = image_augmentation
+        self.augmentation_padding = augmentation_padding
+
+        if self.image_augmentation:
+            self.augmentation_transform = RandomCrop(
+                image_size, self.augmentation_padding, device='cuda')
 
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
@@ -51,6 +60,11 @@ class EncoderNet(nn.Module):
         t, b, obs_dim = encoder_input.shape
         x = encoder_input.view(t*b, obs_dim)
         x = x.view(t*b, 3, self.image_size, self.image_size)
+
+        if x.shape[0] > 1 and self.image_augmentation:
+            # x.shape[0] > 1 ensures we apply this only during training
+            x = self.augmentation_transform(x)
+
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
@@ -86,10 +100,17 @@ class WideResEncoderNet(Wide_ResNet):
 
 
 class DecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim):
+    def __init__(self, image_size, latent_dim, image_augmentation=False,
+                 augmentation_padding=4):
         super().__init__()
         self.image_size = image_size
         self.latent_dim = latent_dim
+        self.image_augmentation = image_augmentation
+        self.augmentation_padding = augmentation_padding
+
+        if self.image_augmentation:
+            self.augmentation_transform = RandomCrop(
+                image_size, self.augmentation_padding, device='cuda')
 
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
@@ -114,6 +135,11 @@ class DecoderNet(nn.Module):
         t, b, obs_dim = decoder_input.shape
         x = decoder_input.view(t*b, obs_dim)
         x = x.view(t*b, 3, self.image_size, self.image_size)
+
+        if x.shape[0] > 1 and self.image_augmentation:
+            # h.shape[0] > 1 ensures we apply this only during training
+            x = self.augmentation_transform(x)
+
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
@@ -125,15 +151,22 @@ class DecoderNet(nn.Module):
 
 
 class EncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, encoder_resnet=False):
+    def __init__(self, image_size, latent_dim, image_augmentation=False,
+                 encoder_resnet=False):
         super().__init__()
 
         self.latent_dim = latent_dim
+        self.image_augmentation = image_augmentation
+
         if encoder_resnet:
             self.encoder_net = WideResEncoderNet(image_size, 10, 5, 0.3, latent_dim*2)
         else:
-            self.encoder_net = EncoderNet(image_size, latent_dim)
-        self.decoder_net = DecoderNet(image_size, latent_dim)
+            self.encoder_net = EncoderNet(image_size,
+                                          latent_dim,
+                                          image_augmentation=image_augmentation)
+        self.decoder_net = DecoderNet(image_size,
+                                      latent_dim,
+                                      image_augmentation=image_augmentation)
 
     def forward(self, encoder_input, decoder_input):
         z, mu, log_var = self.encoder_net(encoder_input)
