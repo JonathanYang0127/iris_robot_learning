@@ -11,7 +11,7 @@ from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.pearl import configs
 import rlkit.pythonplusplus as ppp
 from rlkit.torch.pearl.awac_launcher import pearl_awac_launcher_simple
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 @click.command()

@@ -1,4 +1,4 @@
-from rlkit.misc.exp_util import query_machines
+from rlkit.util.exp_util import query_machines
 import numpy as np
 
 if __name__ == '__main__':

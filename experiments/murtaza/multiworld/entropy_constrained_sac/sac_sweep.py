@@ -11,7 +11,7 @@ from gym.envs.classic_control import PendulumEnv
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.launchers.launcher_util import run_experiment
 import rlkit.torch.pytorch_util as ptu
-from rlkit.misc.variant_generator import VariantGenerator
+from rlkit.util.variant_generator import VariantGenerator
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.torch.sac.sac import SoftActorCritic

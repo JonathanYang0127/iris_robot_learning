@@ -13,7 +13,7 @@ from rlkit.torch.vae.pusher2d_data import get_data
 from rlkit.launchers.arglauncher import run_variants
 import rlkit.torch.pytorch_util as ptu
 
-from rlkit.misc.ml_util import PiecewiseLinearSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule
 
 def experiment(variant):
     if variant["use_gpu"]:

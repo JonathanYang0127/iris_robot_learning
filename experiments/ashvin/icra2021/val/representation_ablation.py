@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.dict_to_mdp_path_loader import DuelEncoderDictToMDPPathLoader
 from rlkit.launchers.experiments.ashvin.awac_rig import duel_awac_rig_experiment
 from rlkit.launchers.launcher_util import run_experiment

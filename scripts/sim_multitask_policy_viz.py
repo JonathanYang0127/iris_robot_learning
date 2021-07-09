@@ -36,7 +36,7 @@ def simulate_policy(args):
         policy.train(False)
     paths = []
 
-    from rlkit.misc.inspect_q_util import debug_q
+    from rlkit.util.inspect_q_util import debug_q
     debug_q(data["ensemble_qs"], policy)
 
     while True:

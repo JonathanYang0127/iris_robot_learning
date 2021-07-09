@@ -7,7 +7,7 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector import MdpPathCollector
 from rlkit.samplers.data_collector.step_collector import MdpStepCollector
 from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.td3.td3 import TD3
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,

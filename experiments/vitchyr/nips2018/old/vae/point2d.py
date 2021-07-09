@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.vae.conv_vae import ConvVAE
 from rlkit.torch.vae.vae_trainer import ConvVAETrainer

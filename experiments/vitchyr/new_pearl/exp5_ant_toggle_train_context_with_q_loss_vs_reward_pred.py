@@ -3,7 +3,7 @@ from pathlib import Path
 
 from rlkit.launchers.launcher_util import run_experiment
 import rlkit.pythonplusplus as ppp
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.pearl.new_awac_launcher import pearl_awac_experiment
 
 

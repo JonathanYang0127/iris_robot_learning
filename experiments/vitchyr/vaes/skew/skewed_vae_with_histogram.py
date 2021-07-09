@@ -1,9 +1,9 @@
 """
 Skew the dataset so that it turns into generating a uniform distribution.
 """
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.ml_util import ConstantSchedule
 from rlkit.torch.vae.skew.datasets import (
     uniform_truncated_data,
     four_corners,

@@ -20,7 +20,7 @@ from rlkit.launchers.memory_bptt_launchers import (
     mem_ddpg_launcher,
     rdpg_launcher,
 )
-from rlkit.misc.hyperparameter import DeterministicHyperparameterSweeper
+from rlkit.util.hyperparameter import DeterministicHyperparameterSweeper
 from rllab.envs.mujoco.walker2d_env import Walker2DEnv
 
 if __name__ == '__main__':

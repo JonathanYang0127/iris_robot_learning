@@ -1,6 +1,6 @@
 from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v0
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.murtaza.rfeatures_rl import state_td3bc_experiment
 
 if __name__ == "__main__":

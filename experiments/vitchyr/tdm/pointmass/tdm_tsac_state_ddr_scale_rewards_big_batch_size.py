@@ -1,9 +1,9 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.vitchyr.multiworld import (
     tdm_twin_sac_experiment,
 )
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import IntPiecewiseLinearSchedule
+from rlkit.util.ml_util import IntPiecewiseLinearSchedule
 
 if __name__ == "__main__":
     # noinspection PyTypeChecker

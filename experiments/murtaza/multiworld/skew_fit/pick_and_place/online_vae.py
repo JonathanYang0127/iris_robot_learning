@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_her_td3_online_vae_full_experiment
 import rlkit.torch.vae.vae_schedules as vae_schedules

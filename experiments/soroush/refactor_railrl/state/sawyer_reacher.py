@@ -7,7 +7,7 @@ a bit noisy from one epoch to the next (occasionally dips dow to ~2000).
 Note that one epoch = 5k steps, so 200 epochs = 1 million steps.
 """
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 from rlkit.launchers.exp_launcher import rl_experiment
 

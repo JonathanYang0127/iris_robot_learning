@@ -1,6 +1,6 @@
 import gym
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.launchers.launcher_util import run_experiment
 from torch import nn as nn

@@ -7,7 +7,7 @@ from multiworld.envs.pygame import PickAndPlaceEnv
 from rlkit.core import logger
 from rlkit.envs.images import EnvRenderer
 from rlkit.envs.pygame import pnp_util
-from rlkit.misc import ml_util
+from rlkit.util import ml_util
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.sets import set_projection
 from rlkit.torch.sets.set_vae_trainer import SetVAETrainer

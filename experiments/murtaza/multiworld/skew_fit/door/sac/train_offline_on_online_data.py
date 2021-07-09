@@ -1,10 +1,10 @@
 import joblib
 from torch import nn
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from experiments.murtaza.multiworld.fit_skew.door.generate_uniform_dataset import generate_uniform_dataset_door
 from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v0
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import PiecewiseLinearSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule
 from rlkit.torch.vae.conv_vae import imsize48_default_architecture, ConvVAE
 from rlkit.torch.vae.vae_trainer import ConvVAETrainer
 

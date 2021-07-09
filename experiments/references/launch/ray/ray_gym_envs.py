@@ -16,7 +16,7 @@ from rlkit.samplers.data_collector import MdpPathCollector
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.sac.sac import SACTrainer
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import ray
 import ray.tune as tune

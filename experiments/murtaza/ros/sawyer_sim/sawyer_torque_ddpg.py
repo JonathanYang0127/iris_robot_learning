@@ -7,7 +7,7 @@ from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy
 from rlkit.torch.ddpg.ddpg import DDPG
 import rlkit.torch.pytorch_util as ptu
 from sawyer_control.sawyer_reaching import SawyerXYZReachingEnv
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from sawyer_control.sawyer_reaching import SawyerJointSpaceReachingEnv
 
 

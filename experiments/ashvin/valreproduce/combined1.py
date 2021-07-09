@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
 from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment, process_args
 from rlkit.launchers.launcher_util import run_experiment

@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import init_sawyer_camera_v1, init_sawyer_camera_v3 
 from rlkit.images.camera import sawyer_init_camera_zoomed_in
 from rlkit.envs.mujoco.sawyer_push_and_reach_env import (

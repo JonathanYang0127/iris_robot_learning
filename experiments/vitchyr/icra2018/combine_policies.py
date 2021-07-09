@@ -7,7 +7,7 @@ from rlkit.envs.mujoco.pusher3dof import PusherEnv3DOF, get_snapshots_and_goal
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.networks import FeedForwardPolicy
 from rlkit.torch.ddpg.combine_ddpg_qfs import DdpgQfCombiner
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 
 from rllab.envs.normalized_env import normalize

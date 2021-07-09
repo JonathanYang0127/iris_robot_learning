@@ -36,7 +36,7 @@ import numpy as np
 from rlkit.visualization.video import VideoSaveFunction
 
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 # from rlkit.launchers.experiments.ashvin.rfeatures.rfeatures_trainer import TimePredictionTrainer
 

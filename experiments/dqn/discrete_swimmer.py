@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.mujoco.discrete_swimmer import DiscreteSwimmerEnv
 from rlkit.launchers.launcher_util import run_experiment

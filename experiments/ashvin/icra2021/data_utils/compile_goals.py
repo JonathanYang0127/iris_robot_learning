@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import glob
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 
 def crop(img):
     return img[::10, 50:530:10, :].transpose([2, 1, 0]).flatten()

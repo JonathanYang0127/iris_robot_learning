@@ -4,7 +4,7 @@ from pathlib import Path
 from rlkit.launchers.launcher_util import run_experiment
 import rlkit.pythonplusplus as ppp
 from rlkit.torch.pearl.new_sac_launcher import pearl_sac_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def load_configs(config_paths):

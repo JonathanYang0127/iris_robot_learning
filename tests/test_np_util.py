@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from rlkit.misc import np_util
+from rlkit.util import np_util
 from rlkit.testing.np_test_case import NPTestCase
 
 

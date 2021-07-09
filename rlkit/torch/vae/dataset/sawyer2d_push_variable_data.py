@@ -13,7 +13,7 @@ from rlkit.images.camera import (
 )
 import cv2
 
-from rlkit.misc.asset_loader import local_path_from_s3_or_local_path
+from rlkit.util.asset_loader import local_path_from_s3_or_local_path
 
 
 def generate_vae_dataset(

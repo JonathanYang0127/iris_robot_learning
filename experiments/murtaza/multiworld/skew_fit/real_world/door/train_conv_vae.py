@@ -1,13 +1,13 @@
 from multiworld.core.image_env import unormalize_image
 from torch import nn
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import PiecewiseLinearSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule
 from rlkit.torch.vae.conv_vae import ConvVAE, ConvVAEDouble
 from rlkit.torch.vae.vae_trainer import ConvVAETrainer
 from rlkit.torch.grill.launcher import generate_vae_dataset
 from rlkit.torch.vae.conv_vae import imsize48_default_architecture
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 
 def experiment(variant):
     from rlkit.core import logger

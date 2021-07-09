@@ -8,7 +8,7 @@ from rlkit.envs.wrappers import ImageMujocoEnv
 from rlkit.images.camera import sawyer_init_camera, sawyer_init_camera_zoomed_in
 import cv2
 
-from rlkit.misc.asset_loader import local_path_from_s3_or_local_path
+from rlkit.util.asset_loader import local_path_from_s3_or_local_path
 
 
 

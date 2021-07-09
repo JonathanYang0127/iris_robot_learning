@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.vitchyr.probabilistic_goal_reaching.launcher import \
     probabilistic_goal_reaching_experiment
 from rlkit.launchers.launcher_util import run_experiment

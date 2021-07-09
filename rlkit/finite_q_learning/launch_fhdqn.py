@@ -14,7 +14,7 @@ from rlkit.envs.wrappers import DiscretizeEnv
 from rlkit.finite_q_learning.finite_horizon_dqn import FiniteHorizonDQN
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.networks import Mlp
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.envs.mujoco.hopper_env import HopperEnv
 
 

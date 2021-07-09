@@ -9,7 +9,7 @@ from rlkit.torch.networks import FlattenMlp
 from rlkit.torch.sac.policies import MakeDeterministic, TanhGaussianPolicy
 from rlkit.torch.sac.sac import SACTrainer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

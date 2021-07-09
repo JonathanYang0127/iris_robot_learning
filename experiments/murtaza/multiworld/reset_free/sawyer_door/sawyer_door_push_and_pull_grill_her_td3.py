@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictRelabelingBuffer
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_her_td3_full_experiment

@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.rl_exp_launcher_util import twin_sac_experiment
 

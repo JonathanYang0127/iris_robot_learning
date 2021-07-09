@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.pygame.point2d import Point2DWallEnv
 from rlkit.data_management.online_vae_log_prob_exploration_replay_buffer import \
     OnlineVaeLogProbExplorationRelabelingBuffer

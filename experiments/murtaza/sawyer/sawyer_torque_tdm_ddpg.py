@@ -9,7 +9,7 @@ from rlkit.state_distance.tdm_ddpg import TdmDdpg
 from rlkit.state_distance.tdm_networks import TdmQf, TdmPolicy, TdmNormalizer
 from rlkit.torch.networks.experimental import HuberLoss
 import rlkit.torch.pytorch_util as ptu
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import copy
 def experiment(variant):
     env_params = variant['env_params']

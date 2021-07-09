@@ -3,7 +3,7 @@ from multiworld.envs.pygame.pick_and_place import PickAndPlaceEnv
 import numpy as np
 import time
 
-from rlkit.misc.asset_loader import local_path_from_s3_or_local_path
+from rlkit.util.asset_loader import local_path_from_s3_or_local_path
 import joblib
 import os.path as osp
 

@@ -16,7 +16,7 @@ from torch.autograd import Variable
 
 from rlkit.envs.pygame.water_maze import WaterMaze
 import rlkit.visualization.visualization_util as vu
-from rlkit.misc.html_report import HTMLReport
+from rlkit.util.html_report import HTMLReport
 
 USE_TIME = False
 

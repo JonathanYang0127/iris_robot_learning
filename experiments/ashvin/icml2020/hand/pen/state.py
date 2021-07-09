@@ -1,5 +1,5 @@
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.ashvin.awr_rl import state_td3bc_experiment
 
 from rlkit.launchers.arglauncher import run_variants

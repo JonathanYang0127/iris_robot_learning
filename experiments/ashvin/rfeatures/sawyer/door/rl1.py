@@ -29,7 +29,7 @@ from multiworld.envs.real_world.sawyer.sawyer_reaching import SawyerReachXYZEnv
 from rlkit.launchers.launcher_util import run_experiment
 # import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.ashvin.rfeatures.encoder_wrapped_env import EncoderWrappedEnv
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 
 import torch
 

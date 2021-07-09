@@ -5,8 +5,8 @@ import torch.optim as optim
 
 import rlkit.torch.pytorch_util as ptu
 import torch
-from rlkit.misc.eval_util import create_stats_ordered_dict
-from rlkit.misc.ml_util import (
+from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.util.ml_util import (
     StatConditionalSchedule,
     ConstantSchedule,
 )

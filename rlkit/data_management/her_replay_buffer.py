@@ -3,7 +3,7 @@ import random
 
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.data_management.segment_tree import SumSegmentTree, MinSegmentTree
-from rlkit.misc.np_util import truncated_geometric
+from rlkit.util.np_util import truncated_geometric
 
 
 class HerReplayBuffer(EnvReplayBuffer):

@@ -6,9 +6,9 @@ import numpy as np
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.split_buffer import SplitReplayBuffer
 from rlkit.data_management.subtraj_replay_buffer import SubtrajReplayBuffer
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.ddpg import DDPG
-from rlkit.misc import np_util
+from rlkit.util import np_util
 
 
 def flatten_subtraj_batch(subtraj_batch):

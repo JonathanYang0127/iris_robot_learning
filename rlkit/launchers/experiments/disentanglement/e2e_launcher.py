@@ -13,7 +13,7 @@ from rlkit.launchers.experiments.disentanglement.util import (
     add_heatmap_imgs_to_o_dict,
     add_heatmap_img_to_o_dict,
 )
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.samplers.data_collector import (
     VAEWrappedEnvPathCollector
 )

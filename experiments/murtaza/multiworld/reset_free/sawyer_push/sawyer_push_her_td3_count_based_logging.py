@@ -1,5 +1,5 @@
 import pickle
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_pusher_camera_upright_v2
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env import SawyerPushAndReachXYEnv
 from rlkit.data_management.obs_dict_count_based_replay_buffer import ObsDictCountBasedRelabelingBuffer

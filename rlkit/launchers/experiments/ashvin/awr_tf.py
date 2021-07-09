@@ -19,7 +19,7 @@ exps = plot.load_exps(dirs, suppress_output=True,
 import os.path as osp
 import pickle
 from rlkit.core import logger
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.envs.wrappers import RewardWrapperEnv
 import rlkit.torch.pytorch_util as ptu
 

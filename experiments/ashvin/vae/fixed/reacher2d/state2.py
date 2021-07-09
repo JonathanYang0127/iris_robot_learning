@@ -2,7 +2,7 @@ from rlkit.envs.multitask.point2d import MultitaskImagePoint2DEnv
 from rlkit.envs.multitask.pusher2d import FullPusher2DEnv
 
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.vae.vae_experiment import experiment
 
 if __name__ == "__main__":

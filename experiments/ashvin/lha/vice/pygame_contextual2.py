@@ -1,5 +1,5 @@
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.pygame import PickAndPlaceEnv
 from rlkit.launchers.experiments.goal_distribution.irl_launcher import \
     representation_learning_with_goal_distribution_launcher

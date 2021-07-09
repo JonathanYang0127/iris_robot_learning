@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 # from multiworld.envs.mujoco.cameras import (
 #     sawyer_pusher_camera_upright_v2,
 # )

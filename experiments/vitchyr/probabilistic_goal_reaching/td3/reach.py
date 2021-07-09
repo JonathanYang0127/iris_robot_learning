@@ -13,7 +13,7 @@ from rlkit.torch.td3.td3 import TD3 as TD3Trainer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

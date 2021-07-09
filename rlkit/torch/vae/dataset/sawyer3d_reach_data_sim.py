@@ -14,7 +14,7 @@ from rlkit.images.camera import sawyer_xyz_reacher_camera, sawyer_init_camera, \
     sawyer_xyz_camera, sawyer_torque_reacher_camera
 import cv2
 
-from rlkit.misc.asset_loader import local_path_from_s3_or_local_path
+from rlkit.util.asset_loader import local_path_from_s3_or_local_path
 from rlkit.policies.simple import RandomPolicy
 
 

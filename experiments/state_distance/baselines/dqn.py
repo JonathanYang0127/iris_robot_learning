@@ -4,7 +4,7 @@ from rlkit.envs.multitask.discrete_reacher_2d import DiscreteReacher2D
 from rlkit.envs.multitask.multitask_env import MultitaskToFlatEnv
 from rlkit.torch.dqn.double_dqn import DoubleDQN
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.dqn.dqn import DQN

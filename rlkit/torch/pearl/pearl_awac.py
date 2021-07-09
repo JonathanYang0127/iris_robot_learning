@@ -10,8 +10,8 @@ from torch.distributions import kl_divergence
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core.logging import add_prefix
-from rlkit.misc import ml_util
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util import ml_util
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.networks import LinearTransform
 from rlkit.torch.pearl.agent import PEARLAgent
 from rlkit.torch.torch_rl_algorithm import TorchTrainer

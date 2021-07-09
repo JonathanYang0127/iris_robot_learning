@@ -2,7 +2,7 @@ import argparse
 import math
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.contextual.state_based_steven_masking import (
     masking_sac_experiment_with_variant
 )

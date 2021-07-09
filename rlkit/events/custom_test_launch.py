@@ -2,7 +2,7 @@ import argparse
 import joblib
 
 import rlkit.torch.pytorch_util as ptu
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer, \
     PrioritizedHerReplayBuffer, SimplePrioritizedHerReplayBuffer
 from rlkit.envs.multitask.point2d import MultitaskPoint2DEnv, CustomBeta

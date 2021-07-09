@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.pygame import PickAndPlaceEnv
 from rlkit.launchers.experiments.goal_distribution.launcher import \
     representation_learning_with_goal_distribution_launcher

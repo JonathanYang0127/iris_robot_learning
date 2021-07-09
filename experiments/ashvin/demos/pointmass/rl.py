@@ -1,7 +1,7 @@
 # from rlkit.demos.collect_demo import collect_demos
 
 from rlkit.launchers.experiments.murtaza.multiworld import her_td3_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_pusher_camera_upright_v2
 
 from multiworld.envs.pygame.point2d import Point2DWallEnv

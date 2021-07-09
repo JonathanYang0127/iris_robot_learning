@@ -9,7 +9,7 @@ from torch import nn as nn
 import rlkit.torch.pytorch_util as ptu
 
 from rlkit.core.meta_rl_algorithm import MetaRLAlgorithm
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.core import np_to_pytorch_batch
 
 

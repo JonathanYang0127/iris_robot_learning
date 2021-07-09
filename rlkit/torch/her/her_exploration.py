@@ -8,7 +8,7 @@ from rlkit.samplers.rollout_functions import (
 from rlkit.torch.torch_rl_algorithm import TorchRLAlgorithm
 from rlkit.torch.core import np_ify, torch_ify
 
-from rlkit.misc.np_util import softmax
+from rlkit.util.np_util import softmax
 
 class HERExploration(TorchRLAlgorithm):
     """

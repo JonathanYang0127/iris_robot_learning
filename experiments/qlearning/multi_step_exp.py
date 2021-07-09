@@ -8,13 +8,13 @@ from rlkit.envs.env_utils import gym_env
 from rlkit.envs.time_limited_env import TimeLimitedEnv
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.networks import FeedForwardQFunction, FeedForwardPolicy
 from rlkit.torch.ddpg.multi_step_ql import MultiStepDdpg
 from rllab.envs.normalized_env import normalize
 
 from hyperopt import hp
-from rlkit.misc.hypopt import optimize_and_save
+from rlkit.util.hypopt import optimize_and_save
 from rlkit.launchers.launcher_util import (
     create_base_log_dir,
     create_run_experiment_multiple_seeds,

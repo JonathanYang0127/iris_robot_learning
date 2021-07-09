@@ -5,7 +5,7 @@ import numpy as np
 import gym
 from gym.spaces import Box, Dict
 from multiworld.core.multitask_env import MultitaskEnv
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from gym.spaces import Box, Dict
 from rlkit import pythonplusplus as ppp
 from rlkit.core.distribution import DictDistribution

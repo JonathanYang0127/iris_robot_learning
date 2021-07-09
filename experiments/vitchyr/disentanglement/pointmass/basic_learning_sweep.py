@@ -1,5 +1,5 @@
 """The goal of this script is to just find a good setting."""
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import torch.nn.functional as F
 from rlkit.launchers.experiments.disentanglement.rig_launcher import \
     disentangled_grill_her_twin_sac_experiment

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 from rlkit.torch import pytorch_util as ptu
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from os import path as osp
 from sklearn import neighbors
 import numpy as np

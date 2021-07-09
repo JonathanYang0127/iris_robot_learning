@@ -8,7 +8,7 @@ import numpy as np
 import re
 from skvideo.io import vwrite
 
-from rlkit.misc.html_report import HTMLReport
+from rlkit.util.html_report import HTMLReport
 from rlkit.visualization.visualization_util import gif
 from rlkit.torch.vae.skew.datasets import project_square_border_np_4x4
 from rlkit.torch.vae.skew.skewed_vae_with_histogram import (

@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_door import SawyerDoorPushOpenActionLimitedEnv
 
 from rlkit.images.camera import sawyer_door_env_camera_closer

@@ -6,11 +6,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils import data
-import rlkit.misc.visualization_util as vu
+import rlkit.util.visualization_util as vu
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from rlkit.misc.html_report import HTMLReport
+from rlkit.util.html_report import HTMLReport
 from rlkit.pythonplusplus import line_logger
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.modules import SelfOuterProductLinear

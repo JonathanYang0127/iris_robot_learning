@@ -3,7 +3,7 @@ from rlkit.launchers.contextual.rig.dataset_launcher import generate_vae_dataset
 def train_vae(
         variant, env_kwargs, env_id, env_class, imsize, init_camera, return_data=False
     ):
-        from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
+        from rlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
         from rlkit.torch.vae.conv_vae import (
             ConvVAE,
             SpatialAutoEncoder,

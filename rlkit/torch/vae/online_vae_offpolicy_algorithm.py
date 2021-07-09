@@ -5,7 +5,7 @@ from rlkit.data_management.online_vae_replay_buffer import \
 from rlkit.data_management.shared_obs_dict_replay_buffer \
     import SharedObsDictRelabelingBuffer
 import rlkit.torch.vae.vae_schedules as vae_schedules
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
 )
@@ -14,7 +14,7 @@ from torch.multiprocessing import Process, Pipe
 from threading import Thread
 import numpy as np
 from rlkit.core.logging import add_prefix
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 import torch
 
 class OnlineVaeOffpolicyAlgorithm(TorchBatchRLAlgorithm):

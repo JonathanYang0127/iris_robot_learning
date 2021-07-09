@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from experiments.murtaza.multiworld.skew_fit.door.generate_uniform_dataset import generate_uniform_dataset_door
 from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v0
 from rlkit.launchers.launcher_util import run_experiment

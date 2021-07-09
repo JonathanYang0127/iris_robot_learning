@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.dict_to_mdp_path_loader import (
     DictToMDPPathLoader,
     EncoderDictToMDPPathLoader,

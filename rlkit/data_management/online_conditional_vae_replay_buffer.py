@@ -17,10 +17,10 @@ from torch.nn import MSELoss
 
 from torch.distributions import Normal
 
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.networks import Mlp
-from rlkit.misc.ml_util import ConstantSchedule
-from rlkit.misc.ml_util import PiecewiseLinearSchedule
+from rlkit.util.ml_util import ConstantSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule
 import os.path as osp
 
 from multiworld.core.multitask_env import MultitaskEnv

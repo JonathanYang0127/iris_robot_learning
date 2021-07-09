@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.pygame import PickAndPlaceEnv
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.sets.offline_rl_launcher import offline_disco_experiment

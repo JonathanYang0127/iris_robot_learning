@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.disentanglement.contextual_encoder_distance_launcher import (
     encoder_goal_conditioned_sac_experiment
 )

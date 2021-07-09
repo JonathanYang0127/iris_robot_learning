@@ -1,7 +1,7 @@
 import numpy as np
 from collections import Counter
 from rlkit.exploration_strategies.count_based.compute_obs_mean_std import compute_obs_mean_std
-from rlkit.misc.np_util import bin2int, softmax
+from rlkit.util.np_util import bin2int, softmax
 
 
 class CountExploration:

@@ -14,7 +14,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 
-from rlkit.misc.data_processing import get_trials, \
+from rlkit.util.data_processing import get_trials, \
     get_unique_param_to_values
 from rlkit.pythonplusplus import is_numeric
 

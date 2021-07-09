@@ -1,7 +1,7 @@
 import numpy as np
 
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer
-from rlkit.misc.np_util import truncated_geometric
+from rlkit.util.np_util import truncated_geometric
 
 
 class TauReplayBuffer(HerReplayBuffer):

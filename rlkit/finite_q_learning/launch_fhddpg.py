@@ -3,7 +3,7 @@ Try out this finite-horizon q learning.
 """
 from gym.envs.mujoco import InvertedDoublePendulumEnv, InvertedPendulumEnv
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.mujoco.hopper_env import HopperEnv
 from rlkit.finite_q_learning.finite_horizon_ddpg import FiniteHorizonDDPG

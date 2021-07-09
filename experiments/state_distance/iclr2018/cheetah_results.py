@@ -1,4 +1,4 @@
-from rlkit.misc.data_processing import Experiment
+from rlkit.util.data_processing import Experiment
 import matplotlib.pyplot as plt
 import numpy as np
 

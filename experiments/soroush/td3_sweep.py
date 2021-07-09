@@ -18,7 +18,7 @@ from rlkit.exploration_strategies.gaussian_strategy import GaussianStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import run_experiment
 import rlkit.torch.pytorch_util as ptu
-from rlkit.misc.variant_generator import VariantGenerator
+from rlkit.util.variant_generator import VariantGenerator
 from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy
 from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.torch.td3.td3 import TD3

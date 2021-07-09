@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.pygame.point2d import Point2DWallEnv
 from rlkit.data_management.obs_dict_count_based_replay_buffer import ObsDictCountBasedRelabelingBuffer
 from rlkit.launchers.experiments.murtaza.multiworld_her import her_td3_experiment

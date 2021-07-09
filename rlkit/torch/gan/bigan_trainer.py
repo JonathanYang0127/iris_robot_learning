@@ -14,8 +14,8 @@ from torchvision.utils import save_image
 from rlkit.data_management.images import normalize_image
 from rlkit.core import logger
 import rlkit.core.util as util
-from rlkit.misc.eval_util import create_stats_ordered_dict
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.util.ml_util import ConstantSchedule
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.data import (
     ImageDataset, InfiniteWeightedRandomSampler,

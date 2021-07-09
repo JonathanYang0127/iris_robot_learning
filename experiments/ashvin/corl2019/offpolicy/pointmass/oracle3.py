@@ -27,7 +27,7 @@ from rlkit.launchers.launcher_util import run_experiment
 # import rlkit.util.hyperparameter as hyp
 
 from multiworld.envs.pygame.point2d import Point2DWallEnv
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 def experiment(variant):
     expl_env = variant['env_class'](**variant['env_kwargs'])

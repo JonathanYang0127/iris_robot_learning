@@ -1,6 +1,6 @@
 from rlkit.envs.mujoco.sawyer_reach_torque_env import SawyerReachTorqueEnv
 from rlkit.images.camera import sawyer_torque_env_camera
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.vae.relabeled_vae_experiment import experiment
 

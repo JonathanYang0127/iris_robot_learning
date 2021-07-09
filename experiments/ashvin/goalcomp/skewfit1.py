@@ -1,6 +1,6 @@
 import os.path as osp
 import multiworld.envs.mujoco as mwmj
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v0
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.goalcomp_experiments import grill_her_twin_sac_online_vae_full_experiment

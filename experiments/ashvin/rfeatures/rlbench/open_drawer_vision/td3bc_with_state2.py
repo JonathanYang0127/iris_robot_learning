@@ -21,7 +21,7 @@ from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 # from sawyer_control.envs.sawyer_reaching import SawyerReachXYZEnv
 
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 # from rlkit.launchers.experiments.ashvin.rfeatures.rfeatures_trainer import TimePredictionTrainer
 from rlkit.launchers.experiments.ashvin.rfeatures.state_rl import state_td3bc_experiment

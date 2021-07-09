@@ -9,7 +9,7 @@ from rlkit.launchers.launcher_util import setup_logger, run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.her.her_td3 import HerTd3
 from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

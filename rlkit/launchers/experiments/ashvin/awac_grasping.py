@@ -6,7 +6,7 @@ from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.networks.cnn import ConcatCNN
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.envs.encoder_wrappers import VQVAEWrappedEnv
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.torch_rl_algorithm import (
@@ -32,7 +32,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 
 import os.path as osp
 from rlkit.core import logger
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.launchers.contextual.rig.rig_launcher import StateImageGoalDiagnosticsFn
 from rlkit.data_management.obs_dict_replay_buffer import \
         ObsDictRelabelingBuffer
@@ -78,7 +78,7 @@ from rlkit.samplers.data_collector.contextual_path_collector import (
 )
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from collections import OrderedDict
 
 from multiworld.core.image_env import ImageEnv, unormalize_image

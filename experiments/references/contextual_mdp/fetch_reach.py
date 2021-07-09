@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.contextual.gym_goal_env import (
     sac_on_gym_goal_env_experiment
 )

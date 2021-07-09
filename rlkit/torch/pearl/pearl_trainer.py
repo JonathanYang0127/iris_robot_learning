@@ -9,7 +9,7 @@ from torch.distributions import kl_divergence
 
 import rlkit.torch.pytorch_util as ptu
 
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
 

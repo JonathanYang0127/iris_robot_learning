@@ -11,7 +11,7 @@ from rlkit.torch.sac.expected_sac import ExpectedSAC
 from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.torch.networks import ConcatMlp
 from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

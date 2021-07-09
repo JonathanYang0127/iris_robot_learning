@@ -13,7 +13,7 @@ from rlkit.images.camera import (
 from rlkit.launchers.arglauncher import run_variants
 from multiworld.envs.mujoco.cameras import \
         sawyer_pick_and_place_camera, sawyer_pick_and_place_camera_slanted_angle
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_her_td3_full_experiment
 from experiments.steven.goal_generation.pickup_goal_dataset import \

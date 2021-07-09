@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer
 from rlkit.envs.multitask.simple1d import Simple1D, Simple1DTdmDiscretePlotter

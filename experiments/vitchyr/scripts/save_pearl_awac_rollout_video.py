@@ -12,7 +12,7 @@ from rlkit.envs.images import GymEnvRenderer
 # from rlkit.envs.images.text_renderer import TextRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictEnv
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.torch.pearl.buffer import PearlReplayBuffer
 from rlkit.torch.pearl.diagnostics import (
     DebugInsertImagesEnv,

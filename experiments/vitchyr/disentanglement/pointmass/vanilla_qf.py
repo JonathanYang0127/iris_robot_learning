@@ -1,6 +1,6 @@
 import os.path as osp
 import multiworld.envs.mujoco as mwmj
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.experiments.disentanglement.state_launcher import \
     her_twin_sac_experiment_v2

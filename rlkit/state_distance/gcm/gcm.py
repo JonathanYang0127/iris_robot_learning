@@ -4,7 +4,7 @@ import numpy as np
 
 from rlkit.data_management.path_builder import PathBuilder
 from rlkit.envs.remote import RemoteRolloutEnv
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.ml_util import ConstantSchedule
 from rlkit.state_distance.exploration import MakeUniversal
 from rlkit.state_distance.rollout_util import MultigoalSimplePathSampler, \
     multitask_rollout

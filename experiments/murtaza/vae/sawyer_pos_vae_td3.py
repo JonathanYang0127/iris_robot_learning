@@ -1,7 +1,7 @@
 from sawyer_control.sawyer_reaching import SawyerXYZReachingImgMultitaskEnv
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.vae.relabeled_vae_experiment import experiment
 import ray
 ray.init()

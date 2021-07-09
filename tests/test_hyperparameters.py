@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from rlkit.misc import hyperparameter as hp
+from rlkit.util import hyperparameter as hp
 from rlkit.testing.testing_utils import is_binomial_trial_likely, are_dict_lists_equal
 
 

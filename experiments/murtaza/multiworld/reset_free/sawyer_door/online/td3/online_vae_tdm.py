@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.vae.dataset.generate_goal_dataset import generate_goal_dataset_using_policy
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_tdm_td3_online_vae_full_experiment

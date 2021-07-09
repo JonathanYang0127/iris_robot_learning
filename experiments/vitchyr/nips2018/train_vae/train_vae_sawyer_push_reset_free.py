@@ -1,11 +1,11 @@
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.images.camera import (
     sawyer_init_camera_zoomed_in,
     sawyer_init_camera,
     sawyer_init_camera_zoomed_in_fixed)
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import PiecewiseLinearSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule
 from rlkit.torch.vae.conv_vae import ConvVAE
 from rlkit.torch.vae.vae_trainer import ConvVAETrainer
 from rlkit.torch.vae.sawyer2d_reset_free_push_img_data import generate_vae_dataset

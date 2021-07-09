@@ -6,7 +6,7 @@ from multiworld.envs.mujoco.sawyer_xyz.sawyer_reach import SawyerReachXYEnv
 
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_tdm_twin_sac_full_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 from multiworld.envs.mujoco.cameras import init_sawyer_camera_v4
 

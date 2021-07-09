@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from scipy import optimize
 
-from rlkit.misc.visualization_util import make_heat_map, plot_heatmap
+from rlkit.util.visualization_util import make_heat_map, plot_heatmap
 from rlkit.state_distance.policies import UniversalPolicy
 from rlkit.torch import pytorch_util as ptu
 from torch.optim import Adam

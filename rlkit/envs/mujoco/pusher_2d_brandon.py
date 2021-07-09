@@ -5,9 +5,9 @@ import numpy as np
 
 from gym.envs.mujoco import MujocoEnv
 
-from rlkit.misc.eval_util import create_stats_ordered_dict, get_stat_in_paths
+from rlkit.util.eval_util import create_stats_ordered_dict, get_stat_in_paths
 from rlkit.core import logger as default_logger
-from rlkit.misc.random_util import random_point_in_circle
+from rlkit.util.random_util import random_point_in_circle
 
 
 class Pusher2dEnv(MujocoEnv):

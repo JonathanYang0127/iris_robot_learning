@@ -1,5 +1,5 @@
 from rlkit.launchers.experiments.ashvin.multiworld import her_td3_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_pusher_camera_upright_v2
 from metaworld.envs.mujoco.sawyer_xyz.sawyer_drawer_close_6dof import SawyerDrawerClose6DOFEnv
 from rlkit.launchers.launcher_util import run_experiment

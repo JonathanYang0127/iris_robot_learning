@@ -10,7 +10,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import (
     run_experiment,
 )
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.memory_bptt_launchers import bptt_ddpg_launcher
 from rlkit.pythonplusplus import identity
 from rlkit.memory_states.qfunctions import MemoryQFunction

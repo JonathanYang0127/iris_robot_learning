@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import full_experiment_variant_preprocess
@@ -6,7 +6,7 @@ from rlkit.launchers.arglauncher import run_variants
 
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj import SawyerMultiobjectEnv
 
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 
 import random
 import numpy as np
@@ -109,7 +109,7 @@ def train_vae_and_update_variant(variant):
 
 
 def train_vae(variant, return_data=False):
-    from rlkit.misc.ml_util import PiecewiseLinearSchedule
+    from rlkit.util.ml_util import PiecewiseLinearSchedule
     from rlkit.torch.vae.conv_vae import (
         ConvVAE,
         SpatialAutoEncoder,

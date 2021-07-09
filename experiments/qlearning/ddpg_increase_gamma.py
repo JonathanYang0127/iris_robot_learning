@@ -5,7 +5,7 @@ import random
 
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import LinearSchedule
+from rlkit.util.ml_util import LinearSchedule
 from rlkit.torch.networks import FeedForwardQFunction, FeedForwardPolicy
 from rlkit.torch.ddpg import DDPG
 import rlkit.torch.pytorch_util as ptu

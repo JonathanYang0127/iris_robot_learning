@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from experiments.murtaza.multiworld.skew_fit.pick_and_place.generate_uniform_dataset import \
     generate_uniform_dataset_pick_and_place
 from multiworld.envs.mujoco.cameras import sawyer_pick_and_place_camera

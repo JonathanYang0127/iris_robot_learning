@@ -2,7 +2,7 @@ from fanova import fANOVA
 import numpy as np
 from collections import defaultdict, namedtuple
 
-from rlkit.misc.data_processing import get_trials
+from rlkit.util.data_processing import get_trials
 import ConfigSpace
 from ConfigSpace.hyperparameters import (
     UniformFloatHyperparameter,

@@ -1,5 +1,5 @@
 from __future__ import print_function
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.gan.bigan import BiGAN
 from rlkit.torch.gan.bigan_trainer import BiGANTrainer

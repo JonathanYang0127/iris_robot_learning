@@ -6,7 +6,7 @@ import torch
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger
 from rlkit.data_management.path_builder import PathBuilder
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 import torch.optim as optim
 import torch.nn as nn
 from rlkit.torch.core import np_to_pytorch_batch

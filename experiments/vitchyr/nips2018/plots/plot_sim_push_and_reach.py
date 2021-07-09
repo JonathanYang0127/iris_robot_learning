@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-from rlkit.misc.data_processing import get_trials
+from rlkit.util.data_processing import get_trials
 from rlkit.visualization.plot_util import plot_trials
 
 plt.style.use("ggplot")

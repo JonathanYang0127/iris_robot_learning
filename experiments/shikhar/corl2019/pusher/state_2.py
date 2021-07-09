@@ -22,7 +22,7 @@ from rlkit.torch.sac.sac import SACTrainer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
 
 def experiment(variant):

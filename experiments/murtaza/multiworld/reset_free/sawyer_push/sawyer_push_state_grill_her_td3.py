@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env_reset import SawyerPushAndReachXYEnv
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictRelabelingBuffer
 from rlkit.launchers.launcher_util import run_experiment

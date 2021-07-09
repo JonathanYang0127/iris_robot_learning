@@ -2,7 +2,7 @@ from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
 
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.murtaza.rfeatures_rl import state_td3bc_experiment
 
 x_var = 0.2

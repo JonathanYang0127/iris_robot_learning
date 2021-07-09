@@ -22,7 +22,7 @@ from rlkit.visualization.video import save_paths, VideoSaveFunction
 from multiworld.core.flat_goal_env import FlatGoalEnv
 from multiworld.core.image_env import ImageEnv
 from multiworld.core.gym_to_multi_env import GymToMultiEnv
-from rlkit.misc.hyperparameter import recursive_dictionary_update
+from rlkit.util.hyperparameter import recursive_dictionary_update
 
 import torch
 import numpy as np
@@ -35,7 +35,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 
 import os.path as osp
 from rlkit.core import logger
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 import pickle
 
 from rlkit.envs.images import Renderer, InsertImageEnv, EnvRenderer

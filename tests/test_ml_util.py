@@ -1,6 +1,6 @@
 import unittest
 
-from rlkit.misc.ml_util import StatConditionalSchedule
+from rlkit.util.ml_util import StatConditionalSchedule
 
 
 class TestLossFollowingIntSchedule(unittest.TestCase):

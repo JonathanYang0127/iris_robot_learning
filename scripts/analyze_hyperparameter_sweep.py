@@ -14,9 +14,9 @@ import numpy as np
 
 from fanova import visualizer, CategoricalHyperparameter
 
-from rlkit.misc.fanova_util import get_fanova_info, FanovaInfo, is_categorical, \
+from rlkit.util.fanova_util import get_fanova_info, FanovaInfo, is_categorical, \
     plot_pairwise_marginal
-from rlkit.misc.html_report import HTMLReport
+from rlkit.util.html_report import HTMLReport
 import rlkit.visualization.visualization_util as vu
 from rlkit.pythonplusplus import is_numeric
 from rllab.misc.instrument import query_yes_no

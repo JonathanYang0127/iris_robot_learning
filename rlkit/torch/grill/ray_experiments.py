@@ -304,7 +304,7 @@ def train_vae(beta, representation_size, imsize, num_epochs, save_period,
               generate_vae_dataset_kwargs=None, algo_kwargs=None,
               use_spatial_auto_encoder=False, vae_class=None,
               dump_skew_debug_plots=False):
-    from rlkit.misc.ml_util import PiecewiseLinearSchedule
+    from rlkit.util.ml_util import PiecewiseLinearSchedule
     from rlkit.torch.vae.conv_vae import (
         ConvVAE,
         SpatialAutoEncoder,
