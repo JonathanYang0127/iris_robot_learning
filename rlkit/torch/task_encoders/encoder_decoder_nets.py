@@ -125,11 +125,11 @@ class DecoderNet(nn.Module):
 
 
 class EncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, encoder_resent=False):
+    def __init__(self, image_size, latent_dim, encoder_resnet=False):
         super().__init__()
 
         self.latent_dim = latent_dim
-        if encoder_resent:
+        if encoder_resnet:
             self.encoder_net = WideResEncoderNet(image_size, 10, 5, 0.3, latent_dim*2)
         else:
             self.encoder_net = EncoderNet(image_size, latent_dim)

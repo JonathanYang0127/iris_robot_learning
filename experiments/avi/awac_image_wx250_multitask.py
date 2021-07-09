@@ -1,4 +1,3 @@
-
 import argparse
 import time
 import os.path as osp
@@ -17,9 +16,12 @@ from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
 from rlkit.misc.wx250_utils import add_multitask_data_to_singletask_buffer_real_robot, DummyEnv
+from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet
 
 # import roboverse
 import numpy as np
+from pathlib import Path
+import torch
 
 from rlkit.launchers.config import LOCAL_LOG_DIR
 
@@ -33,16 +35,19 @@ def get_buffer_size(data):
 
 def experiment(variant):
     image_size = 64
-    num_tasks = len(variant['buffers'])
-    eval_env = DummyEnv(image_size=image_size, use_wrist=True, num_tasks=num_tasks)
+    if variant['task_encoder_checkpoint'] == '':
+        task_embedding_dim = len(variant['buffers'])
+    else:
+        task_embedding_dim = variant['task_encoder_latent_dim']
+    eval_env = DummyEnv(image_size=image_size, use_wrist=True, task_embedding_dim=task_embedding_dim)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
 
     if variant['use_robot_state']:
-        observation_keys = ['image', 'state', 'task']
+        observation_keys = ['image', 'state', 'task_embedding']
         state_observation_dim = eval_env.observation_space.spaces['state'].low.size
     else:
-        observation_keys = ['image', 'task']
+        observation_keys = ['image', 'task_embedding']
         state_observation_dim = 0
 
     if variant['cnn'] == 'medium':
@@ -57,7 +62,7 @@ def experiment(variant):
     cnn_params = variant['cnn_params']
     cnn_params.update(
         # output_size=action_dim,
-        added_fc_input_size=state_observation_dim + num_tasks,
+        added_fc_input_size=state_observation_dim + task_embedding_dim,
     )
 
     policy = GaussianCNNPolicy(max_log_std=0,
@@ -75,7 +80,7 @@ def experiment(variant):
 
     cnn_params.update(
         output_size=1,
-        added_fc_input_size=state_observation_dim + num_tasks + action_dim,
+        added_fc_input_size=state_observation_dim + task_embedding_dim + action_dim,
     )
 
     if variant['use_negative_rewards']:
@@ -86,13 +91,19 @@ def experiment(variant):
     target_qf1 = concat_cnn_class(**cnn_params)
     target_qf2 = concat_cnn_class(**cnn_params)
 
+    if variant['task_encoder_checkpoint'] != "":
+        net = EncoderDecoderNet(64, task_embedding_dim, encoder_resnet=variant['use_task_encoder_resnet'])
+        net.load_state_dict(torch.load(variant['task_encoder_checkpoint']))
+        net.to(ptu.device)
+    else:
+        task_encoder = None
     replay_buffer = ObsDictReplayBuffer(
         int(1E6),
         expl_env,
         observation_keys=observation_keys
     )
     buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
-    add_multitask_data_to_singletask_buffer_real_robot(buffer_params, replay_buffer)
+    add_multitask_data_to_singletask_buffer_real_robot(buffer_params, replay_buffer, task_encoder=net.encoder_net)
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -172,9 +183,17 @@ if __name__ == '__main__':
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument("--use-bc", action="store_true", default=False)
     parser.add_argument("--num-trajs-limit", default=0, type=int)
+    parser.add_argument("--task-encoder", default="", type=str)
     args = parser.parse_args()
 
     alg = 'BC' if args.use_bc else 'AWAC-Pixel'
+    buffers = set()
+    for buffer_path in args.buffers:
+        path = Path(buffer_path)
+        buffers.update(list(path.rglob('*.pkl')))
+        buffers.update(list(path.rglob('*.npy')))
+    buffers = [str(b) for b in buffers]
+    print(buffers)
 
     variant = dict(
         algorithm=alg,
@@ -191,12 +210,12 @@ if __name__ == '__main__':
             save_video_period=1,
         ),
 
-        buffers=args.buffers,
+        buffers=buffers,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
 
         trainer_kwargs=dict(
-            discount=0.99,
+            discount=0.95,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
@@ -228,6 +247,10 @@ if __name__ == '__main__':
             awr_use_mle_for_vf=True,
             clip_score=args.clip_score,
         ),
+
+        task_encoder_checkpoint=args.task_encoder,
+        task_encoder_latent_dim=2,
+        use_task_encoder_resnet=False
     )
 
     variant['cnn'] = args.cnn
