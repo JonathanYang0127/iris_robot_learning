@@ -1,9 +1,11 @@
 import time
+import os.path as osp
 
 import torch
 
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score
+import matplotlib.pyplot as plt
 
 import rlkit.torch.pytorch_util as ptu
 
@@ -18,12 +20,13 @@ def kl_anneal_linear_function(step, x0):
 
 class TaskEncoderTrainer:
 
-    def __init__(self, net, optimizer, criterion, print_freq,
+    def __init__(self, net, optimizer, criterion, print_freq, save_freq,
                  beta_target, half_beta_target_steps, anneal):
         self.net = net
         self.optimizer = optimizer
         self.criterion = criterion
         self.print_freq = print_freq
+        self.save_freq = save_freq
         self.beta_target = beta_target
         self.half_beta_target_steps = half_beta_target_steps
         self.anneal = anneal
@@ -36,6 +39,7 @@ class TaskEncoderTrainer:
         running_loss_entropy = 0.
         running_loss_kl = 0.
         start_time = time.time()
+        num_tasks = len(tasks_to_sample)
 
         for i in range(total_steps):
             self.optimizer.zero_grad()
@@ -150,5 +154,13 @@ class TaskEncoderTrainer:
                 # print('recall', recall_score(gt_rewards, reward_predictions))
                 # print('precision', precision_score(gt_rewards, reward_predictions))
                 params = self.net.state_dict()
+                if i % (self.print_freq*self.save_freq) == 0:
+                    mu_np = ptu.get_numpy(mu)
+                    mu_np = np.reshape(mu_np, (num_tasks, val_batch_size, self.net.latent_dim))
+                    for i in range(num_tasks):
+                        plt.scatter(mu_np[i, :, 0], mu_np[i, :, 1], label=i)
+                    save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(i//self.print_freq))
+                    plt.savefig(save_path)
+
                 logger.save_itr_params(i // self.print_freq, params)
                 logger.dump_tabular(with_prefix=True, with_timestamp=False)

@@ -114,7 +114,7 @@ def main(args):
 
     latent_dim = variant['latent_dim']
     image_size = 48
-    net = EncoderDecoderNet(image_size, latent_dim, encoder_resent=args.encoder_resnet)
+    net = EncoderDecoderNet(image_size, latent_dim, encoder_resnet=args.encoder_resnet)
     net.to(ptu.device)
     exp_prefix = '{}-task-encoder-decoder'.format(time.strftime("%y-%m-%d"))
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,

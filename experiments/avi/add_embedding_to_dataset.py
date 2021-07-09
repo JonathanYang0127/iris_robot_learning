@@ -55,7 +55,7 @@ def main(args):
                                                   (replay_buffer_full_val, lambda r: True))
 
     latent_dim = 2
-    net = EncoderDecoderNet(latent_dim, encoder_resent=False)
+    net = EncoderDecoderNet(latent_dim, encoder_resnet=False)
     net.load_state_dict(torch.load(args.chkpt))
     net.cuda()
 
