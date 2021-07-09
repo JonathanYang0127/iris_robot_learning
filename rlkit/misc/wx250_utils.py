@@ -1,11 +1,12 @@
 import pickle5 as pickle
 import numpy as np
 import random
+import rlkit.torch.pytorch_util as ptu
 
 
 class DummyEnv:
 
-    def __init__(self, image_size, use_wrist=False, num_tasks=0):
+    def __init__(self, image_size, use_wrist=False, task_embedding_dim=0):
         from gym import spaces
         self.image_size = image_size
         if not use_wrist:
@@ -26,11 +27,11 @@ class DummyEnv:
             "state": spaces.Box(-np.full(8, np.inf), np.full(8, np.inf),
                                 dtype=np.float64),
         })
-        if num_tasks > 0:
+        if task_embedding_dim > 0:
             self.observation_space.spaces.update({
-                'task': spaces.Box(
-                     low=np.array([0] * num_tasks),
-                     high=np.array([1] * num_tasks),
+                'task_embedding': spaces.Box(
+                     low=np.array([-10] * task_embedding_dim),
+                     high=np.array([10] * task_embedding_dim),
                  )})
 
     def step(self):
@@ -80,23 +81,44 @@ def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=
 
     print("replay_buffer._size", replay_buffer._size)
 
-
 # TODO: Add validation buffers
-def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer):
+def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer, task_encoder=None):
 
     assert isinstance(data_paths, dict)
-    assert 'task' in replay_buffer.observation_keys
+    assert 'task_embedding' in replay_buffer.observation_keys
 
-    for task, data_path in data_paths.items():
+    use_task_encoder = task_encoder is not None
+    if use_task_encoder:
+        from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplayBuffer
+        replay_buffer_positive = ObsDictMultiTaskReplayBuffer(
+                replay_buffer.max_size,
+            replay_buffer.env,
+            np.arange(len(data_paths.keys())),
+            use_next_obs_in_context=False,
+            sparse_rewards=False,
+            observation_keys=['image']
+        )
+        add_reward_filtered_data_to_buffers_multitask(data_paths, ['image'], 
+                (replay_buffer_positive, lambda r: r > 0))
+
+    for task_idx, data_path in data_paths.items():
         paths = load_data(data_path)
         for path in paths:
+            if use_task_encoder:
+                encoder_batch = replay_buffer_positive.sample_batch([task_idx], len(path['observations']))
+                z, mu, logvar = task_encoder.forward(ptu.from_numpy(encoder_batch['observations']))
             for i in range(len(path['observations'])):
-                path['observations'][i]['task'] = np.array([0] * len(data_paths.keys()))
-                path['observations'][i]['task'][task] = 1
-                path['next_observations'][i]['task'] = np.array([0] * len(data_paths.keys()))
-                path['next_observations'][i]['task'][task] = 1
-        add_data_to_buffer_real_robot(paths, replay_buffer)
+                if use_task_encoder:
+                    task_embedding_mean = ptu.get_numpy(mu[i])
+                    path['observations'][i]['task_embedding'] = task_embedding_mean
+                    path['next_observations'][i]['task_embedding'] = task_embedding_mean
+                else:
+                    path['observations'][i]['task_embedding'] = np.array([0] * len(data_paths.keys()))
+                    path['observations'][i]['task_embedding'][task_idx] = 1
+                    path['next_observations'][i]['task_embedding'] = np.array([0] * len(data_paths.keys()))
+                    path['next_observations'][i]['task_embedding'][task_idx] = 1
 
+        add_data_to_buffer_real_robot(paths, replay_buffer)
 
 def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_replay_buffer):
 
@@ -104,4 +126,22 @@ def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_repl
 
     for task, data_path in data_paths.items():
         add_data_to_buffer_real_robot(data_path, multitask_replay_buffer.task_buffers[task])
+
+def add_reward_filtered_data_to_buffers_multitask(data_paths, observation_keys, *args):
+    for arg in args:
+        assert len(arg) == 2
+    
+    for task_idx, data_path in data_paths.items():
+        data_paths[task_idx] = load_data(data_path)
+        data = data_paths[task_idx]
+    
+        for j in range(len(data)):
+            path_len = len(data[j]['actions'])
+            path = data[j]
+            for i in range(path_len):
+                for arg in args:
+                    if arg[1](path['rewards'][i]):
+                        arg[0].add_sample(task_idx,
+                                    path['observations'][i], path['actions'][i], path['rewards'][i],
+                                    path['terminals'][i], path['next_observations'][i])
 
