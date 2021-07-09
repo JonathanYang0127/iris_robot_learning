@@ -116,9 +116,10 @@ def main(args):
     image_size = 48
     net = EncoderDecoderNet(image_size, latent_dim, encoder_resnet=args.encoder_resnet)
     net.to(ptu.device)
+    save_freq = 100
     exp_prefix = '{}-task-encoder-decoder'.format(time.strftime("%y-%m-%d"))
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=100, )
+                 snapshot_mode='gap_and_last', snapshot_gap=save_freq, )
 
 
     batch_size = variant['batch_size']
@@ -134,7 +135,7 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
     tasks_to_sample = list(range(variant['num_tasks']))
 
-    trainer = TaskEncoderTrainer(net, optimizer, criterion, print_freq,
+    trainer = TaskEncoderTrainer(net, optimizer, criterion, print_freq, save_freq,
                                  beta_target, half_beta_target_steps, args.anneal)
 
     trainer.train(replay_buffer_full, replay_buffer_positive, replay_buffer_full_val,
