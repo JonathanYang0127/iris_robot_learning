@@ -47,6 +47,7 @@ def main(args):
         total_steps=int(5e5),
         batch_size=args.batch_size,
         num_tasks=8,
+        image_augmentation=args.use_image_aug,
     )
 
     enable_gpus(args.gpu)
@@ -114,7 +115,9 @@ def main(args):
 
     latent_dim = variant['latent_dim']
     image_size = 48
-    net = EncoderDecoderNet(image_size, latent_dim, encoder_resnet=args.encoder_resnet)
+    net = EncoderDecoderNet(image_size, latent_dim,
+                            image_augmentation=args.use_image_aug,
+                            encoder_resnet=args.encoder_resnet)
     net.to(ptu.device)
     save_freq = 100
     exp_prefix = '{}-task-encoder-decoder'.format(time.strftime("%y-%m-%d"))
@@ -155,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument("--beta-anneal-steps", type=int, default=10000)
     parser.add_argument("--encoder-resnet", default=False, action='store_true')
     parser.add_argument("--decoder-resnet", default=False, action='store_true')
+    parser.add_argument("--use-image-aug", default=False, action='store_true')
     parser.add_argument("--use-alpha", default=False, action='store_true')
     args = parser.parse_args()
     main(args)
