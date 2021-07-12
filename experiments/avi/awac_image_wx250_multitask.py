@@ -95,6 +95,7 @@ def experiment(variant):
         net = EncoderDecoderNet(64, task_embedding_dim, encoder_resnet=variant['use_task_encoder_resnet'])
         net.load_state_dict(torch.load(variant['task_encoder_checkpoint']))
         net.to(ptu.device)
+        task_encoder = net.encoder_net
     else:
         task_encoder = None
     replay_buffer = ObsDictReplayBuffer(
@@ -103,7 +104,8 @@ def experiment(variant):
         observation_keys=observation_keys
     )
     buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
-    add_multitask_data_to_singletask_buffer_real_robot(buffer_params, replay_buffer, task_encoder=net.encoder_net)
+    add_multitask_data_to_singletask_buffer_real_robot(buffer_params, replay_buffer, 
+            task_encoder=task_encoder, embedding_mode=variant['embedding_mode'])
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -250,7 +252,8 @@ if __name__ == '__main__':
 
         task_encoder_checkpoint=args.task_encoder,
         task_encoder_latent_dim=2,
-        use_task_encoder_resnet=False
+        use_task_encoder_resnet=False,
+        embedding_mode='single',
     )
 
     variant['cnn'] = args.cnn
