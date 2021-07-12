@@ -1,6 +1,7 @@
 import pickle5 as pickle
 import numpy as np
 import random
+import torch
 import rlkit.torch.pytorch_util as ptu
 
 
@@ -82,10 +83,11 @@ def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=
     print("replay_buffer._size", replay_buffer._size)
 
 # TODO: Add validation buffers
-def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer, task_encoder=None):
+def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer, task_encoder=None, embedding_mode='single'):
 
     assert isinstance(data_paths, dict)
     assert 'task_embedding' in replay_buffer.observation_keys
+    assert embedding_mode in ('single', 'batch')
 
     use_task_encoder = task_encoder is not None
     if use_task_encoder:
@@ -101,14 +103,23 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
         add_reward_filtered_data_to_buffers_multitask(data_paths, ['image'], 
                 (replay_buffer_positive, lambda r: r > 0))
 
+    if embedding_mode == 'single':
+        num_tasks = len(data_paths.items())
+        encoder_batch = replay_buffer_positive.sample_batch(np.arange(num_tasks), 1000)
+        z, mu, logvar = task_encoder.forward(ptu.from_numpy(encoder_batch['observations']))
+        mu = torch.mean(mu.view(num_tasks, 1000, -1), dim=1)
     for task_idx, data_path in data_paths.items():
         paths = load_data(data_path)
         for path in paths:
-            if use_task_encoder:
+            if use_task_encoder and embedding_mode=='batch':
                 encoder_batch = replay_buffer_positive.sample_batch([task_idx], len(path['observations']))
                 z, mu, logvar = task_encoder.forward(ptu.from_numpy(encoder_batch['observations']))
             for i in range(len(path['observations'])):
-                if use_task_encoder:
+                if use_task_encoder and embedding_mode == 'single':
+                    task_embedding_mean = ptu.get_numpy(mu[task_idx])
+                    path['observations'][i]['task_embedding'] = task_embedding_mean
+                    path['next_observations'][i]['task_embedding'] = task_embedding_mean
+                elif use_task_encoder and embedding_mode == 'batch':
                     task_embedding_mean = ptu.get_numpy(mu[i])
                     path['observations'][i]['task_embedding'] = task_embedding_mean
                     path['next_observations'][i]['task_embedding'] = task_embedding_mean
