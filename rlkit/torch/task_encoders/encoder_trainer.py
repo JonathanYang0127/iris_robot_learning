@@ -155,10 +155,11 @@ class TaskEncoderTrainer:
                 # print('precision', precision_score(gt_rewards, reward_predictions))
                 params = self.net.state_dict()
                 if i % (self.print_freq*self.save_freq) == 0:
+                    plt.clf()
                     mu_np = ptu.get_numpy(mu)
                     mu_np = np.reshape(mu_np, (num_tasks, val_batch_size, self.net.latent_dim))
-                    for i in range(num_tasks):
-                        plt.scatter(mu_np[i, :, 0], mu_np[i, :, 1], label=i)
+                    for j in range(num_tasks):
+                        plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j)
                     save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(i//self.print_freq))
                     plt.savefig(save_path)
 
