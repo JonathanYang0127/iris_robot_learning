@@ -103,7 +103,7 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
         add_reward_filtered_data_to_buffers_multitask(data_paths, ['image'], 
                 (replay_buffer_positive, lambda r: r > 0))
 
-    if embedding_mode == 'single':
+    if use_task_encoder and embedding_mode == 'single':
         num_tasks = len(data_paths.items())
         encoder_batch = replay_buffer_positive.sample_batch(np.arange(num_tasks), 1000)
         z, mu, logvar = task_encoder.forward(ptu.from_numpy(encoder_batch['observations']))

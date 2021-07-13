@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import time
 import os.path as osp
 
