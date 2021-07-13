@@ -161,6 +161,7 @@ class TaskEncoderTrainer:
                     for j in range(num_tasks):
                         plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j)
                     save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(i//self.print_freq))
+                    plt.legend()
                     plt.savefig(save_path)
 
                 logger.save_itr_params(i // self.print_freq, params)
