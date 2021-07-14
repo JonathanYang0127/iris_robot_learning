@@ -56,8 +56,8 @@ class TaskEncoderTrainer:
             while reshuffle:
                 shuffled_indices = np.random.permutation(len(decoder_batch_3['observations']))
                 reshuffle = False
-                for i in range(len(shuffled_indices)):
-                    if i == shuffled_indices[i]:
+                for k in range(len(shuffled_indices)):
+                    if k == shuffled_indices[k]:
                         reshuffle = True
 
             decoder_batch_3['observations'] = decoder_batch_3['observations'][shuffled_indices]
