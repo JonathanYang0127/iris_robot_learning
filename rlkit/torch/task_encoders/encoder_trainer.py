@@ -52,7 +52,16 @@ class TaskEncoderTrainer:
             decoder_batch_2 = replay_buffer_full.sample_batch(tasks_to_sample, batch_size // 4)
             # hard negatives
             decoder_batch_3 = replay_buffer_positive.sample_batch(tasks_to_sample, batch_size // 4)
-            np.random.shuffle(decoder_batch_3['observations'])
+            reshuffle = True
+            while reshuffle:
+                shuffled_indices = np.random.permutation(len(decoder_batch_3['observations']))
+                reshuffle = False
+                for i in range(len(shuffled_indices)):
+                    if i == shuffled_indices[i]:
+                        reshuffle = True
+
+            decoder_batch_3['observations'] = decoder_batch_3['observations'][shuffled_indices]
+            # np.random.shuffle(decoder_batch_3['observations'])
             # decoder_batch = replay_buffer_full.sample_batch(tasks_to_sample, batch_size)
 
             decoder_obs = np.concatenate((decoder_batch_1['observations'],
@@ -163,6 +172,7 @@ class TaskEncoderTrainer:
                     for j in range(num_tasks):
                         plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j)
                     save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(i//self.print_freq))
+                    plt.legend()
                     plt.savefig(save_path)
 
                 logger.save_itr_params(i // self.print_freq, params)
