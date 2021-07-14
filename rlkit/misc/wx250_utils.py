@@ -83,13 +83,17 @@ def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=
     print("replay_buffer._size", replay_buffer._size)
 
 # TODO: Add validation buffers
-def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer, task_encoder=None, embedding_mode='single'):
+def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer, task_encoder=None, embedding_mode='single',
+        num_tasks=None):
 
     assert isinstance(data_paths, dict)
     assert 'task_embedding' in replay_buffer.observation_keys
-    assert embedding_mode in ('single', 'batch')
+    assert embedding_mode in ('one-hot', 'single', 'batch', 'None')
 
     use_task_encoder = task_encoder is not None
+    if num_tasks is None:
+        num_tasks = len(data_paths.keys())
+
     if use_task_encoder:
         from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplayBuffer
         replay_buffer_positive = ObsDictMultiTaskReplayBuffer(
@@ -104,10 +108,9 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
                 (replay_buffer_positive, lambda r: r > 0))
 
     if use_task_encoder and embedding_mode == 'single':
-        num_tasks = len(data_paths.items())
-        encoder_batch = replay_buffer_positive.sample_batch(np.arange(num_tasks), 1000)
+        encoder_batch = replay_buffer_positive.sample_batch(data_paths.keys(), 1000)
         z, mu, logvar = task_encoder.forward(ptu.from_numpy(encoder_batch['observations']))
-        mu = torch.mean(mu.view(num_tasks, 1000, -1), dim=1)
+        mu = torch.mean(mu.view(len(data_paths.keys()), 1000, -1), dim=1)
     for task_idx, data_path in data_paths.items():
         paths = load_data(data_path)
         for path in paths:
@@ -123,20 +126,28 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
                     task_embedding_mean = ptu.get_numpy(mu[i])
                     path['observations'][i]['task_embedding'] = task_embedding_mean
                     path['next_observations'][i]['task_embedding'] = task_embedding_mean
-                else:
-                    path['observations'][i]['task_embedding'] = np.array([0] * len(data_paths.keys()))
+                elif embedding_mode == 'one-hot':
+                    path['observations'][i]['task_embedding'] = np.array([0] * num_tasks)
                     path['observations'][i]['task_embedding'][task_idx] = 1
-                    path['next_observations'][i]['task_embedding'] = np.array([0] * len(data_paths.keys()))
+                    path['next_observations'][i]['task_embedding'] = np.array([0] * num_tasks)
                     path['next_observations'][i]['task_embedding'][task_idx] = 1
+                elif embedding_mode == 'None':
+                    pass
+                else:
+                    raise NotImplementedError
 
         add_data_to_buffer_real_robot(paths, replay_buffer)
 
-def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_replay_buffer):
+def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_replay_buffer, task_encoder=None, embedding_mode='None',
+        num_tasks=None):
 
     assert isinstance(data_paths, dict)
 
+    if num_tasks is None:
+        num_tasks = len(data_paths.keys())
     for task, data_path in data_paths.items():
-        add_data_to_buffer_real_robot(data_path, multitask_replay_buffer.task_buffers[task])
+        add_multitask_data_to_singletask_buffer_real_robot({task: data_path}, multitask_replay_buffer.task_buffers[task],
+            task_encoder=task_encoder, embedding_mode=embedding_mode, num_tasks=num_tasks)
 
 def add_reward_filtered_data_to_buffers_multitask(data_paths, observation_keys, *args):
     for arg in args:
