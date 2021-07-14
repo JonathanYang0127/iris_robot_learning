@@ -6,16 +6,19 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
+from rlkit.torch.sac.awac_multitask_trainer import AWACMultitaskTrainer
 from rlkit.torch.sac.policies import GaussianCNNPolicy, GaussianIMPALACNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
 from rlkit.torch.networks.impala_cnn import IMPALACNN, ConcatIMPALACNN
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
+from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplayBuffer
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
-from rlkit.misc.wx250_utils import add_multitask_data_to_singletask_buffer_real_robot, DummyEnv
+from rlkit.misc.wx250_utils import (add_multitask_data_to_singletask_buffer_real_robot, 
+    add_multitask_data_to_multitask_buffer_real_robot, DummyEnv)
 from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet
 
 # import roboverse
@@ -39,6 +42,7 @@ def experiment(variant):
         task_embedding_dim = len(variant['buffers'])
     else:
         task_embedding_dim = variant['task_encoder_latent_dim']
+    num_tasks = len(variant['buffers'])
     eval_env = DummyEnv(image_size=image_size, use_wrist=True, task_embedding_dim=task_embedding_dim)
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
@@ -98,13 +102,16 @@ def experiment(variant):
         task_encoder = net.encoder_net
     else:
         task_encoder = None
-    replay_buffer = ObsDictReplayBuffer(
+    replay_buffer = ObsDictMultiTaskReplayBuffer(
         int(1E6),
         expl_env,
+        np.arange(num_tasks),
+        use_next_obs_in_context=variant['use_next_obs_in_context'],
+        sparse_rewards=False,
         observation_keys=observation_keys
     )
     buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
-    add_multitask_data_to_singletask_buffer_real_robot(buffer_params, replay_buffer, 
+    add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer, 
             task_encoder=task_encoder, embedding_mode=variant['embedding_mode'])
 
     if variant['use_negative_rewards']:
@@ -112,7 +119,7 @@ def experiment(variant):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
 
-    trainer = AWACTrainer(
+    trainer = AWACMultitaskTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
@@ -144,6 +151,10 @@ def experiment(variant):
         replay_buffer=replay_buffer,
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
+        multi_task=True,
+        train_tasks=np.arange(num_tasks),
+        eval_tasks=np.arange(num_tasks),
+        meta_batch_size=variant['meta_batch_size'],
         num_epochs=variant['num_epochs'],
         num_eval_steps_per_epoch=variant['num_eval_steps_per_epoch'],
         num_expl_steps_per_train_loop=variant['num_expl_steps_per_train_loop'],
@@ -186,14 +197,21 @@ if __name__ == '__main__':
     parser.add_argument("--use-bc", action="store_true", default=False)
     parser.add_argument("--num-trajs-limit", default=0, type=int)
     parser.add_argument("--task-encoder", default="", type=str)
+    parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
     args = parser.parse_args()
 
+    assert (args.embedding_mode == 'one-hot') ^ (args.task_encoder != "")
+
     alg = 'BC' if args.use_bc else 'AWAC-Pixel'
+    print(args.buffers)
     buffers = set()
     for buffer_path in args.buffers:
-        path = Path(buffer_path)
-        buffers.update(list(path.rglob('*.pkl')))
-        buffers.update(list(path.rglob('*.npy')))
+        if '.pkl' in buffer_path or '.npy' in buffer_path:
+            buffers.add(buffer_path)
+        else:
+            path = Path(buffer_path)
+            buffers.update(list(path.rglob('*.pkl')))
+            buffers.update(list(path.rglob('*.npy')))
     buffers = [str(b) for b in buffers]
     print(buffers)
 
@@ -201,7 +219,8 @@ if __name__ == '__main__':
         algorithm=alg,
 
         num_epochs=3000,
-        batch_size=256,
+        batch_size=64,
+        meta_batch_size=4,
         max_path_length=25,
         num_trains_per_train_loop=1000,
         num_eval_steps_per_epoch=0,
@@ -253,7 +272,8 @@ if __name__ == '__main__':
         task_encoder_checkpoint=args.task_encoder,
         task_encoder_latent_dim=2,
         use_task_encoder_resnet=False,
-        embedding_mode='single',
+        embedding_mode=args.embedding_mode,
+        use_next_obs_in_context=False,
     )
 
     variant['cnn'] = args.cnn
