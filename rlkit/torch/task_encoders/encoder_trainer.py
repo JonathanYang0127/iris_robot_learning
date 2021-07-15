@@ -170,7 +170,7 @@ class TaskEncoderTrainer:
                     mu_np = ptu.get_numpy(mu)
                     mu_np = np.reshape(mu_np, (num_tasks, val_batch_size, self.net.latent_dim))
                     for j in range(num_tasks):
-                        plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j)
+                        plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j, s=3)
                     save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(i//self.print_freq))
                     plt.legend()
                     plt.savefig(save_path)
