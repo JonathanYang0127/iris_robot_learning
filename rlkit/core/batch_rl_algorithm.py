@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from rlkit.core.timer import timer
 from rlkit.core.rl_algorithm import BaseRLAlgorithm
-
+import numpy as np
 
 class BatchRLAlgorithm(BaseRLAlgorithm):
     def __init__(
@@ -16,7 +16,9 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             min_num_steps_before_training=0,
             object_detector=None,
             multi_task=False,
-            num_tasks=0,
+            meta_batch_size=4,
+            train_tasks=0,
+            eval_tasks=0,
             biased_sampling=False,
             *args,
             **kwargs
@@ -31,7 +33,9 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
         self.multi_task = multi_task
-        self.num_tasks = num_tasks
+        self.meta_batch_size = meta_batch_size
+        self.train_tasks = train_tasks
+        self.eval_tasls = eval_tasks
         self.object_detector = object_detector
         self.biased_sampling = biased_sampling
 
@@ -50,7 +54,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             self.expl_data_collector.end_epoch(-1)
 
         timer.start_timer('evaluation sampling')
-        if self.epoch % self._eval_epoch_freq == 0:
+        if self.epoch % self._eval_epoch_freq == 0 and self.num_eval_steps_per_epoch > 0:
             if self.multi_task:
                 for i in range(self.num_tasks):
                     self.eval_data_collector.collect_new_paths(
@@ -70,26 +74,36 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
 
         if not self._eval_only:
             for _ in range(self.num_train_loops_per_epoch):
-                timer.start_timer('exploration sampling', unique=False)
-                print("collecting explorations")
-                new_expl_paths = self.expl_data_collector.collect_new_paths(
-                    self.max_path_length,
-                    self.num_expl_steps_per_train_loop,
-                    discard_incomplete_paths=False,
-                    object_detector=self.object_detector,
-                )
-                print("done collecting explorations")
-                timer.stop_timer('exploration sampling')
+                if self.num_expl_steps_per_train_loop > 0:
+                    timer.start_timer('exploration sampling', unique=False)
+                    print("collecting explorations")
+                    new_expl_paths = self.expl_data_collector.collect_new_paths(
+                        self.max_path_length,
+                        self.num_expl_steps_per_train_loop,
+                        discard_incomplete_paths=False,
+                        object_detector=self.object_detector,
+                    )
+                    print("done collecting explorations")
+                    timer.stop_timer('exploration sampling')
 
-                timer.start_timer('replay buffer data storing', unique=False)
-                self.replay_buffer.add_paths(new_expl_paths)
-                timer.stop_timer('replay buffer data storing')
-                print("self.replay_buffer._size", self.replay_buffer._size)
+                    timer.start_timer('replay buffer data storing', unique=False)
+                    self.replay_buffer.add_paths(new_expl_paths)
+                    timer.stop_timer('replay buffer data storing')
+                    print("self.replay_buffer._size", self.replay_buffer._size)
 
                 timer.start_timer('training', unique=False)
                 for _ in range(self.num_trains_per_train_loop):
-                    train_data = self.replay_buffer.random_batch(
-                        self.batch_size, biased_sampling=self.biased_sampling)
+                    if not self.multi_task:
+                        train_data = self.replay_buffer.random_batch(
+                            self.batch_size, biased_sampling=self.biased_sampling)
+                    else:
+                        task_indices = np.random.choice(
+                            self.train_tasks, self.meta_batch_size
+                        )
+                        train_data = self.replay_buffer.sample_batch(
+                            task_indices,
+                            self.batch_size,
+                        )
                     self.trainer.train(train_data)
                 timer.stop_timer('training')
         log_stats = self._get_diagnostics()

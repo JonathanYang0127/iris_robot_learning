@@ -4,11 +4,12 @@ from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.simple_replay_buffer import (
     SimpleReplayBuffer as RLKitSimpleReplayBuffer
 )
+from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from gym.spaces import Box, Discrete, Tuple
 
 
-class MultiTaskReplayBuffer(object):
+class MultiTaskReplayBuffer(ReplayBuffer):
     def __init__(
             self,
             max_replay_buffer_size,
@@ -170,6 +171,9 @@ class MultiTaskReplayBuffer(object):
         no = batch['next_observations'][None, ...]
         t = batch['terminals'][None, ...]
         return [o, a, r, no, t]
+
+    def get_snapshot(self):
+        return dict()
 
 
 class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):
