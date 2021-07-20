@@ -162,7 +162,7 @@ def enable_gpus(gpu_str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--buffer", type=str, required=True)
-    parser.add_argument("--beta", type=float, default=1.0)
+    parser.add_argument("--beta", type=float, default=0.05)
     parser.add_argument("--clip-score", type=float, default=5.0)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
