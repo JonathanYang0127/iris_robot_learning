@@ -92,10 +92,13 @@ if __name__ == '__main__':
         images = []
 
         if not args.task_embedding:
-            task_idx = "None"
-            while not task_idx.isnumeric():
-                task_idx = input("Enter task idx to continue...")
-            task_idx = int(task_idx)
+            valid_task_idx = False
+            while not valid_task_idx:
+                task_idx = "None"
+                while not task_idx.isnumeric():
+                    task_idx = input("Enter task idx to continue...")
+                task_idx = int(task_idx)
+                valid_task_idx = task_idx in list(range(args.num_tasks))
             task = np.array([0] * args.num_tasks)
             task[task_idx] = 1
         else:

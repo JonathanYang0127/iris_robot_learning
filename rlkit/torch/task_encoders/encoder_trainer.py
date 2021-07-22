@@ -56,8 +56,8 @@ class TaskEncoderTrainer:
             while reshuffle:
                 shuffled_indices = np.random.permutation(len(decoder_batch_3['observations']))
                 reshuffle = False
-                for i in range(len(shuffled_indices)):
-                    if i == shuffled_indices[i]:
+                for k in range(len(shuffled_indices)):
+                    if k == shuffled_indices[k]:
                         reshuffle = True
 
             decoder_batch_3['observations'] = decoder_batch_3['observations'][shuffled_indices]
@@ -170,7 +170,7 @@ class TaskEncoderTrainer:
                     mu_np = ptu.get_numpy(mu)
                     mu_np = np.reshape(mu_np, (num_tasks, val_batch_size, self.net.latent_dim))
                     for j in range(num_tasks):
-                        plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j)
+                        plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j, s=3)
                     save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(i//self.print_freq))
                     plt.legend()
                     plt.savefig(save_path)

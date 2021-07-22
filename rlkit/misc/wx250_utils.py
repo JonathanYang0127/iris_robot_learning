@@ -52,6 +52,14 @@ def load_data(data_object):
     else:
         raise NotImplementedError
 
+def process_image(image):
+    if image.dtype == np.uint8:
+        return image.astype(np.float32) / 255.0
+    elif image.dtype == np.float32:
+        return image
+    else:
+        raise NotImplementedError
+
 def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=None,
                        validation_fraction=0.8, num_trajs_limit=None):
     assert validation_fraction >= 0.0
@@ -67,6 +75,9 @@ def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=
 
     if validation_replay_buffer is None:
         for path in paths:
+            for i in range(len(path['observations'])):
+                path['observations'][i]['image'] = process_image(path['observations'][i]['image'])
+                path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
             replay_buffer.add_path(path)
     else:
         num_train = int(validation_fraction*len(paths))
@@ -162,6 +173,8 @@ def add_reward_filtered_data_to_buffers_multitask(data_paths, observation_keys, 
             path = data[j]
             for i in range(path_len):
                 for arg in args:
+                    path['observations'][i]['image'] = process_image(path['observations'][i]['image'])
+                    path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
                     if arg[1](path['rewards'][i]):
                         arg[0].add_sample(task_idx,
                                     path['observations'][i], path['actions'][i], path['rewards'][i],
