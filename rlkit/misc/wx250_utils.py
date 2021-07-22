@@ -99,7 +99,7 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
         replay_buffer_positive = ObsDictMultiTaskReplayBuffer(
                 replay_buffer.max_size,
             replay_buffer.env,
-            np.arange(len(data_paths.keys())),
+            np.arange(num_tasks),
             use_next_obs_in_context=False,
             sparse_rewards=False,
             observation_keys=['image']
