@@ -1,6 +1,6 @@
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import train_vae
 

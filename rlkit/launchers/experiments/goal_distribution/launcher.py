@@ -260,7 +260,7 @@ def representation_learning_with_goal_distribution_launcher(
     action_dim = env.action_space.low.size
 
     if ckpt:
-        from rlkit.misc.asset_loader import local_path_from_s3_or_local_path
+        from rlkit.util.asset_loader import local_path_from_s3_or_local_path
         import os.path as osp
 
         if ckpt_epoch is not None:

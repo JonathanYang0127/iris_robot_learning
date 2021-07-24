@@ -1,8 +1,8 @@
-from rlkit.misc.data_processing import Experiment
+from rlkit.util.data_processing import Experiment
 import matplotlib.pyplot as plt
 import numpy as np
 
-from rlkit.misc.visualization_util import sliding_mean
+from rlkit.util.visualization_util import sliding_mean
 
 mb_trials = Experiment(
     "/home/vitchyr/git/railrl/data/doodads3/12-30-cheetah-xpos-increase-distance/",

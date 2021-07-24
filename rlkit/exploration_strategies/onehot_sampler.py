@@ -1,7 +1,7 @@
 import numpy as np
 
 from rlkit.exploration_strategies.base import RawExplorationStrategy
-from rlkit.misc.np_util import to_onehot
+from rlkit.util.np_util import to_onehot
 
 
 class OneHotSampler(RawExplorationStrategy):

@@ -1,6 +1,6 @@
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.launchers.contextual.rig.rig_launcher import (
     rig_experiment, process_args,

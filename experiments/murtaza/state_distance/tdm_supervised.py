@@ -12,7 +12,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.state_distance.tdm_supervised import TdmSupervised
 import rlkit.torch.pytorch_util as ptu
 from rlkit.state_distance.tdm_networks import TdmPolicy
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 import numpy as np
 

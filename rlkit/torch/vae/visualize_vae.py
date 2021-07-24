@@ -1,8 +1,8 @@
 import sys
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import tkinter as tk
-from rlkit.misc.asset_loader import sync_down
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import sync_down
+from rlkit.util.asset_loader import load_local_or_remote_file
 import torch
 import pickle
 import numpy as np

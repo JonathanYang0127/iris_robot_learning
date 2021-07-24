@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v0, sawyer_door_env_camera_v1, \
     sawyer_door_env_camera_v2
 from rlkit.launchers.launcher_util import run_experiment

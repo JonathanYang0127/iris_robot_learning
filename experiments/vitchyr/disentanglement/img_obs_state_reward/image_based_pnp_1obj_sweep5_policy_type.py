@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.contextual.image_based import \
     image_based_goal_conditioned_sac_experiment
 from rlkit.launchers.launcher_util import run_experiment

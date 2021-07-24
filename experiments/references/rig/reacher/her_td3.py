@@ -1,5 +1,5 @@
 from multiworld.envs.mujoco.cameras import sawyer_xyz_reacher_camera_v0
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_her_td3_full_experiment
 

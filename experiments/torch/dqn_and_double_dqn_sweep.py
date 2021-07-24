@@ -16,7 +16,7 @@ from rlkit.torch.dqn.dqn import DQN
 from rlkit.torch.networks import Mlp
 from rlkit.envs.wrappers import DiscretizeEnv
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

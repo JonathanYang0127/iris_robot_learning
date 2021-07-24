@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import init_sawyer_camera_v1
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_pick_and_place import \
     SawyerPickAndPlaceEnv

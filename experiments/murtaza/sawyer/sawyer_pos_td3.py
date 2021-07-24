@@ -9,7 +9,7 @@ from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy
 from rlkit.torch.td3.td3 import TD3
 import rlkit.torch.pytorch_util as ptu
 from sawyer_control.sawyer_reaching import SawyerXYZReachingEnv, SawyerXYReachingEnv
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import ray
 ray.init()
 

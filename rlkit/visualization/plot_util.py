@@ -8,7 +8,7 @@ try:
     import rllab.viskit.core as core
 except:
     import viskit.core as core
-from rlkit.misc.variant_generator import AttrDict
+from rlkit.util.variant_generator import AttrDict
 
 read_tb = lambda: None
 import glob

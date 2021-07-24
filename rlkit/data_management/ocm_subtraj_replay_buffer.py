@@ -3,7 +3,7 @@ import numpy as np
 from rlkit.data_management.subtraj_replay_buffer import SubtrajReplayBuffer
 from rlkit.data_management.updatable_subtraj_replay_buffer import \
     UpdatableSubtrajReplayBuffer
-from rlkit.misc.np_util import subsequences
+from rlkit.util.np_util import subsequences
 
 
 class OcmSubtrajReplayBuffer(UpdatableSubtrajReplayBuffer):

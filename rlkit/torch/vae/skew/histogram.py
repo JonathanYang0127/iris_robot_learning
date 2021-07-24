@@ -8,7 +8,7 @@ from skvideo.io import vwrite
 import rlkit.pythonplusplus as ppp
 from rlkit.core import logger
 from rlkit.visualization import visualization_util as vu
-from rlkit.misc.html_report import HTMLReport
+from rlkit.util.html_report import HTMLReport
 from rlkit.visualization.visualization_util import gif
 from rlkit.torch.vae.skew.common import Dynamics, plot_curves
 from rlkit.torch.vae.skew.datasets import project_samples_square_np

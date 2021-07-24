@@ -5,7 +5,7 @@ AWR + SAC from demo experiment
 from rlkit.demos.source.encoder_path_loader import EncoderPathLoader
 from rlkit.launchers.experiments.awac.awac_rl import experiment
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 
 from multiworld.envs.rlbench.rlbench_env import RLBenchEnv

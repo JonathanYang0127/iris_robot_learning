@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 import joblib
 
-from rlkit.misc.eval_util import get_generic_path_information
+from rlkit.util.eval_util import get_generic_path_information
 from rlkit.state_distance.rollout_util import multitask_rollout
 from rlkit.core import logger
 

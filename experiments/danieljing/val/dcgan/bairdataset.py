@@ -1,5 +1,5 @@
 from __future__ import print_function
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from experiments.murtaza.multiworld.skew_fit.reacher.generate_uniform_dataset import generate_uniform_dataset_reacher
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in, sawyer_pusher_camera_upright_v2
 from rlkit.launchers.launcher_util import run_experiment

@@ -17,7 +17,7 @@ from rllab.envs.mujoco.inverted_double_pendulum_env import \
     InvertedDoublePendulumEnv
 from rllab.envs.mujoco.swimmer_env import SwimmerEnv
 from rllab.envs.normalized_env import normalize
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

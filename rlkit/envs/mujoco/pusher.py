@@ -3,7 +3,7 @@ from collections import OrderedDict
 import numpy as np
 from gym.envs.mujoco import PusherEnv as GymPusherEnv
 
-from rlkit.misc.eval_util import create_stats_ordered_dict, get_stat_in_paths
+from rlkit.util.eval_util import create_stats_ordered_dict, get_stat_in_paths
 from rlkit.core import logger
 
 

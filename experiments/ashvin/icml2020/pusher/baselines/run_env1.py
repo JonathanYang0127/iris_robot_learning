@@ -5,7 +5,7 @@ AWR + SAC from demo experiment
 # from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
 # from rlkit.launchers.experiments.ashvin.awr_sac_gcrl import experiment, process_args
 
-# import rlkit.misc.hyperparameter as hyp
+# import rlkit.util.hyperparameter as hyp
 # from rlkit.launchers.arglauncher import run_variants
 
 # from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy

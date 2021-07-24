@@ -1,5 +1,5 @@
 import numpy as np
-from rlkit.misc.asset_loader import get_relative_path
+from rlkit.util.asset_loader import get_relative_path
 from rlkit.torch.sets.offline_rl_launcher import generate_trajectories
 
 

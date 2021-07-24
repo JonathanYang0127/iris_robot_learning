@@ -20,13 +20,13 @@ from rlkit.launchers.launcher_util import (
     run_experiment_here,
     create_base_log_dir,
 )
-from rlkit.misc.hyperparameter import (
+from rlkit.util.hyperparameter import (
     DeterministicHyperparameterSweeper,
     RandomHyperparameterSweeper,
     LogFloatParam,
     LinearFloatParam,
 )
-from rlkit.misc.hypopt import optimize_and_save
+from rlkit.util.hypopt import optimize_and_save
 from rlkit.tf.bptt_ddpg import BpttDDPG
 from rlkit.tf.ddpg import TargetUpdateMode
 from rlkit.tf.policies.memory.lstm_memory_policy import (

@@ -6,7 +6,7 @@ import numpy as np
 
 
 def train_vae(variant, return_data=False):
-    from rlkit.misc.ml_util import PiecewiseLinearSchedule
+    from rlkit.util.ml_util import PiecewiseLinearSchedule
     from rlkit.torch.vae.vae_trainer import ConvVAETrainer
     from rlkit.core import logger
     beta = variant["beta"]
@@ -134,7 +134,7 @@ def generate_vae_dataset(variant):
 
     from multiworld.core.image_env import ImageEnv, unormalize_image
     import rlkit.torch.pytorch_util as ptu
-    from rlkit.misc.asset_loader import load_local_or_remote_file
+    from rlkit.util.asset_loader import load_local_or_remote_file
     from rlkit.data_management.dataset  import \
         TrajectoryDataset, ImageObservationDataset, InitialObservationDataset, EnvironmentDataset, ConditionalDynamicsDataset
 

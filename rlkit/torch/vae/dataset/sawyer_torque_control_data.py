@@ -8,7 +8,7 @@ from multiworld.envs.mujoco.cameras import sawyer_torque_reacher_camera
 from multiworld.envs.mujoco.sawyer_reach_torque.sawyer_reach_torque_env import SawyerReachTorqueEnv
 from rlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
-from rlkit.misc.asset_loader import local_path_from_s3_or_local_path
+from rlkit.util.asset_loader import local_path_from_s3_or_local_path
 from rlkit.policies.simple import RandomPolicy
 
 def generate_vae_dataset(

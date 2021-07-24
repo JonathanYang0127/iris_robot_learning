@@ -5,7 +5,7 @@ import numpy as np
 from cached_property import cached_property
 
 from rlkit.data_management.replay_buffer import ReplayBuffer
-from rlkit.misc.np_util import subsequences
+from rlkit.util.np_util import subsequences
 from rlkit.pythonplusplus import dict_of_list__to__list_of_dicts
 
 

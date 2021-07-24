@@ -4,7 +4,7 @@ from cached_property import cached_property
 from rlkit.envs.memory.continuous_memory_augmented import (
     ContinuousMemoryAugmented
 )
-from rlkit.misc.np_util import subsequences, assign_subsequences
+from rlkit.util.np_util import subsequences, assign_subsequences
 from rlkit.data_management.subtraj_replay_buffer import SubtrajReplayBuffer
 
 

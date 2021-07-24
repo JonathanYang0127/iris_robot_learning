@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 # from multiworld.envs.mujoco.sawyer_xyz.sawyer_pick_and_place import \
     # SawyerPickAndPlaceEnv, SawyerPickAndPlaceEnvYZ
 from rlkit.envs.mujoco.sawyer_push_and_reach_env import (

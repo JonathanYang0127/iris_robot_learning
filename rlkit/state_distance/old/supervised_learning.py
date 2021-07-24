@@ -3,7 +3,7 @@ from collections import OrderedDict
 import numpy as np
 from torch import optim as optim
 
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.core import np_to_pytorch_batch
 from rlkit.core import logger

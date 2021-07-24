@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from experiments.murtaza.multiworld.decoder_distributions.mse_decoder import architecture
 from rlkit.torch.vae.conv_vae import ConvVAE
 from rlkit.torch.vae.dataset.generate_goal_dataset import generate_goal_dataset_using_policy

@@ -11,7 +11,7 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.core.logging import add_prefix
 from rlkit.core.loss import LossStatistics
 from rlkit.core.timer import timer
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
 SACLosses = namedtuple(

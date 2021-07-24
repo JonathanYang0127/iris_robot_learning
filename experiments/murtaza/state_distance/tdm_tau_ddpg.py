@@ -1,5 +1,5 @@
 import random
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer
 from rlkit.envs.multitask.ant_env import GoalXYPosAnt
 from rlkit.envs.multitask.half_cheetah import GoalXVelHalfCheetah

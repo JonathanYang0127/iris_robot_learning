@@ -11,7 +11,7 @@ from rlkit.images.camera import (
 )
 
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.vae.relabeled_vae_experiment import experiment
 

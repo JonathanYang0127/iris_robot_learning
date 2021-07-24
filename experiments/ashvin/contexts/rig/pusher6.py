@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.contextual_rig_launcher_util import (
     goal_conditioned_sac_experiment, process_args
 )

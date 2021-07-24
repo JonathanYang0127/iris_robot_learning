@@ -7,7 +7,7 @@ from rlkit.envs.multitask.baxter_env import MultiTaskBaxterEnv
 from rlkit.envs.wrappers import convert_gym_space
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.ml_util import ConstantSchedule
 from rlkit.state_distance.exploration import \
     UniversalPolicyWrappedWithExplorationStrategy
 from rlkit.state_distance.old.networks import (

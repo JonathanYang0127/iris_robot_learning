@@ -8,7 +8,7 @@ from rlkit.exploration_strategies.base import \
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import run_experiment
 import rlkit.torch.pytorch_util as ptu
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.ddpg.ddpg import DDPG
 from rlkit.torch.networks import FlattenMlp, TanhMlpPolicy
 

@@ -130,7 +130,7 @@ def batch_discounted_cumsum(values, discount):
     output[i, j] = rewards[i, j] + rewards[i, j+1] * discount
                     + rewards[i, j+2] * discount**2 + ...
 
-    Based on rllab.misc.special.discounted_cumsum
+    Based on rllab.util.special.discounted_cumsum
     :param rewards: FloatTensor, size [batch_size, sequence_length, 1]
     :param discount: float, discount factor
     :return FloatTensor, size [batch_size, sequence_length, 1]

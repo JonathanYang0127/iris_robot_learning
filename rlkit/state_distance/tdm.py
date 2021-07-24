@@ -6,8 +6,8 @@ import abc
 import numpy as np
 
 from rlkit.data_management.path_builder import PathBuilder
-from rlkit.misc.ml_util import ConstantSchedule
-from rlkit.misc.np_util import truncated_geometric
+from rlkit.util.ml_util import ConstantSchedule
+from rlkit.util.np_util import truncated_geometric
 from rlkit.samplers.rollout_functions import (
     create_rollout_function,
     tdm_rollout,

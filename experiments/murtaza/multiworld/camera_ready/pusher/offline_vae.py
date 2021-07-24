@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_pusher_camera_upright_v1
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_her_td3_full_experiment

@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.awr_env_replay_buffer import AWREnvReplayBuffer
 from rlkit.torch.sac.policies import GaussianPolicy
 from rlkit.launchers.experiments.awac.awac_rl import experiment

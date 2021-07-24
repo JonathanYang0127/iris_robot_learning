@@ -1,4 +1,4 @@
-from rlkit.misc.data_processing import get_all_csv
+from rlkit.util.data_processing import get_all_csv
 import matplotlib.pyplot as plt
 import numpy as np
 

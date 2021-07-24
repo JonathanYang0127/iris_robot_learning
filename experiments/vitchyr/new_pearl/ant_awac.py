@@ -6,7 +6,7 @@ import click
 
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.pearl.new_awac_launcher import pearl_awac_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 @click.command()

@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.vae.dataset.generate_goal_dataset import generate_goal_data_set
 from multiworld.envs.mujoco.cameras import sawyer_torque_reacher_camera
 from multiworld.envs.mujoco.sawyer_reach_torque.sawyer_reach_torque_env import SawyerReachTorqueEnv

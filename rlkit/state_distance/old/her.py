@@ -6,7 +6,7 @@ from torch.nn import functional as F
 
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer
 from rlkit.data_management.path_builder import PathBuilder
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.state_distance.policies import UniversalPolicy
 from rlkit.state_distance.rollout_util import MultigoalSimplePathSampler
 from rlkit.torch import pytorch_util as ptu

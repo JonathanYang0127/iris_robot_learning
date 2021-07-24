@@ -9,6 +9,7 @@ import numpy as np
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger, setup_logger
 from rlkit.launchers import config
+import torch
 
 
 GitInfo = NamedTuple(
@@ -138,6 +139,7 @@ def set_seed(seed):
     seed = int(seed)
     random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
 
 
 def generate_git_infos():

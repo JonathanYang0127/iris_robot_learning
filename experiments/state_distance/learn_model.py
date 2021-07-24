@@ -5,7 +5,7 @@ from rlkit.tf.state_distance.model_learning import ModelLearning
 from rlkit.tf.state_distance.util import get_replay_buffer
 from torch.nn import functional as F
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.multitask.reacher_env import (
     GoalStateSimpleStateReacherEnv,

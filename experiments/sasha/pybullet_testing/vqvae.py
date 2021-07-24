@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.contextual.rig.rig_launcher import (
     rig_experiment, process_args
 )

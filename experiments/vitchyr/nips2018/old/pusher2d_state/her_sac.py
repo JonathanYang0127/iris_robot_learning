@@ -1,5 +1,5 @@
 import rlkit.torch.pytorch_util as ptu
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.mujoco.pusher2d import Pusher2DEnv
 from rlkit.envs.multitask.multitask_env import MultitaskToFlatEnv
@@ -19,7 +19,7 @@ from rlkit.exploration_strategies.epsilon_greedy import EpsilonGreedy
 from rlkit.launchers.launcher_util import setup_logger, run_experiment
 from rlkit.torch.her.her_td3 import HerTd3
 from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

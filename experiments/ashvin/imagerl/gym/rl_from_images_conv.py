@@ -15,7 +15,7 @@ from rlkit.torch.networks import (
 )
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.td3.td3 import TD3
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 
 from multiworld.core.gym_to_multi_env import MujocoGymToMultiEnv

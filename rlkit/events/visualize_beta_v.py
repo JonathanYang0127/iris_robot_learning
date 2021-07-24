@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 import joblib
 
-from rlkit.misc.visualization_util import make_heat_map, plot_heatmap
+from rlkit.util.visualization_util import make_heat_map, plot_heatmap
 from rlkit.policies.simple import RandomPolicy
 from rlkit.state_distance.rollout_util import multitask_rollout
 

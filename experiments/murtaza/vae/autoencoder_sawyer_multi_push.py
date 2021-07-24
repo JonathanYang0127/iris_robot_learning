@@ -1,6 +1,6 @@
 from rlkit.envs.mujoco.sawyer_push_and_reach_env import SawyerMultiPushAndReachEasyEnv
 from rlkit.images.camera import sawyer_init_camera_zoomed_in
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.vae.relabeled_vae_experiment import experiment
 

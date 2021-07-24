@@ -7,7 +7,7 @@ from pygame import Color
 
 from rlkit.core import logger as default_logger
 from rlkit.envs.pygame.pygame_viewer import PygameViewer
-from rlkit.misc.eval_util import create_stats_ordered_dict, get_path_lengths, \
+from rlkit.util.eval_util import create_stats_ordered_dict, get_path_lengths, \
     get_stat_in_paths
 # import matplotlib.pyplot as plt
 # import matplotlib.cm as cm
@@ -308,7 +308,7 @@ class Point2DEnv(Env):
 
 def plot_observations_and_actions(observations, actions):
     import matplotlib.pyplot as plt
-    import rlkit.misc.visualization_util as vu
+    import rlkit.util.visualization_util as vu
 
     x_pos = observations[:, 0]
     y_pos = observations[:, 1]

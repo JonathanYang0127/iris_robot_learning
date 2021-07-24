@@ -3,7 +3,7 @@ If you are trying to run this code, ask Ashvin for the demonstration file:
 demos/pointmass_demos_100.npy (which should go in your S3 storage)
 """
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_pusher_camera_upright_v2
 
 from multiworld.envs.pygame.point2d import Point2DWallEnv

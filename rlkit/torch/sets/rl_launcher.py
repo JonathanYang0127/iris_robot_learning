@@ -25,7 +25,7 @@ from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
 from rlkit.launchers.contextual.util import get_gym_env
 from rlkit.launchers.rl_exp_launcher_util import create_exploration_policy
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector,
 )

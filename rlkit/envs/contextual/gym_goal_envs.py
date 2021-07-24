@@ -12,7 +12,7 @@ from rlkit.envs.contextual.contextual_env import (
     Context,
     Diagnostics,
 )
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 
 
 class GoalDictDistributionFromGymGoalEnv(DictDistribution):

@@ -16,7 +16,7 @@ from rlkit.launchers.experiments.disentanglement.util import (
 from rlkit.samplers.data_collector import (
     VAEWrappedEnvPathCollector
 )
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.torch.disentanglement.networks import DisentangledMlpQf
 from rlkit.torch.her.her import HERTrainer
 from rlkit.torch.networks import ConcatMlp

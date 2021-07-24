@@ -1,6 +1,6 @@
 import random
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer
 from rlkit.envs.multitask.reacher_7dof import Reacher7DofXyzGoalState
 from rlkit.envs.wrappers import NormalizedBoxEnv

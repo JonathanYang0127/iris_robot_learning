@@ -8,7 +8,7 @@ from torchvision.utils import save_image
 import time
 from torchvision.transforms import ColorJitter, RandomResizedCrop, Resize
 from PIL import Image
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 import os
 import pickle
 import sys
@@ -45,18 +45,18 @@ class PixelCNNTrainer(LossFunction):
 
     def train_epoch(self, epoch, data_loader, batches=100):
         start_time = time.time()
-        for _, batch in enumerate(data_loader):
+        for i, batch in enumerate(data_loader):
+            if batches is not None and i >= batches:
+                break
             self.train_batch(epoch, batch.to(ptu.device))
-        # for b in range(batches):
-        #     self.train_batch(epoch, dataset.random_batch(self.batch_size))
         self.eval_statistics["train/epoch_duration"].append(time.time() - start_time)
 
     def test_epoch(self, epoch, data_loader, batches=10):
         start_time = time.time()
-        for _, batch in enumerate(data_loader):
+        for i, batch in enumerate(data_loader):
+            if batches is not None and i >= batches:
+                break
             self.test_batch(epoch, batch.to(ptu.device))
-        # for b in range(batches):
-        #     self.test_batch(epoch, dataset.random_batch(self.batch_size))
         self.eval_statistics["test/epoch_duration"].append(time.time() - start_time)
 
     def compute_loss(self, batch, epoch=-1, test=False):
@@ -112,6 +112,7 @@ class PixelCNNTrainer(LossFunction):
         return stats
 
     def dump_samples(self, epoch, data, test=True):
+        start_time = time.time()
         suffix = 'test' if test else 'train'
 
         rand_indices = np.random.choice(data.shape[0], size=(8,))
@@ -139,3 +140,4 @@ class PixelCNNTrainer(LossFunction):
             samples.data.view(-1, input_channels, imsize, imsize).transpose(2, 3),
             filename
         )
+        self.eval_statistics[suffix + "/sample_duration"].append(time.time() - start_time)

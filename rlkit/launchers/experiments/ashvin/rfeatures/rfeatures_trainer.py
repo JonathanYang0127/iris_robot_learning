@@ -9,14 +9,14 @@ from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from multiworld.core.image_env import normalize_image
 from rlkit.core import logger
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.data import (
     ImageDataset,
     InfiniteWeightedRandomSampler,
     InfiniteRandomSampler,
 )
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.ml_util import ConstantSchedule
 import collections
 
 from rlkit.torch.core import np_to_pytorch_batch

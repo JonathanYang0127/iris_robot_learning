@@ -21,7 +21,7 @@ from multiworld.envs.real_world.sawyer.sawyer_reaching import SawyerReachXYZEnv
 # from sawyer_control.envs.sawyer_reaching import SawyerReachXYZEnv
 
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 # from rlkit.launchers.experiments.ashvin.rfeatures.rfeatures_trainer import TimePredictionTrainer
 from rlkit.launchers.experiments.ashvin.rfeatures.rfeatures_rl import encoder_wrapped_td3bc_experiment

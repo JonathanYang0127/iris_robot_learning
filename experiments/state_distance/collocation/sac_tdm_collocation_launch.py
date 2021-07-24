@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from torch.nn import functional as F
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer
 from rlkit.envs.multitask.point2d import MultitaskPoint2DEnv

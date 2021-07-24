@@ -7,7 +7,7 @@ from rlkit.torch import pytorch_util as ptu
 import numpy as np
 from rlkit.torch.networks import CNN, TwoHeadDCNN, DCNN
 from rlkit.torch.vae.vae_base import compute_bernoulli_log_prob, compute_gaussian_log_prob, GaussianLatentVAE
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.ml_util import ConstantSchedule
 
 from torch import optim
 from rlkit.data_management.dataset import TripletReplayBufferWrapper

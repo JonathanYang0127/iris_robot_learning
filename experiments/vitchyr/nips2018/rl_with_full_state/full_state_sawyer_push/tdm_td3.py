@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.her_replay_buffer import RelabelingReplayBuffer
 from rlkit.envs.mujoco.sawyer_push_and_reach_env import \
     SawyerPushAndReachXYEasyEnv

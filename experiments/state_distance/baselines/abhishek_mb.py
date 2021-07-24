@@ -3,7 +3,7 @@ import random
 import numpy as np
 import tensorflow as tf
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.envs.multitask.ant_env import GoalXYPosAnt
 from rlkit.envs.multitask.pusher2d import CylinderXYPusher2DEnv
 from rlkit.envs.multitask.her_half_cheetah import HalfCheetah, \

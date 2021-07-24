@@ -4,7 +4,7 @@ from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.samplers.data_collector import MdpPathCollector
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic

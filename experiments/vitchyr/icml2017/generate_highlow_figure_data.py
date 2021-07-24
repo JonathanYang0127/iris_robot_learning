@@ -14,7 +14,7 @@ from rlkit.launchers.memory_bptt_launchers import (
     rdpg_launcher,
     our_method_launcher_add_defaults,
 )
-from rlkit.misc.hyperparameter import DeterministicHyperparameterSweeper
+from rlkit.util.hyperparameter import DeterministicHyperparameterSweeper
 
 if __name__ == '__main__':
     n_seeds = 1

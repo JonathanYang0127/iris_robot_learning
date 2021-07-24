@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.e2e_rig.launcher import pointmass_fixed_goal_experiment
 from rlkit.torch.vae.conv_vae import imsize48_default_architecture

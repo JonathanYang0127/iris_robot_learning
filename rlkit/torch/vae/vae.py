@@ -9,7 +9,7 @@ from torch.autograd import Variable
 from rlkit.core import logger
 import os.path as osp
 import numpy as np
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.ml_util import ConstantSchedule
 from rlkit.pythonplusplus import identity
 from rlkit.torch.core import PyTorchModule
 from rlkit.torch.networks import Mlp, TwoHeadMlp

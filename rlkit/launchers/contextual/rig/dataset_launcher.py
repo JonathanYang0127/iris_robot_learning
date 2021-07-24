@@ -42,7 +42,7 @@ def generate_vae_dataset(
 
     from multiworld.core.image_env import ImageEnv, unormalize_image
     import rlkit.torch.pytorch_util as ptu
-    from rlkit.misc.asset_loader import load_local_or_remote_file
+    from rlkit.util.asset_loader import load_local_or_remote_file
     from rlkit.data_management.dataset  import (
         TrajectoryDataset, ImageObservationDataset, EnvironmentDataset, ConditionalDynamicsDataset, InitialObservationNumpyDataset,
         InfiniteBatchLoader,

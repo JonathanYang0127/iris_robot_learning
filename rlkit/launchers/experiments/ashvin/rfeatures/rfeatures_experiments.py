@@ -28,7 +28,7 @@ def get_data(variant):
     return train_dataset, test_dataset, {}
 
 def train_rfeatures_model(variant, return_data=False):
-    from rlkit.misc.ml_util import PiecewiseLinearSchedule
+    from rlkit.util.ml_util import PiecewiseLinearSchedule
     # from rlkit.torch.vae.conv_vae import (
     #     ConvVAE, ConvResnetVAE
     # )

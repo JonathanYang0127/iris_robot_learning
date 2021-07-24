@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_pick_and_place_camera
 from rlkit.envs.goal_generation.pickup_goal_dataset import get_image_presampled_goals_from_image_env
 from rlkit.launchers.launcher_util import run_experiment

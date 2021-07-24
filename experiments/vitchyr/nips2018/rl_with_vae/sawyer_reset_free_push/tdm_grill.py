@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.envs.mujoco.sawyer_reset_free_push_env import SawyerResetFreePushEnv
 from rlkit.images.camera import sawyer_init_camera_zoomed_in_fixed
 from rlkit.launchers.launcher_util import run_experiment

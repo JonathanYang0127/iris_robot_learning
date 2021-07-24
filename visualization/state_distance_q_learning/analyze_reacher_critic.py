@@ -24,7 +24,7 @@ import numpy as np
 import rlkit.visualization.visualization_util as vu
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.multitask.reacher_env import position_from_angles
-from rlkit.misc.html_report import HTMLReport
+from rlkit.util.html_report import HTMLReport
 from rllab.misc.instrument import query_yes_no
 
 USE_TIME = True

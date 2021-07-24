@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.launchers.experiments.ashvin.rfeatures.rfeatures_experiments import train_rfeatures_model
 from rlkit.launchers.experiments.ashvin.rfeatures.rfeatures_trainer import TimePredictionTrainer, LatentPathPredictorTrainer, GeometricTimePredictorTrainer

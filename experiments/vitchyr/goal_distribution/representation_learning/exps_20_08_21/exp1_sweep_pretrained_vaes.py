@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.sets.rl_launcher import disco_experiment
 

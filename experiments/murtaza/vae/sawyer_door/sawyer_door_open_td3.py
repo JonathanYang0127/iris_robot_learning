@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.her_replay_buffer import RelabelingReplayBuffer
 from rlkit.envs.mujoco.sawyer_door_env_flat import SawyerDoorPushOpenEnv, SawyerDoorPullOpenEnv
 from rlkit.envs.wrappers import NormalizedBoxEnv

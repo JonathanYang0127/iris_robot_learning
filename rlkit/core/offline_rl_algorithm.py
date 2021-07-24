@@ -5,7 +5,7 @@ from rlkit.core.timer import timer
 
 from rlkit.core import logger
 from rlkit.core.logging import append_log
-from rlkit.misc import eval_util
+from rlkit.util import eval_util
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.samplers.data_collector import DataCollector
 

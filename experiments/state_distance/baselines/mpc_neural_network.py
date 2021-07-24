@@ -1,6 +1,6 @@
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.multitask.point2d import MultitaskPoint2DEnv
 from rlkit.envs.multitask.point2d_uwall import MultitaskPoint2dUWall

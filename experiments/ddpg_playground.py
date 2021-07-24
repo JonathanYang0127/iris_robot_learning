@@ -10,7 +10,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.networks import FeedForwardQFunction, FeedForwardPolicy
 from rlkit.torch.ddpg import DDPG
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 
 from rllab.envs.box2d.cartpole_env import CartpoleEnv

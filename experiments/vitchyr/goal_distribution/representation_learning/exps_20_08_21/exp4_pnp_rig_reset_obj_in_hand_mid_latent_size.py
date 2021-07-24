@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.pygame import PickAndPlaceEnv
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.launchers.contextual.rig.rig_launcher import (

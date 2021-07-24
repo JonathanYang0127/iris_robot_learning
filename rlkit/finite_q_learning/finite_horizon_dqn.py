@@ -1,4 +1,4 @@
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchRLAlgorithm
 from torch.optim import Adam
 from torch import nn as nn

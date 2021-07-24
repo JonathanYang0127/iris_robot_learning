@@ -43,7 +43,7 @@ def generate_vae_dataset_from_params(
         use_linear_dynamics=False,
 ):
     from multiworld.core.image_env import ImageEnv, unormalize_image
-    from rlkit.misc.asset_loader import local_path_from_s3_or_local_path
+    from rlkit.util.asset_loader import local_path_from_s3_or_local_path
     import time
 
     assert oracle_dataset == True

@@ -24,7 +24,7 @@ from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import Sawyer
 
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 def experiment(variant):
     expl_env = variant['env_class'](**variant['env_kwargs'])

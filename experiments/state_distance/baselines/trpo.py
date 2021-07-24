@@ -24,7 +24,7 @@ from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import (
     ConjugateGradientOptimizer,
     FiniteDifferenceHvp,
 )
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

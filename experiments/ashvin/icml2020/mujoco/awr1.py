@@ -21,7 +21,7 @@ from rlkit.samplers.data_collector.step_collector import MdpStepCollector
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
     TorchOnlineRLAlgorithm,

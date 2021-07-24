@@ -14,7 +14,7 @@ from rlkit.launchers.algo_launchers import (
     random_action_launcher,
     get_env_settings)
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc import hyperparameter as hp
+from rlkit.util import hyperparameter as hp
 
 BATCH_SIZE = 32
 N_EPOCHS = 100

@@ -2,7 +2,7 @@ from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
 from rlkit.torch.sac.policies import GaussianPolicy
 from rlkit.launchers.experiments.awac.awac_rl import experiment
 from rlkit.launchers.launcher_util import run_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 if __name__ == "__main__":
     variant = dict(

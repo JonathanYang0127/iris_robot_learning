@@ -6,7 +6,7 @@ from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader, Enco
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
 from rlkit.launchers.experiments.ashvin.awr_sac_rl import experiment, process_args
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 from roboverse.envs.sawyer_rig_vae import SawyerRigVaeEnv
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy

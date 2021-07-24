@@ -5,7 +5,7 @@ from rlkit.data_management.contextual_replay_buffer import \
     ContextualRelabelingReplayBuffer
 from rlkit.envs.images import EnvRenderer
 from rlkit.launchers.contextual.util import get_gym_env
-from rlkit.misc import asset_loader
+from rlkit.util import asset_loader
 from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector,
 )
@@ -26,7 +26,7 @@ from rlkit.torch.torch_rl_algorithm import (
 from rlkit.envs.contextual.set_distributions import (
     LatentGoalDictDistributionFromSet,
 )
-from rlkit.misc import np_util
+from rlkit.util import np_util
 
 
 def convert_raw_trajectories_into_paths(

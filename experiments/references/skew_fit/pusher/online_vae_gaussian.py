@@ -1,6 +1,6 @@
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.vae.vae_schedules as vae_schedules
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import \

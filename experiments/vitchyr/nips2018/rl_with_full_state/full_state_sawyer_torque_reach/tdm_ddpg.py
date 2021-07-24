@@ -1,5 +1,5 @@
 import rlkit.torch.pytorch_util as ptu
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.her_replay_buffer import HerReplayBuffer
 from rlkit.envs.mujoco.sawyer_gripper_env import SawyerXYEnv
 from rlkit.envs.mujoco.sawyer_reach_env import SawyerReachXYEnv

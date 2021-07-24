@@ -6,14 +6,14 @@ import cv2
 import numpy as np
 import torch
 import torch.optim as optim
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from torch.distributions.kl import kl_divergence
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger
 from rlkit.core.loss import LossFunction
 from rlkit.core.timer import timer
-from rlkit.misc import ml_util
+from rlkit.util import ml_util
 from rlkit.torch.distributions import MultivariateDiagonalNormal, Distribution
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from rlkit.torch.vae.vae_torch_trainer import VAE, compute_vae_terms

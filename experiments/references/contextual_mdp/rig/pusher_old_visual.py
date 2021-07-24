@@ -2,7 +2,7 @@ from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import (
     SawyerMultiobjectEnv
 )
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.launchers.contextual.rig.rig_launcher import (
     rig_experiment, process_args,

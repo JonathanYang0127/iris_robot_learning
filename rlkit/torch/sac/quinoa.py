@@ -6,17 +6,17 @@ import torch.optim as optim
 from rlkit.torch.sac.policies import MakeDeterministic
 from torch import nn as nn
 import rlkit.torch.pytorch_util as ptu
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.core import np_to_pytorch_batch
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from rlkit.core import logger
 from rlkit.core.logging import add_prefix
-from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
 import torch.nn.functional as F
 from rlkit.torch.networks import LinearTransform
 import time
 
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 
 class QuinoaTrainer(TorchTrainer):
     def __init__(

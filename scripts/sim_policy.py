@@ -1,5 +1,5 @@
 from rlkit.envs.remote import RemoteRolloutEnv
-from rlkit.misc import eval_util
+from rlkit.util import eval_util
 from rlkit.samplers.rollout_functions import rollout
 from rlkit.torch.core import PyTorchModule
 import rlkit.torch.pytorch_util as ptu

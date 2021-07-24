@@ -13,7 +13,7 @@ from torch.optim import Adam
 import rlkit.pythonplusplus as ppp
 import rlkit.torch.vae.skew.skewed_vae as sv
 from rlkit.core import logger
-from rlkit.misc.html_report import HTMLReport
+from rlkit.util.html_report import HTMLReport
 from rlkit.visualization.visualization_util import gif
 from rlkit.torch.vae.skew.common import (
     Dynamics, plot_curves,

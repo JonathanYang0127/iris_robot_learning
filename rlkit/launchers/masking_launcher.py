@@ -507,7 +507,7 @@ def masking_sac_experiment(
 
     def get_mask_diagnostics(unused):
         from rlkit.core.logging import append_log, add_prefix, OrderedDict
-        from rlkit.misc import eval_util
+        from rlkit.util import eval_util
         log = OrderedDict()
         for prefix, collector in zip(log_prefixes, collectors):
             paths = collector.collect_new_paths(

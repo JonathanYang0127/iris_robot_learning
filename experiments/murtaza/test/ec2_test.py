@@ -8,7 +8,7 @@ from torch.nn import functional as F
 
 from rlkit.envs.multitask.pusher2d import HandCylinderXYPusher2DEnv
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.algos.state_distance.state_distance_q_learning import (
     HorizonFedStateDistanceQLearning)
@@ -29,8 +29,8 @@ from rlkit.launchers.launcher_util import (
     create_run_experiment_multiple_seeds,
 )
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.hypopt import optimize_and_save
-from rlkit.misc.ml_util import ConstantSchedule
+from rlkit.util.hypopt import optimize_and_save
+from rlkit.util.ml_util import ConstantSchedule
 from rlkit.networks.state_distance import (
     FFUniversalPolicy,
     GoalStructuredUniversalQfunction,

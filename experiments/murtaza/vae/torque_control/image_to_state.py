@@ -1,6 +1,6 @@
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.networks import CNN
 from rlkit.torch.supervised_learning.supervised_algorithm import SupervisedAlgorithm

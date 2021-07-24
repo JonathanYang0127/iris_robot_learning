@@ -3,7 +3,7 @@ Snapshot of experiments giving results of:
 
 /home/vitchyr/git/railrl/data/doodads3/08-21-recreate-online-vae-pushing-results-online-parallel-collection-one-seed-per-instance/
 """
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.vae.vae_schedules as vae_schedules
 from multiworld.envs.mujoco.cameras import sawyer_pusher_camera_top_down
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env import (

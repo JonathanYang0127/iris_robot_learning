@@ -1,5 +1,5 @@
 from rlkit.demos.collect_demo import collect_demos_fixed
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 
 from rlkit.launchers.experiments.awac.awac_rl import ENV_PARAMS
 

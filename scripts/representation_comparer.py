@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import torch
 from torchvision.utils import save_image
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.vae.vq_vae import VQ_VAE, VAE, CCVAE
 from rlkit.torch.gan.bigan import BiGAN, CVBiGAN

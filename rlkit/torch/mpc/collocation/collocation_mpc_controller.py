@@ -4,7 +4,7 @@ import torch
 from scipy import optimize
 from torch import optim, nn as nn
 
-from rlkit.misc.eval_util import get_stat_in_paths, create_stats_ordered_dict
+from rlkit.util.eval_util import get_stat_in_paths, create_stats_ordered_dict
 from rlkit.state_distance.policies import UniversalPolicy
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.core import PyTorchModule, eval_np

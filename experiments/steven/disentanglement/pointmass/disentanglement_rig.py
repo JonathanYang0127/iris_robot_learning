@@ -1,7 +1,7 @@
 import os.path as osp
 import torch.nn.functional as F
 import multiworld.envs.mujoco as mwmj
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.experiments.disentanglement.launcher import \
         disentangled_grill_her_twin_sac_experiment

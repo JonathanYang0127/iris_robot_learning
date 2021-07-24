@@ -1,6 +1,6 @@
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.envs.vae_wrappers import load_vae
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.networks import ConcatMlp

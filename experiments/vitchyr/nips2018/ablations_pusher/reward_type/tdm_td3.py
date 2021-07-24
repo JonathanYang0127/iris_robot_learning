@@ -2,7 +2,7 @@ from rlkit.envs.mujoco.sawyer_push_and_reach_env import \
     SawyerPushAndReachXYEasyEnv
 from rlkit.images.camera import sawyer_init_camera
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.networks.experimental import HuberLoss
 from rlkit.torch.vae.tdm_td3_vae_experiment import tdm_td3_vae_experiment

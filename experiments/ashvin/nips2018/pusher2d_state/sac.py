@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.mujoco.pusher2d import Pusher2DEnv
 from rlkit.envs.multitask.multitask_env import MultitaskToFlatEnv

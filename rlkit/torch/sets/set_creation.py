@@ -4,7 +4,7 @@ from os import path as osp
 from multiworld.envs.pygame import PickAndPlaceEnv
 from rlkit.envs.pygame import pnp_util
 from rlkit.launchers.contextual.util import get_gym_env
-from rlkit.misc import asset_loader
+from rlkit.util import asset_loader
 from rlkit.torch.sets.set_projection import Set
 from rlkit.launchers.config import LOCAL_LOG_DIR
 

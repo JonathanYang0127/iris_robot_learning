@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.her_replay_buffer import RelabelingReplayBuffer
 from rlkit.envs.mujoco.sawyer_gripper_env import SawyerPushXYEnv#, SawyerXYZEnv

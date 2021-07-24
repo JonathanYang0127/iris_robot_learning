@@ -6,7 +6,7 @@ from rlkit.launchers.algo_launchers import (
     random_action_launcher,
 )
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc import hyperparameter as hp
+from rlkit.util import hyperparameter as hp
 
 
 def main():

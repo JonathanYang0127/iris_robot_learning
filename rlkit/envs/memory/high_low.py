@@ -6,8 +6,8 @@ import numpy as np
 from gym.spaces import Box
 
 from rlkit.envs.supervised_learning_env import RecurrentSupervisedLearningEnv
-from rlkit.misc.eval_util import create_stats_ordered_dict
-from rlkit.misc.np_util import np_print_options
+from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.util.np_util import np_print_options
 from rlkit.pythonplusplus import clip_magnitude
 from rlkit.core import logger
 

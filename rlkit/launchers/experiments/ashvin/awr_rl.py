@@ -6,7 +6,7 @@ from rlkit.exploration_strategies.base import \
     PolicyWrappedWithExplorationStrategy
 from rlkit.exploration_strategies.gaussian_and_epislon import GaussianAndEpislonStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 from rlkit.samplers.data_collector.path_collector import ObsDictPathCollector
 from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy
 from rlkit.demos.td3_bc import TD3BCTrainer

@@ -6,7 +6,7 @@ from hyperopt import hp
 from rlkit.tf.state_distance.supervised_learning import SupervisedLearning
 from rlkit.tf.state_distance.util import get_replay_buffer
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.multitask.reacher_env import (
     GoalStateSimpleStateReacherEnv)
@@ -16,8 +16,8 @@ from rlkit.launchers.launcher_util import (
     create_run_experiment_multiple_seeds,
 )
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.hypopt import optimize_and_save
-from rlkit.misc.ml_util import LinearSchedule
+from rlkit.util.hypopt import optimize_and_save
+from rlkit.util.ml_util import LinearSchedule
 from rlkit.state_distance.old.networks import UniversalQfunction
 
 

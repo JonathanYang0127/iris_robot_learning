@@ -7,10 +7,10 @@ from torch import nn as nn
 import torch.nn.functional as F
 
 import rlkit.torch.pytorch_util as ptu
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
-from rlkit.misc.asset_loader import load_local_or_remote_file
+from rlkit.util.asset_loader import load_local_or_remote_file
 
 import random
 from rlkit.torch.core import np_to_pytorch_batch

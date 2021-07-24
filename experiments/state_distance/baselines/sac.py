@@ -11,7 +11,7 @@ from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.torch.sac.sac import SoftActorCritic
 from rlkit.torch.networks import FlattenMlp
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 
 def experiment(variant):

@@ -1,8 +1,8 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 import os
 
-from rlkit.misc.asset_loader import sync_down
+from rlkit.util.asset_loader import sync_down
 
 
 def experiment(variant):

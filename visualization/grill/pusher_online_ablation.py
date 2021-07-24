@@ -9,7 +9,7 @@ from visualization.grill.config import (
 )
 import matplotlib.pyplot as plt
 from rlkit.visualization import plot_util as plot
-from rlkit.misc import data_processing as dp
+from rlkit.util import data_processing as dp
 
 configure_matplotlib(matplotlib)
 

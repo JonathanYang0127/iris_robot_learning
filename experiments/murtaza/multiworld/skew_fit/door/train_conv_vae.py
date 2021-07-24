@@ -1,10 +1,10 @@
 from torch import nn
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v0
 
 from experiments.murtaza.multiworld.skew_fit.door.generate_uniform_dataset import generate_uniform_dataset_door
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import PiecewiseLinearSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule
 from rlkit.torch.grill.launcher import generate_vae_dataset
 from rlkit.torch.vae.conv_vae import ConvVAE, imsize48_default_architecture
 from rlkit.torch.vae.vae_trainer import ConvVAETrainer

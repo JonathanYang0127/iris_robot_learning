@@ -1,6 +1,6 @@
 import random
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.envs.multitask.discrete_reacher_2d import DiscreteReacher2D
 from rlkit.envs.multitask.multitask_env import MultitaskToFlatEnv
 from rlkit.envs.wrappers import ConvertEnvToRllab

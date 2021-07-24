@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from rlkit.data_management.split_buffer import SplitReplayBuffer
 from rlkit.data_management.subtraj_replay_buffer import SubtrajReplayBuffer
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch.bptt_ddpg import create_torch_subtraj_batch
 from rlkit.torch.ddpg import DDPG
 

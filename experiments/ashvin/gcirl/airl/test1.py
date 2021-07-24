@@ -1,5 +1,5 @@
 from rlkit.launchers.arglauncher import run_variants
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.experiments.goal_distribution.irl_launcher import irl_experiment
 from rlkit.launchers.launcher_util import run_experiment
 

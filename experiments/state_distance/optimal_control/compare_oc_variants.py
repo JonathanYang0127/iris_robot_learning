@@ -7,9 +7,9 @@ from collections import defaultdict
 
 import joblib
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.rllab_util import get_logger_table_dict
+from rlkit.util.rllab_util import get_logger_table_dict
 from rlkit.state_distance.policies import (
     SoftOcOneStepRewardPolicy,
     ArgmaxQFPolicy,

@@ -157,7 +157,7 @@ def train_vae_and_update_variant(variant):
 
 
 def train_vae(variant, return_data=False):
-    from rlkit.misc.ml_util import PiecewiseLinearSchedule
+    from rlkit.util.ml_util import PiecewiseLinearSchedule
     from rlkit.torch.vae.vae_trainer import ConvVAETrainer
     from rlkit.core import logger
     beta = variant["beta"]
@@ -287,7 +287,7 @@ def generate_vae_dataset(variant):
 
     from multiworld.core.image_env import ImageEnv, unormalize_image
     import rlkit.torch.pytorch_util as ptu
-    from rlkit.misc.asset_loader import load_local_or_remote_file
+    from rlkit.util.asset_loader import load_local_or_remote_file
     from rlkit.data_management.dataset  import \
         TrajectoryDataset, ImageObservationDataset, InitialObservationDataset, EnvironmentDataset, ConditionalDynamicsDataset
 
@@ -536,7 +536,7 @@ def get_presampled_goals_path(path=''):
 def get_envs(variant):
     from multiworld.core.image_env import ImageEnv
     from rlkit.envs.vae_wrappers import VAEWrappedEnv, ConditionalVAEWrappedEnv
-    from rlkit.misc.asset_loader import load_local_or_remote_file
+    from rlkit.util.asset_loader import load_local_or_remote_file
     from rlkit.torch.vae.conditional_conv_vae import CVAE, CDVAE, ACE, CADVAE, DeltaCVAE
 
     render = variant.get('render', False)
@@ -2286,7 +2286,7 @@ def HER_baseline_her_td3_experiment(variant):
     from rlkit.torch.networks import MergedCNN, CNNPolicy
     import torch
     from multiworld.core.image_env import ImageEnv
-    from rlkit.misc.asset_loader import load_local_or_remote_file
+    from rlkit.util.asset_loader import load_local_or_remote_file
 
     init_camera = variant.get("init_camera", None)
     presample_goals = variant.get('presample_goals', False)
@@ -2433,7 +2433,7 @@ def HER_baseline_twin_sac_experiment(variant):
     from rlkit.torch.networks import MergedCNN, CNN
     import torch
     from multiworld.core.image_env import ImageEnv
-    from rlkit.misc.asset_loader import load_local_or_remote_file
+    from rlkit.util.asset_loader import load_local_or_remote_file
 
     init_camera = variant.get("init_camera", None)
     presample_goals = variant.get('presample_goals', False)

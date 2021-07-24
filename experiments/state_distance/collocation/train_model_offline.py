@@ -1,7 +1,7 @@
 import joblib
 import numpy as np
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import rlkit.torch.pytorch_util as ptu
 from rlkit.envs.multitask.reacher_7dof import (
     Reacher7DofFullGoal

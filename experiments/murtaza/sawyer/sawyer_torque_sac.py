@@ -6,7 +6,7 @@ from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.torch.sac.sac import SoftActorCritic
 from sawyer_control.sawyer_reaching import SawyerXYZReachingEnv
 import numpy as np
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 import ray
 ray.init()
 def experiment(variant):

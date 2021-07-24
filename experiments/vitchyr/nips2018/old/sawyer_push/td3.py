@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.envs.mujoco.sawyer_push_env import SawyerPushXYEnv
 from rlkit.launchers.experiments.vitchyr.multitask import td3_experiment
 from rlkit.launchers.launcher_util import run_experiment

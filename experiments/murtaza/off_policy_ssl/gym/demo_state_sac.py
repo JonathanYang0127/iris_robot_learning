@@ -6,7 +6,7 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector import MdpPathCollector
 from rlkit.samplers.data_collector.step_collector import MdpStepCollector
 from rlkit.torch.networks import ConcatMlp
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.sac.policies import MakeDeterministic, TanhGaussianPolicy, GaussianPolicy
 from rlkit.torch.torch_rl_algorithm import (

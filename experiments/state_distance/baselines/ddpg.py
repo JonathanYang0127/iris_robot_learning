@@ -1,6 +1,6 @@
 import random
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.envs.multitask.ant_env import GoalXYPosAnt
 from rlkit.envs.multitask.multitask_env import MultitaskToFlatEnv
 from rlkit.envs.wrappers import NormalizedBoxEnv

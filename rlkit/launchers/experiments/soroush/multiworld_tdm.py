@@ -21,7 +21,7 @@ from rlkit.state_distance.tdm_networks import TdmQf, TdmPolicy
 # from rlkit.torch.her.her_sac import HerSac
 
 from rlkit.state_distance.tdm_td3 import TdmTd3
-from rlkit.misc.ml_util import IntPiecewiseLinearSchedule
+from rlkit.util.ml_util import IntPiecewiseLinearSchedule
 
 
 def tdm_td3_experiment(variant):

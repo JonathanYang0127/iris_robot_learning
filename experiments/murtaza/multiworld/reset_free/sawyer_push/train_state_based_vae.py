@@ -1,10 +1,10 @@
 import torch
 
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from experiments.murtaza.multiworld.reset_free.pointmass.generate_state_based_vae_dataset import generate_vae_dataset
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_and_reach_env_reset import SawyerPushAndReachXYEnv
 from rlkit.launchers.launcher_util import run_experiment
-from rlkit.misc.ml_util import PiecewiseLinearSchedule
+from rlkit.util.ml_util import PiecewiseLinearSchedule
 from rlkit.pythonplusplus import identity
 from rlkit.torch.vae.vae import VAE, VAETrainer, AutoEncoder
 import numpy as np

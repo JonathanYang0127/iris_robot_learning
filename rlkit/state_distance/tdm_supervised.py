@@ -4,7 +4,7 @@ import numpy as np
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core import logger
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.state_distance.tdm import TemporalDifferenceModel
 import torch.optim as optim
 import torch.nn as nn

@@ -80,7 +80,7 @@ def train_gan(variant, return_data = False):
     from rlkit.torch.gan.bigan import Generator, Encoder, Discriminator
     from rlkit.torch.gan.bigan_trainer import BiGANTrainer
 
-    from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
+    from rlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
     from rlkit.core import logger
     import rlkit.torch.pytorch_util as ptu
     from rlkit.pythonplusplus import identity
@@ -91,7 +91,7 @@ def train_gan(variant, return_data = False):
     import torchvision.transforms as transforms
     from rlkit.data_management.external.bair_dataset.config import BAIR_DATASET_LOCATION
 
-    from rlkit.misc.asset_loader import sync_down_folder
+    from rlkit.util.asset_loader import sync_down_folder
 
     if not variant.get('simpusher', False):
         if variant["dataset"] == "bair":

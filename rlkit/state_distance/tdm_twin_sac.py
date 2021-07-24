@@ -5,7 +5,7 @@ import torch
 from torch import optim
 
 import rlkit.torch.pytorch_util as ptu
-from rlkit.misc.eval_util import create_stats_ordered_dict
+from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.state_distance.tdm import TemporalDifferenceModel
 from rlkit.torch.sac.sac import TwinSAC
 

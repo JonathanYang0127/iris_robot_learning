@@ -1,4 +1,4 @@
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictRelabelingBuffer
 from multiworld.envs.mujoco.sawyer_xyz.sawyer_door import SawyerDoorPullOpenActionLimitedEnv
 from multiworld.envs.mujoco.cameras import (

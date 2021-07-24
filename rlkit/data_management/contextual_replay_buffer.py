@@ -8,7 +8,6 @@ from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from rlkit.envs.contextual import ContextualRewardFn
 from rlkit import pythonplusplus as ppp
 
-
 class SampleContextFromObsDictFn(object, metaclass=abc.ABCMeta):
     """Interface definer, but you can also just pass in a function.
 
@@ -198,7 +197,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
 
         if len(self.observation_keys) == 1:
             obs = obs_dict[self.observation_keys[0]]
-            next_obs = obs_dict[self.observation_keys[0]]
+            next_obs = next_obs_dict[self.observation_keys[0]]
         else:
             obs = tuple(obs_dict[k] for k in self.observation_keys)
             next_obs = tuple(next_obs_dict[k] for k in self.observation_keys)

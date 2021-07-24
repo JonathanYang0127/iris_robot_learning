@@ -7,7 +7,7 @@ from multiworld.envs.pygame.point2d import Point2DWallEnv
 
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.torch.grill.launcher import grill_her_td3_experiment
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 
 variant = dict(
     algo_kwargs=dict(

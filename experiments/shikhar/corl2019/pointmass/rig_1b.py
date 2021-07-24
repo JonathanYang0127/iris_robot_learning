@@ -1,5 +1,5 @@
 from multiworld.envs.pygame.multiobject_pygame_env import Multiobj2DEnv
-import rlkit.misc.hyperparameter as hyp
+import rlkit.util.hyperparameter as hyp
 from experiments.murtaza.multiworld.skew_fit.reacher.generate_uniform_dataset import generate_uniform_dataset_reacher
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in
 from rlkit.launchers.launcher_util import run_experiment
