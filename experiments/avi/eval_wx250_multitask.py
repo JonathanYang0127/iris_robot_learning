@@ -42,7 +42,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--checkpoint-path", type=str, required=True)
     parser.add_argument("-v", "--video-save-dir", type=str, default="")
-    parser.add_argument("-n", "--num-timesteps", type=int, default=10)
+    parser.add_argument("-n", "--num-timesteps", type=int, default=15)
     parser.add_argument("--q-value-eval", default=False, action='store_true')
     parser.add_argument("--num-tasks", type=int, default=0)
     parser.add_argument("--task-embedding", default=False, action="store_true")
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     assert args.num_tasks != 0 or args.task_embedding
-    if not os.path.exists(args.video_save_dir):
+    if not os.path.exists(args.video_save_dir) and args.video_save_dir:
         os.mkdir(args.video_save_dir)
 
     ptu.set_gpu_mode(True)
@@ -58,8 +58,8 @@ if __name__ == '__main__':
     env = NormalizedBoxEnv(GraspWidowXEnv(
         {'transpose_image_to_chw': True,
          'wait_time': 0.2,
-         'return_full_image': True,
-        'action_mode': '3trans1rot'}
+         'return_full_image': full_image,
+         'action_mode': '3trans1rot'}
     ))
 
     checkpoint_path = args.checkpoint_path
@@ -82,12 +82,9 @@ if __name__ == '__main__':
         net = EncoderDecoderNet(64, 2, encoder_resnet=False)
         net.load_state_dict(torch.load(args.task_encoder))
         net.to(ptu.device)
-    # eval_policy = params['exploration/policy']
 
     for i in range(num_trajs):
         obs = env.reset()
-        # obs = env._get_obs()
-        # obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
 
         images = []
 
@@ -120,28 +117,20 @@ if __name__ == '__main__':
         obs_flat = ptu.from_numpy(np.concatenate([obs['image'], obs['state'], task]))
 
         for j in range(args.num_timesteps):
-            # obs = env._get_obs()
-            # obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
-
             action, info = eval_policy.get_action(obs_flat)
-            print(action[-1])
-            # if j > 7:
-            #     action[-1] = 0.0
             obs, rew, done, info = env.step(action)
             obs_flat = ptu.from_numpy(np.concatenate([obs['image'], obs['state'], task]))
-            # obs_flat = ptu.from_numpy(obs['image'])
 
-            if args.video_save_dir != "":
+            if args.video_save_dir:
                 if full_image:
                     image = obs['full_image']
                 else:
                     image = np.uint8(np.reshape(obs['image'] * 255, (3, 64, 64)))
-                    # image = np.transpose(image, (2, 1, 0)) (sideways image)
                     image = np.transpose(image, (1, 2, 0))
                 images.append(Image.fromarray(image))
 
         # Save Video
-        if args.video_save_dir != "":
+        if args.video_save_dir:
             print("Saving Video")
             images[0].save('{}/eval_{}.gif'.format(args.video_save_dir, i),
                             format='GIF', append_images=images[1:],
