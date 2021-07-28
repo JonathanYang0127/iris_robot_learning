@@ -15,7 +15,7 @@ from torch import optim
 from rlkit.launchers.config import LOCAL_LOG_DIR
 from rlkit.core import logger
 from rlkit.launchers.launcher_util import setup_logger
-from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv
+from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv, process_image
 
 from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet
 from rlkit.torch.task_encoders.encoder_trainer import TaskEncoderTrainer
@@ -31,6 +31,8 @@ def add_reward_filtered_data_to_buffers_multitask(
         path = data[j]
         for i in range(path_len):
             for arg in args:
+                path['observations'][i]['image'] = process_image(path['observations'][i]['image'])
+                path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
                 if arg[1](path['rewards'][i]):
                     arg[0].add_sample(data[j]['env_infos'][0]['task_idx'],
                                       path['observations'][i], path['actions'][i], path['rewards'][i],

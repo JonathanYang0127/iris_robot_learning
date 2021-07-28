@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--checkpoint-path", type=str, required=True)
     parser.add_argument("-v", "--video-save-dir", type=str, default="")
-    parser.add_argument("-n", "--num-timesteps", type=int, default=10)
+    parser.add_argument("-n", "--num-timesteps", type=int, default=15)
     args = parser.parse_args()
 
     if not os.path.exists(args.video_save_dir) and args.video_save_dir:
@@ -44,12 +44,9 @@ if __name__ == '__main__':
             eval_policy = pickle.load(handle)
 
     eval_policy.eval()
-    # eval_policy = params['exploration/policy']
 
     for i in range(num_trajs):
         obs = env.reset()
-        # obs = env._get_obs()
-        # obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
 
         images = []
 
@@ -62,8 +59,6 @@ if __name__ == '__main__':
 
         for j in range(args.num_timesteps):
             action, info = eval_policy.get_action(obs_flat)
-            # if j > 7:
-            #     action[-1] = 0.0
             obs, rew, done, info = env.step(action)
             obs_flat = ptu.from_numpy(np.append(obs['image'], obs['state']))
 
@@ -72,7 +67,6 @@ if __name__ == '__main__':
                     image = obs['full_image']
                 else:
                     image = np.uint8(np.reshape(obs['image'] * 255, (3, 64, 64)))
-                    # image = np.transpose(image, (2, 1, 0)) (sideways image)
                     image = np.transpose(image, (1, 2, 0))
                 images.append(Image.fromarray(image))
 
