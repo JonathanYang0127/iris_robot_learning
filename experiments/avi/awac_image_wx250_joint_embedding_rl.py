@@ -268,7 +268,7 @@ if __name__ == '__main__':
         batch_size=64,
         meta_batch_size=4,
         max_path_length=25,
-        num_trains_per_train_loop=10,
+        num_trains_per_train_loop=1000,
         num_eval_steps_per_epoch=0,
         num_expl_steps_per_train_loop=0,
         min_num_steps_before_training=0,
