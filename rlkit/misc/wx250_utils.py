@@ -98,7 +98,7 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
         num_tasks=None):
 
     assert isinstance(data_paths, dict)
-    assert 'task_embedding' in replay_buffer.observation_keys
+    # assert 'task_embedding' in replay_buffer.observation_keys
     assert embedding_mode in ('one-hot', 'single', 'batch', 'None')
 
     use_task_encoder = task_encoder is not None

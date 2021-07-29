@@ -16,6 +16,8 @@ import torch.nn.functional as F
 from rlkit.torch.networks import LinearTransform
 import time
 
+from itertools import chain
+
 
 class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
     def __init__(
@@ -26,6 +28,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             qf2,
             target_qf1,
             target_qf2,
+            task_encoder,
             buffer_policy=None,
 
             discount=0.99,
@@ -105,6 +108,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
+        self.task_encoder = task_encoder
         self.buffer_policy = buffer_policy
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
@@ -142,12 +146,13 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         )
         self.optimizers[self.policy] = self.policy_optimizer
         self.qf1_optimizer = optimizer_class(
-            self.qf1.parameters(),
+            chain(self.qf1.parameters(), self.task_encoder.parameters()),
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
         self.qf2_optimizer = optimizer_class(
-            self.qf2.parameters(),
+            # self.qf2.parameters(),
+            chain(self.qf2.parameters(), self.task_encoder.parameters()),
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
@@ -465,6 +470,8 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
+        context = batch['context']
+
         weights = batch.get('weights', None)
         if self.reward_transform:
             rewards = self.reward_transform(rewards)
@@ -476,20 +483,17 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         Reshape from meta batch to single batch, append contexts to observations
         """
         t, b, _ = obs.size()
-        obs = obs.view(t * b, -1)
+        obs_og = obs.view(t * b, -1)
         actions = actions.view(t * b, -1)
-        next_obs = next_obs.view(t * b, -1)
+        next_obs_og = next_obs.view(t * b, -1)
         rewards = rewards.view(t * b, 1)
         terminals = terminals.view(t * b, 1)
-
+        context = context.view(t * b, -1)
 
         """
         Policy and Alpha Loss
         """
-        dist = self.policy(obs)
-        new_obs_actions, log_pi = dist.rsample_and_logprob()
-        log_pi = log_pi.unsqueeze(1)
-        policy_mle = dist.mle_estimate()
+
 
         if self.brac:
             buf_dist = self.buffer_policy(obs)
@@ -509,8 +513,11 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         """
         QF Loss
         """
+        context_embedding = self.task_encoder(context)
+        obs = torch.cat([obs_og, context_embedding], dim=1)
+        next_obs = torch.cat([next_obs_og, context_embedding], dim=1)
         q1_pred = self.qf1(obs, actions)
-        q2_pred = self.qf2(obs, actions)
+
         # Make sure policy accounts for squashing functions like tanh correctly!
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
@@ -519,8 +526,27 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
 
         q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
-        qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
+        if self._n_train_steps_total % self.q_update_period == 0:
+            self.qf1_optimizer.zero_grad()
+            qf1_loss.backward()
+            self.qf1_optimizer.step()
 
+        context_embedding = self.task_encoder(context)
+        obs = torch.cat([obs_og, context_embedding], dim=1)
+        q2_pred = self.qf2(obs, actions)
+        qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
+        if self._n_train_steps_total % self.q_update_period == 0:
+            self.qf2_optimizer.zero_grad()
+            qf2_loss.backward()
+            self.qf2_optimizer.step()
+
+        context_embedding = self.task_encoder(context)
+        obs = torch.cat([obs_og, context_embedding], dim=1)
+        # next_obs = torch.cat([next_obs_og, context_embedding], dim=1)
+        dist = self.policy(obs)
+        new_obs_actions, log_pi = dist.rsample_and_logprob()
+        log_pi = log_pi.unsqueeze(1)
+        policy_mle = dist.mle_estimate()
         """
         Policy Loss
         """
@@ -738,14 +764,14 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         """
         Update networks
         """
-        if self._n_train_steps_total % self.q_update_period == 0:
-            self.qf1_optimizer.zero_grad()
-            qf1_loss.backward()
-            self.qf1_optimizer.step()
-
-            self.qf2_optimizer.zero_grad()
-            qf2_loss.backward()
-            self.qf2_optimizer.step()
+        # if self._n_train_steps_total % self.q_update_period == 0:
+        #     self.qf1_optimizer.zero_grad()
+        #     qf1_loss.backward()
+        #     self.qf1_optimizer.step()
+        #
+        #     self.qf2_optimizer.zero_grad()
+        #     qf2_loss.backward()
+        #     self.qf2_optimizer.step()
 
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
@@ -906,6 +932,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             self.qf2,
             self.target_qf1,
             self.target_qf2,
+            self.task_encoder,
         ]
         if self.buffer_policy:
             nets.append(self.buffer_policy)

@@ -20,7 +20,7 @@ from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
 from rlkit.misc.wx250_utils import (add_multitask_data_to_singletask_buffer_real_robot,
                                     add_multitask_data_to_multitask_buffer_real_robot, DummyEnv)
-from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet
+from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, VanillaEncoderNet
 
 # import roboverse
 import numpy as np
@@ -39,20 +39,22 @@ def get_buffer_size(data):
 
 def experiment(variant):
     image_size = 64
-    if variant['task_encoder_checkpoint'] == '':
-        task_embedding_dim = len(variant['buffers'])
-    else:
-        task_embedding_dim = variant['task_encoder_latent_dim']
+
+    # if variant['task_encoder_checkpoint'] == '':
+    #     task_embedding_dim = len(variant['buffers'])
+    # else:
+    #     task_embedding_dim = variant['task_encoder_latent_dim']
     num_tasks = len(variant['buffers'])
-    eval_env = DummyEnv(image_size=image_size, use_wrist=True, task_embedding_dim=task_embedding_dim)
+    eval_env = DummyEnv(image_size=image_size, use_wrist=True,
+                        task_embedding_dim=variant['latent_dim'])
     expl_env = eval_env
     action_dim = eval_env.action_space.low.size
 
     if variant['use_robot_state']:
-        observation_keys = ['image', 'state', 'task_embedding']
+        observation_keys = ['image', 'state']
         state_observation_dim = eval_env.observation_space.spaces['state'].low.size
     else:
-        observation_keys = ['image', 'task_embedding']
+        observation_keys = ['image',]
         state_observation_dim = 0
 
     if variant['cnn'] == 'medium':
@@ -67,7 +69,7 @@ def experiment(variant):
     cnn_params = variant['cnn_params']
     cnn_params.update(
         # output_size=action_dim,
-        added_fc_input_size=state_observation_dim + task_embedding_dim,
+        added_fc_input_size=state_observation_dim + variant['latent_dim'],
     )
 
     policy = GaussianCNNPolicy(max_log_std=0,
@@ -76,6 +78,7 @@ def experiment(variant):
                                action_dim=action_dim,
                                std_architecture="values",
                                **cnn_params)
+
     buffer_policy = GaussianCNNPolicy(max_log_std=0,
                                       min_log_std=-6,
                                       obs_dim=None,
@@ -85,7 +88,7 @@ def experiment(variant):
 
     cnn_params.update(
         output_size=1,
-        added_fc_input_size=state_observation_dim + task_embedding_dim + action_dim,
+        added_fc_input_size=state_observation_dim + variant['latent_dim'] + action_dim,
     )
 
     if variant['use_negative_rewards']:
@@ -95,14 +98,17 @@ def experiment(variant):
     qf2 = concat_cnn_class(**cnn_params)
     target_qf1 = concat_cnn_class(**cnn_params)
     target_qf2 = concat_cnn_class(**cnn_params)
+    task_encoder = VanillaEncoderNet(variant['latent_dim'], image_size,
+                                     image_augmentation=variant['encoder_image_aug'])
 
-    if variant['task_encoder_checkpoint'] != "":
-        net = EncoderDecoderNet(64, task_embedding_dim, encoder_resnet=variant['use_task_encoder_resnet'])
-        net.load_state_dict(torch.load(variant['task_encoder_checkpoint']))
-        net.to(ptu.device)
-        task_encoder = net.encoder_net
-    else:
-        task_encoder = None
+    # if variant['task_encoder_checkpoint'] != "":
+    #     net = EncoderDecoderNet(64, task_embedding_dim, encoder_resnet=variant['use_task_encoder_resnet'])
+    #     net.load_state_dict(torch.load(variant['task_encoder_checkpoint']))
+    #     net.to(ptu.device)
+    #     task_encoder = net.encoder_net
+    # else:
+    #     task_encoder = None
+
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         int(1E6),
         expl_env,
@@ -114,6 +120,41 @@ def experiment(variant):
     buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
     add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
                                                       task_encoder=task_encoder, embedding_mode=variant['embedding_mode'])
+
+    # calculate size of positive buffer
+    positive_sizes = []
+    for i in range(num_tasks):
+        buffer = replay_buffer.task_buffers[i]
+        counter = 0
+        for j in range(buffer._top):
+            if buffer._rewards[j]:
+                counter += 1
+        positive_sizes.append(counter)
+
+    max_positive_buffer_size = np.max(positive_sizes) + 10
+
+    # initialize positive buffer, add data
+    replay_buffer_positive = ObsDictMultiTaskReplayBuffer(
+        max_positive_buffer_size,
+        expl_env,
+        np.arange(num_tasks),
+        use_next_obs_in_context=False,
+        sparse_rewards=False,
+        observation_keys=observation_keys
+    )
+    for i in range(num_tasks):
+        buffer = replay_buffer.task_buffers[i]
+        for j in range(buffer._top):
+            if buffer._rewards[j]:
+                obs_dict = {}
+                next_obs_dict = {}
+                for key in observation_keys:
+                    obs_dict[key] = buffer._obs[key][j]
+                    next_obs_dict[key] = buffer._next_obs[key][j]
+                replay_buffer_positive.add_sample(
+                    i, obs_dict, buffer._actions[j], buffer._rewards[j],
+                    buffer._terminals[j], next_obs_dict,
+                )
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -127,6 +168,7 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
+        task_encoder=task_encoder,
         buffer_policy=buffer_policy,
         **variant['trainer_kwargs']
     )
@@ -150,6 +192,8 @@ def experiment(variant):
         exploration_data_collector=expl_path_collector,
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
+        train_embedding_network=True,
+        replay_buffer_positive=replay_buffer_positive,
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
         multi_task=True,
@@ -198,7 +242,8 @@ if __name__ == '__main__':
     parser.add_argument("--use-bc", action="store_true", default=False)
     parser.add_argument("--num-trajs-limit", default=0, type=int)
     parser.add_argument("--task-encoder", default="", type=str)
-    parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
+    parser.add_argument("--embedding-mode", type=str,
+                        choices=('one-hot', 'single', 'batch', 'None'), required=True)
     args = parser.parse_args()
 
     assert (args.embedding_mode == 'one-hot') ^ (args.task_encoder != "")
@@ -223,10 +268,14 @@ if __name__ == '__main__':
         batch_size=64,
         meta_batch_size=4,
         max_path_length=25,
-        num_trains_per_train_loop=1000,
+        num_trains_per_train_loop=10,
         num_eval_steps_per_epoch=0,
         num_expl_steps_per_train_loop=0,
         min_num_steps_before_training=0,
+
+        # for task encoder
+        latent_dim=2,
+        encoder_image_aug=True,
 
         dump_video_kwargs=dict(
             save_video_period=1,
