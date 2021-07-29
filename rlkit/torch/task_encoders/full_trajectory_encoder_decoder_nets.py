@@ -99,25 +99,35 @@ class WideResEncoderNet(Wide_ResNet):
         z = reparameterize(mu, log_var)
         return z, mu, log_var
 
-class TransformerEncoderNet(nn.Module):
+class TransformerEncoderNet:
     def __init__(self, image_size, latent_dim, image_augmentation=False,
                  augmentation_padding=4):
         super().__init__()
         self.latent_dim = latent_dim
         self.image_size = image_size
-        
-        self.config = SmallGPTConfig(2, 15)
-        self.config.cnn_params['image_augmentation'] = image_augmentation
-        self.encoder = GPT(self.config) 
+        self.image_augmentation = image_augmentation
+        self.augmentation_padding = augmentation_padding
 
-    def forward(self, encoder_input):
-        num_tasks, b, num_timesteps, obs_dim = encoder_input.shape
-        x = encoder_input.view(num_tasks * b, num_timesteps, obs_dim)
-        out = self.encoder(x)
-        mu = out[:, :self.latent_dim]
-        log_var = out[:, self.latent_dim:]
-        z = reparameterize(mu, log_var)
-        return z, mu, log_var
+        if self.image_augmentation:
+            self.augmentation_transform = RandomCrop(
+                image_size, self.augmentation_padding, device='cuda')
+
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+
+        if self.image_size == 48:
+            # (48 - 4)/2 (22 - 4 / 2) = 9
+            flat_dim = 16*9*9
+        elif self.image_size == 64:
+            # (64 - 4)/2 (30 - 4) / 2 = 13
+            flat_dim = 16*13*13
+        else:
+            raise ValueError
+
+        self.obs_processor = 
+        self.config = SmallGPTConfig(flat_dim, 2 * latent_dim) 
+
 
 class DecoderNet(nn.Module):
     def __init__(self, image_size, latent_dim, image_augmentation=False,
@@ -192,24 +202,3 @@ class EncoderDecoderNet(nn.Module):
         z, mu, log_var = self.encoder_net(encoder_input)
         predicted_reward = self.decoder_net(z, decoder_input)
         return predicted_reward, mu, log_var
-
-
-class TransformerEncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, image_augmentation=False):
-        super().__init__()
-
-        self.latent_dim = latent_dim
-        self.image_augmentation = image_augmentation
-
-        self.encoder_net = TransformerEncoderNet(image_size,
-                                      latent_dim,
-                                      image_augmentation=image_augmentation)
-        self.decoder_net = DecoderNet(image_size,
-                                      latent_dim,
-                                      image_augmentation=image_augmentation)
-
-    def forward(self, encoder_input, decoder_input):
-        z, mu, log_var = self.encoder_net(encoder_input)
-        predicted_reward = self.decoder_net(z, decoder_input)
-        return predicted_reward, mu, log_var
-
