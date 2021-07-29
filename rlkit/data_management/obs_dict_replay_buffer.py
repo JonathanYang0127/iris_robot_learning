@@ -227,6 +227,38 @@ class ObsDictReplayBuffer(ReplayBuffer):
         }
         return batch
 
+    def random_trajectory(self, batch_size, traj_len=15):
+        """
+        Be careful that the buffer hasn't wrapped around before calling this function.
+        TODO: check for wrapping around, get trajectory length from somewhere else
+        """
+        num_traj_indices = self._size // traj_len
+        traj_indices = np.random.choice(num_traj_indices, batch_size)
+        indices = np.concatenate([np.arange(traj_len * i, traj_len * (i + 1)) for i in traj_indices])
+        actions = self._actions[indices]
+        rewards = self._rewards[indices]
+        if len(self.observation_keys) == 1:
+            obs = self._obs[self.observation_keys[0]][indices]
+            next_obs = self._next_obs[self.observation_keys[0]][indices]
+        else:
+            obs = np.concatenate([self._obs[k][indices] for k in 
+                                  self.observation_keys], axis=1)
+            next_obs = np.concatenate([self._next_obs[k][indices] for k
+                                      in self.observation_keys], axis=1)
+        terminals = self._terminals[indices]
+        batch = {
+            'observations': obs,
+            'actions': actions,
+            'rewards': rewards,
+            'terminals': terminals,
+            'next_observations': next_obs,
+            'indices': np.array(indices).reshape(-1, 1),
+        }
+        for key in batch.keys():
+            batch[key] = batch[key].reshape(batch_size, traj_len, -1)
+
+        return batch
+ 
     def _sample_goals_from_env(self, batch_size):
         return self.env.sample_goals(batch_size)
 

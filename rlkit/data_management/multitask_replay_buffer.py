@@ -83,6 +83,9 @@ class MultiTaskReplayBuffer(ReplayBuffer):
                 print(task)
         return batch
 
+    def random_trajectory(self, task, batch_size, traj_len=15):
+        return self.task_buffers[task].random_trajectory(batch_size, traj_len=traj_len)
+
     def num_steps_can_sample(self, task):
         return self.task_buffers[task].num_steps_can_sample()
 
@@ -128,6 +131,30 @@ class MultiTaskReplayBuffer(ReplayBuffer):
             'next_observations': next_obs,
             'terminals': terms,
         }
+    
+    def sample_batch_of_trajectories(self, indices, batch_size, traj_len=15):
+        """
+        sample batch of trajectories from a list of tasks
+
+        :param indices: task indices
+        :param batch_size: batch size for each task index
+        :return:
+            [num_tasks, batch_size, traj_len, dim] array
+        """
+        batches = [self.random_trajectory(idx, batch_size=batch_size, traj_len=traj_len) for idx in indices]
+        unpacked = [self.unpack_batch(batch) for batch in batches]
+        unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
+        unpacked = [np.concatenate(x, axis=0) for x in unpacked]
+
+        obs, actions, rewards, next_obs, terms = unpacked
+        return {
+            'observations': obs,
+            'actions': actions,
+            'rewards': rewards,
+            'next_observations': next_obs,
+            'terminals': terms,
+        }
+
 
     def sample_context(self, indices, batch_size):
         ''' sample batch of context from a list of tasks from the replay buffer '''

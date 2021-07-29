@@ -180,3 +180,12 @@ def add_reward_filtered_data_to_buffers_multitask(data_paths, observation_keys, 
                                     path['observations'][i], path['actions'][i], path['rewards'][i],
                                     path['terminals'][i], path['next_observations'][i])
 
+def add_successful_trajectories_to_buffer_multitask(data_paths, replay_buffer):
+    for task_idx, data_path in data_paths.items():
+        data_paths[task_idx] = load_data(data_path)
+        data = []
+        for d in data_paths[task_idx]:
+            if np.sum(d['rewards']) > 0:
+                data.append(d)
+        add_data_to_buffer_real_robot(np.array(data), replay_buffer[task_idx])
+
