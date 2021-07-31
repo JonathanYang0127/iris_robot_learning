@@ -146,19 +146,21 @@ class WideResEncoderNet(Wide_ResNet):
 
 class TransformerEncoderNet(nn.Module):
     def __init__(self, image_size, latent_dim, image_augmentation=False,
-                 augmentation_padding=4):
+                 augmentation_padding=4, encoder_keys=['observations']):
         super().__init__()
         self.latent_dim = latent_dim
         self.image_size = image_size
         
         self.config = SmallGPTConfig(2, 15)
         self.config.cnn_params['image_augmentation'] = image_augmentation
+        assert encoder_keys[0] == 'observations'
+        self.config.encoder_keys = encoder_keys
         self.encoder = GPT(self.config) 
 
-    def forward(self, encoder_input):
-        num_tasks, b, num_timesteps, obs_dim = encoder_input.shape
-        x = encoder_input.view(num_tasks * b, num_timesteps, obs_dim)
-        out = self.encoder(x)
+    def forward(self, *encoder_input):
+        num_tasks, b, num_timesteps, _ = encoder_input[0].shape
+        encoder_input = [e.view(num_tasks * b, num_timesteps, -1) for e in encoder_input]
+        out = self.encoder(*encoder_input)
         mu = out[:, :self.latent_dim]
         log_var = out[:, self.latent_dim:]
         z = reparameterize(mu, log_var)
@@ -240,7 +242,8 @@ class EncoderDecoderNet(nn.Module):
 
 
 class TransformerEncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, image_augmentation=False):
+    def __init__(self, image_size, latent_dim, image_augmentation=False, 
+        encoder_keys=['observations']):
         super().__init__()
 
         self.latent_dim = latent_dim
@@ -248,13 +251,17 @@ class TransformerEncoderDecoderNet(nn.Module):
 
         self.encoder_net = TransformerEncoderNet(image_size,
                                       latent_dim,
-                                      image_augmentation=image_augmentation)
+                                      image_augmentation=image_augmentation,
+                                      encoder_keys=encoder_keys)
         self.decoder_net = DecoderNet(image_size,
                                       latent_dim,
                                       image_augmentation=image_augmentation)
 
     def forward(self, encoder_input, decoder_input):
-        z, mu, log_var = self.encoder_net(encoder_input)
+        if isinstance(encoder_input, torch.Tensor):
+            z, mu, log_var = self.encoder_net(encoder_input)
+        elif isinstance(encoder_input, (list, tuple)):
+            z, mu, log_var = self.encoder_net(*encoder_input)
         predicted_reward = self.decoder_net(z, decoder_input)
         return predicted_reward, mu, log_var
 
