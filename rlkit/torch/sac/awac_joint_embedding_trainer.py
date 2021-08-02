@@ -946,5 +946,6 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             target_qf1=self.qf1,
             target_qf2=self.qf2,
             buffer_policy=self.buffer_policy,
+            task_encoder=self.task_encoder
         )
 
