@@ -23,7 +23,7 @@ def kl_anneal_linear_function(step, x0):
 class TransformerTaskEncoderTrainer:
 
     def __init__(self, net, optimizer, criterion, print_freq, save_freq,
-                 beta_target, half_beta_target_steps, anneal):
+                 beta_target, half_beta_target_steps, anneal, encoder_keys=['observations']):
         self.net = net
         self.optimizer = optimizer
         self.criterion = criterion
@@ -32,6 +32,7 @@ class TransformerTaskEncoderTrainer:
         self.beta_target = beta_target
         self.half_beta_target_steps = half_beta_target_steps
         self.anneal = anneal
+        self.encoder_keys = encoder_keys
 
     def train(self, replay_buffer_full, replay_buffer_positive, traj_buffer_positive,
               replay_buffer_full_val, replay_buffer_positive_val, traj_buffer_positive_val,
@@ -64,14 +65,18 @@ class TransformerTaskEncoderTrainer:
             # np.random.shuffle(decoder_batch_3['observations'])
             # decoder_batch = replay_buffer_full.sample_batch(tasks_to_sample, batch_size)
 
-            decoder_obs = np.concatenate((decoder_batch_1['observations'],
+            decoder_obs = ptu.from_numpy(np.concatenate((decoder_batch_1['observations'],
                                           decoder_batch_2['observations'],
                                           decoder_batch_3['observations']
                                           ),
-                                         axis=1)
-
+                                         axis=1))
+            encoder_batch_traj = [ptu.from_numpy(encoder_batch[k]) for k in self.encoder_keys]
             reward_predictions, mu, logvar = self.net.forward(
-                ptu.from_numpy(encoder_batch['observations']), ptu.from_numpy(decoder_obs))
+                encoder_batch_traj, decoder_obs)
+            for e in encoder_batch_traj:
+                e.detach().cpu()
+            decoder_obs.detach().cpu()
+            torch.cuda.empty_cache()
 
             if self.anneal == 'sigmoid':
                 beta = self.beta_target*kl_anneal_sigmoid_function(i, self.half_beta_target_steps)
@@ -128,10 +133,16 @@ class TransformerTaskEncoderTrainer:
 
                 encoder_batch_val = traj_buffer_positive_val.sample_batch_of_trajectories(tasks_to_sample, val_batch_size)
                 decoder_batch_val = replay_buffer_full_val.sample_batch(tasks_to_sample, val_batch_size)
-                reward_predictions, mu, logvar = self.net.forward(
-                    ptu.from_numpy(encoder_batch_val['observations']),
-                    ptu.from_numpy(decoder_batch_val['observations']))
-
+                encoder_batch_val_traj = [ptu.from_numpy(encoder_batch_val[k]) for k in self.encoder_keys]
+                decoder_batch_val_obs = ptu.from_numpy(decoder_batch_val['observations']) 
+                with torch.no_grad():
+                    reward_predictions, mu, logvar = self.net.forward(
+                        encoder_batch_val_traj,
+                        decoder_batch_val_obs)
+                    for e in encoder_batch_val_traj:
+                        e.detach().cpu()
+                    decoder_batch_val_obs.detach().cpu()
+                torch.cuda.empty_cache()
                 # gt_rewards = ptu.from_numpy(decoder_batch_val['rewards'])
                 # t, b, rew_dim = gt_rewards.shape
                 # gt_rewards = gt_rewards.view(t*b, rew_dim)

@@ -29,13 +29,17 @@ class GPT1Config(GPTConfig):
 
 
 class SmallGPTConfig(GPTConfig):
-    n_layer = 4
-    n_head = 4
+    n_layer = 5
+    n_head = 5
     n_embd = 240
-    encode_actions = False
-    action_dim = 5
-    state_observation_dim = 8
+    encoder_keys = ['observations']
+    space_fc_dims = dict(
+        observations=8,
+        actions=5,
+        rewards=1,
+    )
     pooling_mode='all'
+    use_pos_emb=True
 
     cnn_params = dict(
         input_width=64,
@@ -52,7 +56,7 @@ class SmallGPTConfig(GPTConfig):
         pool_paddings=[0, 0, 0],
         image_augmentation=True,
         image_augmentation_padding=4,
-        added_fc_input_size=0, #state_observation_di
+        added_fc_input_size=0,
         output_size=n_embd
     )
 
@@ -117,20 +121,20 @@ class Block(nn.Module):
 class TokenEmbedding(nn.Module):
     """ 
     takes in batch of positive trajectory states (s0, s1, s2, ..., sT)
-    config.encode_actions to take in batch of actions as well
+    config.encoder_keys determines which parts of the batch to encode 
     """
     
     def __init__(self, config):
         super().__init__()
         cnn_params = config.cnn_params
-        self.encode_actions = config.encode_actions
-        if self.encode_actions:
-            cnn_params['added_fc_input_size'] += config.action_dim
+        self.encoder_keys = config.encoder_keys
+        for key in config.encoder_keys:
+            cnn_params['added_fc_input_size'] += config.space_fc_dims[key]
         self.obs_processor = ConcatCNN(**cnn_params)
 
     def forward(self, *trajectory):
-        b, t, *dims = trajectory[0].size()
-        traj_batch = [e.view(b*t, *dims) for e in trajectory]
+        b, t, _ = trajectory[0].size()
+        traj_batch = [e.view(b*t, -1) for e in trajectory]
         out = self.obs_processor(*traj_batch)
         return out.view(b, t, -1)
         
@@ -143,7 +147,10 @@ class GPT(nn.Module):
         super().__init__()
 
         # input embedding stem
-        self.tok_emb = TokenEmbedding(config) 
+        self.tok_emb = TokenEmbedding(config)
+        self.use_pos_emb = config.use_pos_emb
+        if self.use_pos_emb:
+            self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embd)) 
         self.drop = nn.Dropout(config.embd_pdrop)
         # transformer
         self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
@@ -226,7 +233,10 @@ class GPT(nn.Module):
         assert t <= self.block_size, "Cannot forward, model block size is exhausted."
 
         # forward the GPT model
-        token_embeddings = self.tok_emb(*trajectory) # each index maps to a (learnable) vector
+        token_embeddings = self.tok_emb(*trajectory)
+        if self.use_pos_emb:
+            position_embeddings = self.pos_emb[:, :t, :]
+            token_embeddings += position_embeddings
         x = self.drop(token_embeddings)
         x = self.blocks(x)
         x = self.ln_f(x)

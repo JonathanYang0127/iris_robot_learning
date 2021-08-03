@@ -242,11 +242,7 @@ if __name__ == '__main__':
     parser.add_argument("--use-bc", action="store_true", default=False)
     parser.add_argument("--num-trajs-limit", default=0, type=int)
     parser.add_argument("--task-encoder", default="", type=str)
-    parser.add_argument("--embedding-mode", type=str,
-                        choices=('one-hot', 'single', 'batch', 'None'), required=True)
     args = parser.parse_args()
-
-    assert (args.embedding_mode == 'one-hot') ^ (args.task_encoder != "")
 
     alg = 'BC' if args.use_bc else 'AWAC-Pixel'
     print(args.buffers)
@@ -322,7 +318,7 @@ if __name__ == '__main__':
         task_encoder_checkpoint=args.task_encoder,
         task_encoder_latent_dim=2,
         use_task_encoder_resnet=False,
-        embedding_mode=args.embedding_mode,
+        embedding_mode='None',
         use_next_obs_in_context=False,
     )
 

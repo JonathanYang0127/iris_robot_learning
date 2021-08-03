@@ -79,6 +79,7 @@ def main(args):
         batch_size=args.batch_size,
         num_tasks=args.num_tasks,
         image_augmentation=args.use_image_aug,
+        encoder_keys=['observations']
     )
 
     enable_gpus(args.gpu)
@@ -103,7 +104,9 @@ def main(args):
         int(max_replay_buffer_size/2),
         expl_env,
         train_task_indices,
-        **buffer_kwargs
+        observation_keys=['image', 'state'],
+        use_next_obs_in_context=False,
+        sparse_rewards=False
     )
     replay_buffer_positive = ObsDictMultiTaskReplayBuffer(
         int(max_replay_buffer_size/2),
@@ -134,7 +137,9 @@ def main(args):
         int(max_replay_buffer_size/2),
         expl_env,
         train_task_indices,
-        **buffer_kwargs
+        observation_keys=['image', 'state'],
+        use_next_obs_in_context=False,
+        sparse_rewards=False
     )
     replay_buffer_positive_val = ObsDictMultiTaskReplayBuffer(
         int(max_replay_buffer_size/2),
@@ -153,9 +158,11 @@ def main(args):
                                                   (replay_buffer_full_val, lambda r: True))
     add_reward_filtered_data_to_buffers_multitask(data, observation_keys,
                                                   (replay_buffer_positive, lambda r: r > 0))
+
     latent_dim = variant['latent_dim']
     net = TransformerEncoderDecoderNet(image_size, latent_dim,
-                            image_augmentation=args.use_image_aug)
+                            image_augmentation=args.use_image_aug,
+                            encoder_keys=variant['encoder_keys'])
     net.to(ptu.device)
     exp_prefix = '{}-task-encoder-decoder-transformer'.format(time.strftime("%y-%m-%d"))
     save_freq = 100
@@ -177,7 +184,8 @@ def main(args):
     tasks_to_sample = list(range(variant['num_tasks']))
 
     trainer = TransformerTaskEncoderTrainer(net, optimizer, criterion, print_freq, save_freq,
-                                 beta_target, half_beta_target_steps, args.anneal)
+                                 beta_target, half_beta_target_steps, args.anneal, 
+                                 encoder_keys=variant['encoder_keys'])
 
     trainer.train(replay_buffer_full, replay_buffer_positive, traj_buffer_positive, replay_buffer_full_val,
                   replay_buffer_positive_val, traj_buffer_positive_val, total_steps, batch_size, tasks_to_sample, logger)
