@@ -170,10 +170,13 @@ if __name__ == "__main__":
 
     search_space = {
         'env_name': [
-            "halfcheetah-medium-v0", "halfcheetah-expert-v0", "halfcheetah-medium-expert-v0",
-            "walker2d-medium-v0", "walker2d-expert-v0", "walker2d-medium-expert-v0",
-            "hopper-medium-v0", "hopper-expert-v0", "hopper-medium-expert-v0"
+            "antmaze-umaze-v0", "antmaze-umaze-diverse-v0", "antmaze-medium-play-v0",
+            "antmaze-medium-diverse-v0", "antmaze-large-diverse-v0", "antmaze-large-play-v0",
         ],
+        'trainer_kwargs.lagrange_thresh': [5.0],
+        # 'trainer_kwargs.with_lagrange': [False],
+        'trainer_kwargs.min_q_weight': [5.0, ],
+        'seedid': range(3),
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

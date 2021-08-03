@@ -165,7 +165,6 @@ if __name__ == "__main__":
         # launcher_config=dict(
         #     mode="local_docker",
         # ),
-
     )
 
     search_space = {
@@ -174,6 +173,10 @@ if __name__ == "__main__":
             "walker2d-medium-v0", "walker2d-expert-v0", "walker2d-medium-expert-v0",
             "hopper-medium-v0", "hopper-expert-v0", "hopper-medium-expert-v0"
         ],
+        'trainer_kwargs.lagrange_thresh': [-1.0],
+        'trainer_kwargs.with_lagrange': [False],
+        'trainer_kwargs.min_q_weight': [5.0, 10.0],
+        'seedid': range(3),
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
