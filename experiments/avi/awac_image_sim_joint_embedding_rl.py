@@ -9,29 +9,67 @@ from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import ConcatCNN
-from rlkit.torch.sac.awac_joint_embedding_trainer import AWACJointEmbeddingMultitaskTrainer
+from rlkit.torch.sac.awac_joint_embedding_trainer import \
+    AWACJointEmbeddingMultitaskTrainer
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
-from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplayBuffer
+from rlkit.data_management.multitask_replay_buffer import \
+    ObsDictMultiTaskReplayBuffer
 from rlkit.samplers.data_collector import ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
-from rlkit.misc.roboverse_utils import get_buffer_size_multitask, add_data_to_buffer_multitask_v2, VideoSaveFunctionBullet
+from rlkit.misc.roboverse_utils import get_buffer_size_multitask, \
+    add_data_to_buffer_multitask_v2, VideoSaveFunctionBullet
 
 import roboverse
 import numpy as np
 from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
-from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, VanillaEncoderNet
+from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, \
+    VanillaEncoderNet
 
 BUFFER = '/media/avi/data/sim_data/aug3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_4K_save_all_noise_0.1_2021-08-03T15-06-13_3840.npy'
 
 
+class EmbeddingWrapper(gym.Env, Serializable):
+
+    def __init__(self, env, embedding_network, positive_buffer=None):
+        self.env = env
+        self.action_space = env.action_space
+        self.observation_space = env.observation_space
+        self.embedding_network = embedding_network
+        self.positive_buffer = positive_buffer
+
+    def step(self, action):
+        obs, rew, done, info = self.env.step(action)
+        new_state_obs = np.concatenate([obs['state'], self.curr_embedding],
+                                       axis=0)
+        obs.update({'state': new_state_obs})
+        return obs, rew, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+        positive_data = self.positive_buffer.sample_batch(
+            [self.env.task_idx], 1,
+        )
+        goal_image = ptu.from_numpy(positive_data['observations'][0])
+        self.curr_embedding = ptu.get_numpy(self.embedding_network(goal_image))[
+            0]
+        # a bit of a hack, we are just adding the embedding to the state
+        new_state_obs = np.concatenate([obs['state'], self.curr_embedding],
+                                       axis=0)
+        obs.update({'state': new_state_obs})
+        return obs
+
+    def reset_task(self, task_idx):
+        self.env.reset_task(task_idx)
+
+
 def experiment(variant):
     num_tasks = variant['num_tasks']
-    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=num_tasks)
-    expl_env = eval_env
+    eval_env = roboverse.make(variant['env'], transpose_image=True,
+                              num_tasks=num_tasks)
     action_dim = eval_env.action_space.low.size
     image_size = 48
 
@@ -42,17 +80,11 @@ def experiment(variant):
 
     if variant['use_robot_state']:
         observation_keys = ['image', 'state']
-        state_observation_dim = eval_env.observation_space.spaces['state'].low.size
+        state_observation_dim = eval_env.observation_space.spaces[
+            'state'].low.size
     else:
-        observation_keys = ['image',]
+        observation_keys = ['image', ]
         state_observation_dim = 0
-
-    # latent_dim = variant['latent_dim']
-    # eval_env.observation_space.spaces.update(
-    #     {'task_embedding': spaces.Box(
-    #         low=np.array([-100] * latent_dim),
-    #         high=np.array([100] * latent_dim),
-    #     )})
 
     cnn_params = variant['cnn_params']
     cnn_params.update(
@@ -76,7 +108,8 @@ def experiment(variant):
 
     cnn_params.update(
         output_size=1,
-        added_fc_input_size=state_observation_dim + variant['latent_dim'] + action_dim,
+        added_fc_input_size=state_observation_dim + variant[
+            'latent_dim'] + action_dim,
     )
 
     # if variant['use_negative_rewards']:
@@ -88,10 +121,14 @@ def experiment(variant):
     target_qf2 = concat_cnn_class(**cnn_params)
 
     task_encoder = VanillaEncoderNet(variant['latent_dim'], image_size,
-                                     image_augmentation=variant['encoder_image_aug'])
+                                     image_augmentation=variant[
+                                         'encoder_image_aug'])
+
+    eval_env = EmbeddingWrapper(eval_env, task_encoder)
+    expl_env = eval_env
 
     replay_buffer = ObsDictMultiTaskReplayBuffer(
-        int(1E6),
+        max_replay_buffer_size,
         expl_env,
         np.arange(num_tasks),
         use_next_obs_in_context=variant['use_next_obs_in_context'],
@@ -147,6 +184,7 @@ def experiment(variant):
         **variant['trainer_kwargs']
     )
 
+    eval_env.positive_buffer = replay_buffer_positive
     eval_policy = MakeDeterministic(policy)
     expl_path_collector = ObsDictPathCollector(
         expl_env,
@@ -197,7 +235,8 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0')
+    parser.add_argument("--env", type=str,
+                        default='Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0')
     parser.add_argument("--num-tasks", type=int, default=8)
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--beta", type=float, default=0.1)
@@ -211,8 +250,8 @@ if __name__ == '__main__':
         meta_batch_size=4,
         max_path_length=30,
         num_trains_per_train_loop=1000,
-        num_eval_steps_per_epoch=0,
-        # num_eval_steps_per_epoch=120,
+        # num_eval_steps_per_epoch=0,
+        num_eval_steps_per_epoch=120,
         num_expl_steps_per_train_loop=0,
         min_num_steps_before_training=0,
 
@@ -222,7 +261,7 @@ if __name__ == '__main__':
         use_next_obs_in_context=False,
 
         dump_video_kwargs=dict(
-            save_video_period=1,
+            save_video_period=10,
         ),
 
         env=args.env,
