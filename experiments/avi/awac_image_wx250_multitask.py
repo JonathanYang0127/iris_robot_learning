@@ -6,7 +6,6 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.awac_multitask_trainer import AWACMultitaskTrainer
 from rlkit.torch.sac.policies import GaussianCNNPolicy, GaussianIMPALACNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
 from rlkit.torch.networks.impala_cnn import IMPALACNN, ConcatIMPALACNN
@@ -119,7 +118,7 @@ def experiment(variant):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
 
-    trainer = AWACMultitaskTrainer(
+    trainer = AWACTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
@@ -127,6 +126,7 @@ def experiment(variant):
         target_qf1=target_qf1,
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
+        multitask=True,
         **variant['trainer_kwargs']
     )
 
