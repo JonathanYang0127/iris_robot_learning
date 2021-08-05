@@ -264,6 +264,9 @@ if __name__ == '__main__':
         encoder_image_aug=True,
         use_next_obs_in_context=False,
 
+        # for reward predictor
+        hard_negative_mining=False,
+
         dump_video_kwargs=dict(
             save_video_period=10,
         ),

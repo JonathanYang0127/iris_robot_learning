@@ -17,6 +17,7 @@ from rlkit.torch.networks import LinearTransform
 import time
 
 from itertools import chain
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 
 
 class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
@@ -827,6 +828,12 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             This way, these statistics are only computed for one batch.
             """
             policy_loss = (log_pi - q_new_actions).mean()
+            gt_rewards = ptu.get_numpy(gt_rewards)
+            reward_predictions = ptu.get_numpy(reward_predictions)
+            reward_predictions = np.argmax(reward_predictions, axis=1)
+            self.eval_statistics['Reward Accuracy'] = accuracy_score(gt_rewards, reward_predictions)
+            self.eval_statistics['Reward Precision'] = precision_score(gt_rewards, reward_predictions)
+            self.eval_statistics['Reward Recall'] = recall_score(gt_rewards, reward_predictions)
 
             self.eval_statistics['Reward Prediction Loss'] = np.mean(ptu.get_numpy(reward_prediction_loss))
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
