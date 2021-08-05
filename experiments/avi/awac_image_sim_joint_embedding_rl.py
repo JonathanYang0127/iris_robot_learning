@@ -27,7 +27,7 @@ import numpy as np
 from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
 from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, \
-    VanillaEncoderNet
+    VanillaEncoderNet, DecoderNet
 
 BUFFER = '/media/avi/data/sim_data/aug3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_4K_save_all_noise_0.1_2021-08-03T15-06-13_3840.npy'
 
@@ -123,6 +123,9 @@ def experiment(variant):
     task_encoder = VanillaEncoderNet(variant['latent_dim'], image_size,
                                      image_augmentation=variant[
                                          'encoder_image_aug'])
+    reward_predictor = DecoderNet(image_size, variant['latent_dim'],
+                                  image_augmentation=False,
+                                  extra_obs_dim=state_observation_dim)
 
     eval_env = EmbeddingWrapper(eval_env, task_encoder)
     expl_env = eval_env
@@ -180,6 +183,7 @@ def experiment(variant):
         target_qf1=target_qf1,
         target_qf2=target_qf2,
         task_encoder=task_encoder,
+        reward_predictor=reward_predictor,
         buffer_policy=buffer_policy,
         **variant['trainer_kwargs']
     )

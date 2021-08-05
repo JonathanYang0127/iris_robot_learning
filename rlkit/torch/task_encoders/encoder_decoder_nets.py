@@ -166,14 +166,17 @@ class TransformerEncoderNet(nn.Module):
         z = reparameterize(mu, log_var)
         return z, mu, log_var
 
+
 class DecoderNet(nn.Module):
     def __init__(self, image_size, latent_dim, image_augmentation=False,
-                 augmentation_padding=4):
+                 augmentation_padding=4, extra_obs_dim=0):
         super().__init__()
         self.image_size = image_size
+        self.conv_input_length = 3*self.image_size*self.image_size
         self.latent_dim = latent_dim
         self.image_augmentation = image_augmentation
         self.augmentation_padding = augmentation_padding
+        self.extra_obs_dim = extra_obs_dim
 
         if self.image_augmentation:
             self.augmentation_transform = RandomCrop(
@@ -191,18 +194,26 @@ class DecoderNet(nn.Module):
             flat_dim = 16*13*13
         else:
             raise ValueError
-        self.fc1 = nn.Linear(flat_dim + self.latent_dim, 512)
+        self.fc1 = nn.Linear(flat_dim + self.latent_dim + extra_obs_dim, 512)
 
         # self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, 2)
 
     def forward(self, task_embedding, decoder_input):
+        if len(decoder_input.shape) == 3:
+            t, b, obs_dim = decoder_input.shape
+            decoder_input = decoder_input.view(t*b, obs_dim)
 
-        t, b, obs_dim = decoder_input.shape
-        x = decoder_input.view(t*b, obs_dim)
-        x = x.view(t*b, 3, self.image_size, self.image_size)
+        conv_input = decoder_input.narrow(start=0,
+                                          length=self.conv_input_length,
+                                          dim=1).contiguous()
+        extra_fc_input = decoder_input.narrow(
+            start=self.conv_input_length, length=self.extra_obs_dim,
+            dim=1,
+        )
 
+        x = conv_input.view(-1, 3, self.image_size, self.image_size)
         if x.shape[0] > 1 and self.image_augmentation:
             # h.shape[0] > 1 ensures we apply this only during training
             x = self.augmentation_transform(x)
@@ -210,7 +221,7 @@ class DecoderNet(nn.Module):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
-        x = torch.cat((x, task_embedding), dim=1)
+        x = torch.cat((x, extra_fc_input, task_embedding), dim=1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
