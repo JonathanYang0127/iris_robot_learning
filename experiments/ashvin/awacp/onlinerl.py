@@ -1,8 +1,6 @@
 import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 
-from rlkit.core import logger
-
 def main(variant):
     import os
     import random
@@ -18,6 +16,7 @@ def main(variant):
     from jaxrl.utils import make_env
     import jaxrl
     import pathlib
+    from rlkit.core import logger
 
     variant = ml_collections.ConfigDict(variant)
     kwargs = variant.config
