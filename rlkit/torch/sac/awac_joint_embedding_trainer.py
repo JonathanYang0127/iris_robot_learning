@@ -848,8 +848,14 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             self.eval_statistics['Reward Accuracy'] = accuracy_score(gt_rewards, reward_predictions)
             self.eval_statistics['Reward Precision'] = precision_score(gt_rewards, reward_predictions)
             self.eval_statistics['Reward Recall'] = recall_score(gt_rewards, reward_predictions)
-
             self.eval_statistics['Reward Prediction Loss'] = np.mean(ptu.get_numpy(reward_prediction_loss))
+            context_embedding_np = ptu.get_numpy(context_embedding)
+
+            self.eval_statistics['context/0/min'] = np.min(context_embedding_np[:, 0])
+            self.eval_statistics['context/0/max'] = np.max(context_embedding_np[:, 0])
+            self.eval_statistics['context/1/min'] = np.min(context_embedding_np[:, 1])
+            self.eval_statistics['context/1/max'] = np.max(context_embedding_np[:, 1])
+
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
             self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
