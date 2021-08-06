@@ -33,6 +33,8 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             reward_predictor,
             buffer_policy=None,
 
+            train_encoder_independently=False,
+
             discount=0.99,
             reward_scale=1.0,
             beta=1.0,
@@ -116,6 +118,8 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
 
+        self.train_encoder_independently = train_encoder_independently
+
         self.use_awr_update = use_awr_update
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
@@ -154,18 +158,28 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
-
-        self.qf1_optimizer = optimizer_class(
-            chain(self.qf1.parameters(), self.task_encoder.parameters()),
-            weight_decay=q_weight_decay,
-            lr=qf_lr,
-        )
-        self.qf2_optimizer = optimizer_class(
-            # self.qf2.parameters(),
-            chain(self.qf2.parameters(), self.task_encoder.parameters()),
-            weight_decay=q_weight_decay,
-            lr=qf_lr,
-        )
+        if self.train_encoder_independently:
+            self.qf1_optimizer = optimizer_class(
+                self.qf1.parameters(),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
+            self.qf2_optimizer = optimizer_class(
+                self.qf2.parameters(),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
+        else:
+            self.qf1_optimizer = optimizer_class(
+                chain(self.qf1.parameters(), self.task_encoder.parameters()),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
+            self.qf2_optimizer = optimizer_class(
+                chain(self.qf2.parameters(), self.task_encoder.parameters()),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
 
         if buffer_policy and train_bc_on_rl_buffer:
             self.buffer_policy_optimizer =  optimizer_class(

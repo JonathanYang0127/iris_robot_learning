@@ -245,6 +245,7 @@ if __name__ == '__main__':
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument("--train-encoder-independently", default=False, action='store_true')
     args = parser.parse_args()
 
     variant = dict(
@@ -266,7 +267,6 @@ if __name__ == '__main__':
 
         # for reward predictor
         hard_negative_mining=False,
-
         dump_video_kwargs=dict(
             save_video_period=10,
         ),
@@ -289,6 +289,8 @@ if __name__ == '__main__':
             alpha=0,
             compute_bc=False,
             awr_min_q=True,
+
+            train_encoder_independently=args.train_encoder_independently,
 
             bc_num_pretrain_steps=0,
             q_num_pretrain1_steps=0,
