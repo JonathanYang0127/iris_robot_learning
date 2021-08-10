@@ -1,11 +1,14 @@
 import numpy as np
 import torch
 from torch import nn as nn
+from kornia.geometry.transform import (warp_affine, warp_perspective, 
+    get_rotation_matrix2d, get_perspective_transform)
 
 from rlkit.policies.base import Policy
 from rlkit.pythonplusplus import identity
 from rlkit.torch.core import PyTorchModule, eval_np
 from rlkit.torch.data_management.normalizer import TorchFixedNormalizer
+import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.pytorch_util import activation_from_string
 import torch.nn.functional as F
 
@@ -40,6 +43,7 @@ class CNN(nn.Module):
             pool_paddings=None,
             image_augmentation=False,
             image_augmentation_padding=4,
+            augmentation_type='random_crop',
             fc_dropout=0.0,
             fc_dropout_length=0,
     ):
@@ -52,6 +56,7 @@ class CNN(nn.Module):
         assert conv_normalization_type in {'none', 'batch', 'layer'}
         assert fc_normalization_type in {'none', 'batch', 'layer'}
         assert pool_type in {'none', 'max2d'}
+        assert augmentation_type in {'random_crop', 'warp_affine', 'warp_perspective'}
         if pool_type == 'max2d':
             assert len(pool_sizes) == len(pool_strides) == len(pool_paddings)
         super().__init__()
@@ -71,6 +76,7 @@ class CNN(nn.Module):
         self.pool_type = pool_type
         self.image_augmentation = image_augmentation
         self.image_augmentation_padding = image_augmentation_padding
+        self.augmentation_type = augmentation_type
         self.fc_dropout = fc_dropout
         self.fc_dropout_length = fc_dropout_length
         self.hidden_sizes = hidden_sizes
@@ -133,8 +139,15 @@ class CNN(nn.Module):
                 self.output_size, self.conv_output_flat_size, self.added_fc_input_size, init_w)
 
         if self.image_augmentation:
-            self.augmentation_transform = RandomCrop(
-                input_height, self.image_augmentation_padding, device='cuda')
+            if self.augmentation_type == 'random_crop':
+                self.augmentation_transform = RandomCrop(
+                    input_height, self.image_augmentation_padding, device='cuda')
+            elif self.augmentation_type == 'warp_perspective':
+                self.augmentation_transform = WarpPerspective(
+                    input_height)
+            elif self.augmentation_type == 'warp_affine':
+                self.augmentation_transform = WarpAffine(
+                    input_height)
 
         if self.fc_dropout > 0.0:
             self.fc_dropout_layer = nn.Dropout(self.fc_dropout)
@@ -196,7 +209,7 @@ class CNN(nn.Module):
                 length=self.added_fc_input_size,
                 dim=1,
             )
-            h = torch.cat((extra_fc_input, h), dim=1)
+            h = torch.cat((extra_fc_input, h), dim=+1)
         h = self.apply_forward_fc(h)
 
         if return_last_activations:
@@ -380,9 +393,7 @@ class BasicCNN(PyTorchModule):
                 self.conv_norm_layers.append(nn.BatchNorm2d(test_mat.shape[1]))
             if self.normalization_type == 'layer':
                 self.conv_norm_layers.append(nn.LayerNorm(test_mat.shape[1:]))
-            if self.pool_type != 'none':
-                if self.pool_layers[i]:
-                    test_mat = self.pool_layers[i](test_mat)
+                test_mat = self.pool_layers[i](test_mat)
 
         self.output_shape = test_mat.shape[1:]  # ignore batch dim
 
@@ -455,3 +466,42 @@ class RandomCrop:
         padded = padded[:, torch.arange(tensor.size(0))[:, None, None],
                  rows[:, torch.arange(th)[:, None]], columns[:, None]]
         return padded.permute(1, 0, 2, 3)
+
+class WarpPerspective:
+    def __init__(self, size, warp_pixels=6, num_warps=1000):
+        self.size = size
+        self.warp_pixels = warp_pixels
+        self.num_warps = num_warps
+        src = np.array([[[0, 0], [0, size], [size, 0], [size, size]]])
+        
+        self.warps = []
+        for i in range(num_warps):
+            dst_jitter = np.random.uniform(-warp_pixels, warp_pixels, size=(1, 4, 2))
+            dst = np.clip(src + dst_jitter, 0, 64)
+            self.warps.append(get_perspective_transform(ptu.from_numpy(src), ptu.from_numpy(dst)).detach().cpu().numpy()[0])
+        self.warps = np.array(self.warps)
+
+    def __call__(self, tensor):
+        b, *_ = tensor.size()
+        warp_matrix = ptu.from_numpy(self.warps[np.random.randint(0, self.num_warps, size=b)])
+        return warp_perspective(tensor, warp_matrix, dsize=(self.size, self.size))
+
+class WarpAffine:
+    def __init__(self, size, warp_angle=10, num_warps=1000):
+        self.size = size
+        self.warp_angle = warp_angle 
+        self.num_warps = num_warps
+        center = ptu.from_numpy(np.array([[size // 2, size // 2]]))
+        scale = ptu.from_numpy(np.array([[1, 1]]))
+
+        self.warps = []
+        for i in range(num_warps):
+            angle = ptu.from_numpy(np.random.uniform(-warp_angle, warp_angle, size=(1,)))
+            self.warps.append(get_rotation_matrix2d(center, angle, scale).detach().cpu().numpy()[0])
+        self.warps = np.array(self.warps)
+
+    def __call__(self, tensor):
+        b, *_ = tensor.size()
+        warp_matrix = ptu.from_numpy(self.warps[np.random.randint(0, self.num_warps, size=b)])
+        return warp_affine(tensor, warp_matrix, dsize=(64, 64))
+

@@ -266,6 +266,7 @@ if __name__ == '__main__':
             image_augmentation=True,
             image_augmentation_padding=4,
         )
+    variant['cnn_params']['augmentation_type'] = 'random_crop'
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:

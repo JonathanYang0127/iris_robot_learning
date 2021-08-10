@@ -19,7 +19,7 @@ from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
 from rlkit.misc.wx250_utils import (add_multitask_data_to_singletask_buffer_real_robot, 
     add_multitask_data_to_multitask_buffer_real_robot, DummyEnv)
-from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet
+from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, TransformerEncoderDecoderNet
 
 # import roboverse
 import numpy as np
@@ -96,10 +96,14 @@ def experiment(variant):
     target_qf2 = concat_cnn_class(**cnn_params)
 
     if variant['task_encoder_checkpoint'] != "":
-        net = EncoderDecoderNet(64, task_embedding_dim, encoder_resnet=variant['use_task_encoder_resnet'])
+        if variant['task_encoder_type'] == 'image':
+            net = EncoderDecoderNet(64, task_embedding_dim, encoder_resnet=variant['use_task_encoder_resnet'])
+        elif variant['task_encoder_type'] == 'trajectory':
+            net = TransformerEncoderDecoderNet(64, task_embedding_dim, encoder_keys=variant['transformer_encoder_keys'])
         net.load_state_dict(torch.load(variant['task_encoder_checkpoint']))
         net.to(ptu.device)
         task_encoder = net.encoder_net
+        
     else:
         task_encoder = None
     replay_buffer = ObsDictMultiTaskReplayBuffer(
@@ -112,7 +116,8 @@ def experiment(variant):
     )
     buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
     add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer, 
-            task_encoder=task_encoder, embedding_mode=variant['embedding_mode'])
+            task_encoder=task_encoder, embedding_mode=variant['embedding_mode'],
+            encoder_type=variant['task_encoder_type'])
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -197,6 +202,7 @@ if __name__ == '__main__':
     parser.add_argument("--use-bc", action="store_true", default=False)
     parser.add_argument("--num-trajs-limit", default=0, type=int)
     parser.add_argument("--task-encoder", default="", type=str)
+    parser.add_argument("--encoder-type", default='image', choices=('image', 'trajectory'))
     parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
     args = parser.parse_args()
 
@@ -270,10 +276,12 @@ if __name__ == '__main__':
         ),
 
         task_encoder_checkpoint=args.task_encoder,
+        task_encoder_type=args.encoder_type,
         task_encoder_latent_dim=2,
         use_task_encoder_resnet=False,
         embedding_mode=args.embedding_mode,
         use_next_obs_in_context=False,
+        transformer_encoder_keys=['observations']
     )
 
     variant['cnn'] = args.cnn
@@ -312,6 +320,7 @@ if __name__ == '__main__':
             image_augmentation=True,
             image_augmentation_padding=4,
         )
+    variant['cnn_params']['augmentation_type'] = 'warp_perspective'
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:
