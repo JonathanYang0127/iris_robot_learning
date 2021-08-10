@@ -181,7 +181,6 @@ class CNN(nn.Module):
 
         return fc_layers, fc_norm_layers, last_fc
 
-
     def forward(self, input, return_last_activations=False):
         conv_input = input.narrow(start=0,
                                   length=self.conv_input_length,

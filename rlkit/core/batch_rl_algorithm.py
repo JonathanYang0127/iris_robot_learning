@@ -62,7 +62,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         timer.start_timer('evaluation sampling')
         if self.epoch % self._eval_epoch_freq == 0 and self.num_eval_steps_per_epoch > 0:
             if self.multi_task:
-                for i in range(self.num_tasks):
+                for i in self.train_tasks:
                     self.eval_data_collector.collect_new_paths(
                         self.max_path_length,
                         self.num_eval_steps_per_epoch,

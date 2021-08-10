@@ -17,6 +17,7 @@ from rlkit.torch.networks import LinearTransform
 import time
 
 from itertools import chain
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 
 
 class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
@@ -29,7 +30,10 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             target_qf1,
             target_qf2,
             task_encoder,
+            reward_predictor,
             buffer_policy=None,
+
+            train_encoder_independently=False,
 
             discount=0.99,
             reward_scale=1.0,
@@ -109,9 +113,12 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
         self.task_encoder = task_encoder
+        self.reward_predictor = reward_predictor
         self.buffer_policy = buffer_policy
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
+
+        self.train_encoder_independently = train_encoder_independently
 
         self.use_awr_update = use_awr_update
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
@@ -145,17 +152,34 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             lr=policy_lr,
         )
         self.optimizers[self.policy] = self.policy_optimizer
-        self.qf1_optimizer = optimizer_class(
-            chain(self.qf1.parameters(), self.task_encoder.parameters()),
+
+        self.reward_predictor_optimizer = optimizer_class(
+            chain(self.reward_predictor.parameters(), self.task_encoder.parameters()),
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
-        self.qf2_optimizer = optimizer_class(
-            # self.qf2.parameters(),
-            chain(self.qf2.parameters(), self.task_encoder.parameters()),
-            weight_decay=q_weight_decay,
-            lr=qf_lr,
-        )
+        if self.train_encoder_independently:
+            self.qf1_optimizer = optimizer_class(
+                self.qf1.parameters(),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
+            self.qf2_optimizer = optimizer_class(
+                self.qf2.parameters(),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
+        else:
+            self.qf1_optimizer = optimizer_class(
+                chain(self.qf1.parameters(), self.task_encoder.parameters()),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
+            self.qf2_optimizer = optimizer_class(
+                chain(self.qf2.parameters(), self.task_encoder.parameters()),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
 
         if buffer_policy and train_bc_on_rl_buffer:
             self.buffer_policy_optimizer =  optimizer_class(
@@ -513,6 +537,18 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         """
         QF Loss
         """
+        reward_criterion = nn.CrossEntropyLoss()
+        context_embedding = self.task_encoder(context)
+        reward_predictions = self.reward_predictor(context_embedding, obs_og)
+        #TODO(avi) Fix the .cuda() below
+        gt_rewards = rewards.type(torch.LongTensor).cuda()
+        reward_prediction_loss = reward_criterion(reward_predictions, gt_rewards[:,0])
+
+        if self._n_train_steps_total % self.q_update_period == 0:
+            self.reward_predictor_optimizer.zero_grad()
+            reward_prediction_loss.backward()
+            self.reward_predictor_optimizer.step()
+
         context_embedding = self.task_encoder(context)
         obs = torch.cat([obs_og, context_embedding], dim=1)
         next_obs = torch.cat([next_obs_og, context_embedding], dim=1)
@@ -806,6 +842,19 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             This way, these statistics are only computed for one batch.
             """
             policy_loss = (log_pi - q_new_actions).mean()
+            gt_rewards = ptu.get_numpy(gt_rewards)
+            reward_predictions = ptu.get_numpy(reward_predictions)
+            reward_predictions = np.argmax(reward_predictions, axis=1)
+            self.eval_statistics['Reward Accuracy'] = accuracy_score(gt_rewards, reward_predictions)
+            self.eval_statistics['Reward Precision'] = precision_score(gt_rewards, reward_predictions)
+            self.eval_statistics['Reward Recall'] = recall_score(gt_rewards, reward_predictions)
+            self.eval_statistics['Reward Prediction Loss'] = np.mean(ptu.get_numpy(reward_prediction_loss))
+            context_embedding_np = ptu.get_numpy(context_embedding)
+
+            self.eval_statistics['context/0/min'] = np.min(context_embedding_np[:, 0])
+            self.eval_statistics['context/0/max'] = np.max(context_embedding_np[:, 0])
+            self.eval_statistics['context/1/min'] = np.min(context_embedding_np[:, 1])
+            self.eval_statistics['context/1/max'] = np.max(context_embedding_np[:, 1])
 
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
@@ -933,6 +982,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             self.target_qf1,
             self.target_qf2,
             self.task_encoder,
+            self.reward_predictor,
         ]
         if self.buffer_policy:
             nets.append(self.buffer_policy)
@@ -946,6 +996,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             target_qf1=self.qf1,
             target_qf2=self.qf2,
             buffer_policy=self.buffer_policy,
-            task_encoder=self.task_encoder
+            task_encoder=self.task_encoder,
+            reward_predictor=self.reward_predictor,
         )
 

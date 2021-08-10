@@ -97,6 +97,7 @@ class AWACTrainer(TorchTrainer):
             buffer_policy_reset_period=-1,
             num_buffer_policy_train_steps_on_reset=100,
             advantage_weighted_buffer_loss=True,
+            multitask=False
     ):
         super().__init__()
         self.env = env
@@ -227,6 +228,8 @@ class AWACTrainer(TorchTrainer):
         self.buffer_policy_reset_period = buffer_policy_reset_period
         self.num_buffer_policy_train_steps_on_reset=num_buffer_policy_train_steps_on_reset
         self.advantage_weighted_buffer_loss=advantage_weighted_buffer_loss
+
+        self.multitask = multitask
 
     def get_batch_from_buffer(self, replay_buffer, batch_size):
         batch = replay_buffer.random_batch(batch_size)
@@ -471,6 +474,18 @@ class AWACTrainer(TorchTrainer):
 
         if self.terminal_transform:
             terminals = self.terminal_transform(terminals)
+
+        if self.multitask:
+            """
+            Reshape from meta batch to single batch, append contexts to observations
+            """
+            t, b, _ = obs.size()
+            obs = obs.view(t * b, -1)
+            actions = actions.view(t * b, -1)
+            next_obs = next_obs.view(t * b, -1)
+            rewards = rewards.view(t * b, 1)
+            terminals = terminals.view(t * b, 1)
+
         """
         Policy and Alpha Loss
         """
