@@ -158,7 +158,7 @@ class IndependentLaplace(TorchDistributionWrapper):
     arg_constraints = {'loc': constraints.real, 'scale': constraints.positive}
 
     def __init__(self, loc, scale_diag):
-        dist = Independent(Laplace(loc, scale_diag), 1)
+        dist = Independent(Laplace(loc, scale_diag), 1, validate_args=False)
         super().__init__(dist)
 
     def get_diagnostics(self):
@@ -190,7 +190,7 @@ class MultivariateDiagonalNormal(TorchDistributionWrapper):
     arg_constraints = {'loc': constraints.real, 'scale': constraints.positive}
 
     def __init__(self, loc, scale_diag, reinterpreted_batch_ndims=1):
-        dist = Independent(TorchNormal(loc, scale_diag),
+        dist = Independent(TorchNormal(loc, scale_diag, validate_args=False),
                            reinterpreted_batch_ndims=reinterpreted_batch_ndims)
         super().__init__(dist)
 
@@ -233,7 +233,7 @@ class GaussianMixture(Distribution):
         self.normal = MultivariateDiagonalNormal(normal_means, normal_stds)
         self.normals = [MultivariateDiagonalNormal(normal_means[:, :, i], normal_stds[:, :, i]) for i in range(self.num_gaussians)]
         self.weights = weights
-        self.categorical = OneHotCategorical(self.weights[:, :, 0])
+        self.categorical = OneHotCategorical(self.weights[:, :, 0], validate_args=False)
 
     def log_prob(self, value, ):
         log_p = [self.normals[i].log_prob(value) for i in range(self.num_gaussians)]
@@ -293,7 +293,7 @@ class GaussianMixtureFull(Distribution):
         self.normals = [MultivariateDiagonalNormal(normal_means[:, :, i], normal_stds[:, :, i]) for i in range(self.num_gaussians)]
         self.weights = (weights + epsilon) / (1 + epsilon * self.num_gaussians)
         assert (self.weights > 0).all()
-        self.categorical = Categorical(self.weights)
+        self.categorical = Categorical(self.weights, validate_args=False)
 
     def log_prob(self, value, ):
         log_p = [self.normals[i].log_prob(value) for i in range(self.num_gaussians)]

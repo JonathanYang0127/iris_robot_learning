@@ -32,7 +32,7 @@ class ModuleToDistributionGenerator(
 class Beta(ModuleToDistributionGenerator):
     def forward(self, *input):
         alpha, beta = super().forward(*input)
-        return Beta(alpha, beta)
+        return Beta(alpha, beta, validate_args=False)
 
 
 class Gaussian(ModuleToDistributionGenerator):
@@ -55,7 +55,7 @@ class Gaussian(ModuleToDistributionGenerator):
 class BernoulliGenerator(ModuleToDistributionGenerator):
     def forward(self, *input):
         probs = super().forward(*input)
-        return Bernoulli(probs)
+        return Bernoulli(probs, validate_args=False)
 
 
 class IndependentGenerator(ModuleToDistributionGenerator):
@@ -68,6 +68,7 @@ class IndependentGenerator(ModuleToDistributionGenerator):
         return Independent(
             distribution,
             reinterpreted_batch_ndims=self.reinterpreted_batch_ndims,
+            validate_args=False
         )
 
 
