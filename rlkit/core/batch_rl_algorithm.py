@@ -18,6 +18,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             num_trains_per_train_loop,
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
+            offline_rl=False,
             *args,
             **kwargs
     ):
@@ -30,6 +31,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
+        self.offline_rl = offline_rl
 
     def _train(self):
         done = (self.epoch == self.num_epochs)
@@ -42,7 +44,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                 self.min_num_steps_before_training,
                 discard_incomplete_paths=False,
             )
-            self.replay_buffer.add_paths(init_expl_paths)
+            if not self.offline_rl:
+                self.replay_buffer.add_paths(init_expl_paths)
             self.expl_data_collector.end_epoch(-1)
 
         timer.start_timer('evaluation sampling')
@@ -65,7 +68,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                 timer.stop_timer('exploration sampling')
 
                 timer.start_timer('replay buffer data storing', unique=False)
-                self.replay_buffer.add_paths(new_expl_paths)
+                if not self.offline_rl:
+                    self.replay_buffer.add_paths(new_expl_paths)
                 timer.stop_timer('replay buffer data storing')
 
                 timer.start_timer('training', unique=False)
