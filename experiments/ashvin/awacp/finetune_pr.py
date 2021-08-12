@@ -3,25 +3,25 @@ from rlkit.launchers.arglauncher import run_variants
 
 def main(variant):
     import os
-    import random
 
     import numpy as np
     import tqdm
     import ml_collections
     from tensorboardX import SummaryWriter
 
-    from jaxrl.agents import AWACLearner, DDPGLearner, SACLearner, SACV1Learner
+    from jaxrl.agents import AWACLearner, SACLearner
+    from learner import Learner
     from jaxrl.datasets import ReplayBuffer
+    from jaxrl.datasets.dataset_utils import make_env_and_dataset
     from jaxrl.evaluation import evaluate
     from jaxrl.utils import make_env
-    import jaxrl
 
     from rlkit.core import logger
 
     variant = ml_collections.ConfigDict(variant)
     kwargs = variant.config
 
-    seed = 42 # variant.seed
+    seed = variant.seedid # seed
     save_dir = logger.get_snapshot_dir()
 
     summary_writer = SummaryWriter(
@@ -34,11 +34,12 @@ def main(variant):
         video_train_folder = None
         video_eval_folder = None
 
-    env = make_env(variant.env_name, seed, video_train_folder)
+    env, dataset = make_env_and_dataset(variant.env_name, seed,
+                                        variant.dataset_name, video_train_folder)
+
     eval_env = make_env(variant.env_name, seed + 42, video_eval_folder)
 
     np.random.seed(seed)
-    random.seed(seed)
 
     kwargs = dict(variant.config)
     algo = kwargs.pop('algo')
@@ -47,64 +48,63 @@ def main(variant):
         agent = SACLearner(seed,
                            env.observation_space.sample()[np.newaxis],
                            env.action_space.sample()[np.newaxis], **kwargs)
-    elif algo == 'sac_v1':
-        agent = SACV1Learner(seed,
-                             env.observation_space.sample()[np.newaxis],
-                             env.action_space.sample()[np.newaxis], **kwargs)
     elif algo == 'awac':
         agent = AWACLearner(seed,
                             env.observation_space.sample()[np.newaxis],
                             env.action_space.sample()[np.newaxis], **kwargs)
-    elif algo == 'ddpg':
-        agent = DDPGLearner(seed,
+    elif algo == 'pr':
+        max_reward = max(0.0, np.max(dataset.rewards))
+        agent = Learner(seed,
                             env.observation_space.sample()[np.newaxis],
-                            env.action_space.sample()[np.newaxis], **kwargs)
+                            env.action_space.sample()[np.newaxis], max_reward, **kwargs)
     else:
         raise NotImplementedError()
 
     action_dim = env.action_space.shape[0]
     replay_buffer = ReplayBuffer(env.observation_space, action_dim,
                                  replay_buffer_size or variant.max_steps)
+    replay_buffer.initialize_with_dataset(dataset, variant.init_dataset_size)
 
     eval_returns = []
     observation, done = env.reset(), False
-    for i in tqdm.tqdm(range(1, variant.max_steps + 1),
+
+    # Use negative indices for pretraining steps.
+    for i in tqdm.tqdm(range(1 - variant.num_pretraining_steps,
+                             variant.max_steps + 1),
                        smoothing=0.1,
                        disable=not variant.tqdm):
-        if i < variant.start_training:
-            action = env.action_space.sample()
-        else:
+        if i >= 1:
             action = agent.sample_actions(observation)
-        next_observation, reward, done, info = env.step(action)
+            next_observation, reward, done, info = env.step(action)
 
-        if not done or 'TimeLimit.truncated' in info:
-            mask = 1.0
+            if not done or 'TimeLimit.truncated' in info:
+                mask = 1.0
+            else:
+                mask = 0.0
+
+            replay_buffer.insert(observation, action, reward, mask,
+                                 next_observation)
+            observation = next_observation
+
+            if done:
+                observation, done = env.reset(), False
+                for k, v in info['episode'].items():
+                    summary_writer.add_scalar(f'training/{k}', v,
+                                              info['total']['timesteps'])
         else:
-            mask = 0.0
+            info = {}
+            info['total'] = {'timesteps': i}
 
-        replay_buffer.insert(observation, action, reward, mask,
-                             next_observation)
-        observation = next_observation
+        batch = replay_buffer.sample(variant.batch_size)
+        update_info = agent.update(batch)
 
-        if done:
-            observation, done = env.reset(), False
-            for k, v in info['episode'].items():
-                summary_writer.add_scalar(f'training/{k}', v,
-                                          info['total']['timesteps'])
-
-            if 'is_success' in info:
-                summary_writer.add_scalar(f'training/success',
-                                          info['is_success'],
-                                          info['total']['timesteps'])
-
-        if i >= variant.start_training:
-            batch = replay_buffer.sample(variant.batch_size)
-            update_info = agent.update(batch)
-
-            if i % variant.log_interval == 0:
-                for k, v in update_info.items():
+        if i % variant.log_interval == 0:
+            for k, v in update_info.items():
+                if v.ndim == 0:
                     summary_writer.add_scalar(f'training/{k}', v, i)
-                summary_writer.flush()
+                else:
+                    summary_writer.add_histogram(f'training/{k}', v, i)
+            summary_writer.flush()
 
         if i % variant.eval_interval == 0:
             eval_stats = evaluate(agent, eval_env, variant.eval_episodes)
@@ -126,34 +126,37 @@ if __name__ == "__main__":
     # noinspection PyTypeChecker
 
     variant = dict(
-        env_name = "HalfCheetah-v2",
+        env_name = "Ant-v2",
+        dataset_name = "awac",
         # save_dir = "./tmp/",
-        seed = 42,
+        seedid = 0,
         eval_episodes = 10,
         log_interval = 1000,
-        eval_interval = 5000,
-        batch_size = 256,
+        eval_interval = 10000,
+        batch_size = 1024,
         max_steps = int(1e6),
-        start_training = int(1e4),
+        init_dataset_size = None,
+        num_pretraining_steps = int(5e4),
         tqdm = True,
         save_video = False,
         config = dict(
-            algo = 'sac',
+            algo = 'pr',
             actor_lr = 3e-4,
+            value_lr = 3e-4,
             critic_lr = 3e-4,
-            temp_lr = 3e-4,
             hidden_dims = (256, 256),
             discount = 0.99,
+            quantile = 0.8,
+            temperature = 0.1,
             tau = 0.005,
             target_update_period = 1,
-            init_temperature = 1.0,
-            target_entropy = None,
             replay_buffer_size = None,
         )
     )
 
     search_space = {
-        # 'env_name': [
+        'env_name': ["Ant-v2", "HalfCheetah-v2", "Walker2d-v2",],
+        'seedid': range(0, 5),
         #     "antmaze-umaze-v0", "antmaze-umaze-diverse-v0", "antmaze-medium-play-v0",
         #     "antmaze-medium-diverse-v0", "antmaze-large-diverse-v0", "antmaze-large-play-v0",
         # ],
