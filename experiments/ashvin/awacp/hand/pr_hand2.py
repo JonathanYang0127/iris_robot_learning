@@ -19,29 +19,25 @@ if __name__ == "__main__":
         tqdm = True,
         save_video = False,
         config = dict(
-            algo = 'awac',
-            actor_optim_kwargs = dict(
-                learning_rate = 3e-4,
-                weight_decay = 1e-4,
-            ),
-            actor_hidden_dims = (256, 256, 256, 256),
-            state_dependent_std = False,
+            algo = 'pr',
+            actor_lr = 3e-4,
+            value_lr = 3e-4,
             critic_lr = 3e-4,
-            critic_hidden_dims = (256, 256),
+            hidden_dims = (256, 256),
             discount = 0.99,
+            quantile = 0.8,
+            temperature = 10.0,
             tau = 0.005,
             target_update_period = 1,
-            beta = 10.0,
-            num_samples = 1,
             replay_buffer_size = None,
-            clamp_q = False,
         )
     )
 
     search_space = {
-        'env_name': ["Ant-v2", "HalfCheetah-v2", "Walker2d-v2",],
-        'config.beta': [1.0, 2.0, 5.0, 10.0, 20.0],
-        'seedid': range(3),
+        'env_name': ["relocate-binary-v0", "door-binary-v0", "pen-binary-v0",],
+        'seedid': range(3, 6),
+        'config.quantile': [0.5, 0.8, 0.9, 0.95],
+        'config.temperature': [3.0, 1.0],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
