@@ -5,7 +5,7 @@ AWR + SAC from demo experiment
 from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
 from rlkit.launchers.experiments.awac.awac_rl import experiment, process_args
 
-import rlkit.util.hyperparameter as hyp
+import rlkit.misc.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 
 from rlkit.torch.sac.policies import GaussianPolicy
@@ -13,13 +13,15 @@ from rlkit.torch.networks import Clamp
 
 if __name__ == "__main__":
     variant = dict(
-        num_epochs=501,
-        num_eval_steps_per_epoch=1000,
-        num_trains_per_train_loop=1000,
-        num_expl_steps_per_train_loop=1000,
-        min_num_steps_before_training=1000,
+        algo_kwargs=dict(
+            num_epochs=501,
+            num_eval_steps_per_epoch=1000,
+            num_trains_per_train_loop=1000,
+            num_expl_steps_per_train_loop=1000,
+            min_num_steps_before_training=1000,
+            batch_size=1024,
+        ),
         max_path_length=1000,
-        batch_size=1024,
         algorithm="AWAC",
         replay_buffer_size=int(1E6),
 

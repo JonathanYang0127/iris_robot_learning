@@ -12,13 +12,15 @@ from rlkit.torch.sac.policies import GaussianPolicy
 
 if __name__ == "__main__":
     variant = dict(
-        num_epochs=501,
-        num_eval_steps_per_epoch=1000,
-        num_trains_per_train_loop=1000,
-        num_expl_steps_per_train_loop=1000,
-        min_num_steps_before_training=1000,
+        algo_kwargs=dict(
+            num_epochs=501,
+            num_eval_steps_per_epoch=1000,
+            num_trains_per_train_loop=1000,
+            num_expl_steps_per_train_loop=1000,
+            min_num_steps_before_training=1000,
+            batch_size=1024,
+        ),
         max_path_length=1000,
-        batch_size=1024,
         replay_buffer_size=int(1E6),
         layer_size=256,
         num_layers=2,
