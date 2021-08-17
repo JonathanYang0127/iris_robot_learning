@@ -32,6 +32,12 @@ Or if you want you can use the docker image included.
 ### Download Simulation Env Code
 - [multiworld](https://github.com/vitchyr/multiworld) (contains environments):```git clone https://github.com/vitchyr/multiworld```
 
+### Testing
+Writing more tests in progress. Run with:
+```
+nose2 -v -s tests/regression
+```
+
 ### (Optional) Install doodad
 I recommend installing [doodad](https://github.com/justinjfu/doodad) to
 launch jobs. Some of its nice features include:
@@ -89,22 +95,5 @@ export PYTHONPATH=$PYTHONPATH:/path/to/railrl-private/repo
 ```
 
 ## Credit
-This repository was initially developed primarily by [Vitchyr
-Pong](https://github.com/vitchyr), until July 2021, at which point it was
-transferred to the RAIL Berkeley organization and is primarily maintained
-by [Ashvin Nair](https://github.com/anair13).
-Other major collaborators and contributions:
- - [Murtaza Dalal](https://github.com/mdalal2020)
-  - [Steven Lin](https://github.com/stevenlin1111)
-
-  A lot of the coding infrastructure is based on
-  [rllab](https://github.com/rll/rllab).
-  The serialization and logger code are basically a carbon copy of the rllab
-  versions.
-
-  The Dockerfile is based on the [OpenAI mujoco-py
-  Dockerfile](https://github.com/openai/mujoco-py/blob/master/Dockerfile).
-
-  The SMAC code builds off of the [PEARL
-  code](https://github.com/katerakelly/oyster), which built off of an older
-  RLKit version.
+A lot of the coding infrastructure is based on [rllab](https://github.com/rll/rllab).
+Also, the serialization and logger code are basically a carbon copy.

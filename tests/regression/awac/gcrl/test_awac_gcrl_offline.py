@@ -157,7 +157,7 @@ def main():
 import os
 import sys
 def test_awac_gcrl_online():
-    cmd = "python experiments/references/awac/gcrl/pusher1.py --1 --local --gpu --run 0 --seed 0"
+    cmd = "python experiments/references/awac/gcrl/pusher_offline1.py --1 --local --gpu --run 0 --seed 0"
     sys.argv = cmd.split(" ")[1:]
     main()
     reference_csv = "tests/regression/awac/gcrl/id0_offline/pretrain_q.csv"
