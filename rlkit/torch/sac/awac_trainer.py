@@ -16,11 +16,6 @@ import torch.nn.functional as F
 from rlkit.torch.networks import LinearTransform
 import time
 
-def save(obj, fname="tmp.pt"):
-    torch.save(obj, fname)
-
-def load(fname="tmp.pt"):
-    return torch.load(fname)
 
 class AWACTrainer(TorchTrainer):
     def __init__(
