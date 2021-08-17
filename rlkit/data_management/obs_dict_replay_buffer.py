@@ -371,7 +371,7 @@ class ObsDictRelabelingBuffer(ObsDictReplayBuffer):
 
         if len(self.observation_keys) == 1:
             new_obs = new_obs_dict[self.observation_keys[0]]
-            new_next_obs = new_obs_dict[self.observation_keys[0]]
+            new_next_obs = new_next_obs_dict[self.observation_keys[0]]
         else:
             new_obs = tuple(new_obs_dict[k] for k in self.observation_keys)
             new_next_obs = tuple(new_next_obs_dict[k] for k in self.observation_keys)
