@@ -16,6 +16,11 @@ import torch.nn.functional as F
 from rlkit.torch.networks import LinearTransform
 import time
 
+def save(obj, fname="tmp.pt"):
+    torch.save(obj, fname)
+
+def load(fname="tmp.pt"):
+    return torch.load(fname)
 
 class AWACTrainer(TorchTrainer):
     def __init__(
@@ -786,6 +791,7 @@ class AWACTrainer(TorchTrainer):
                 'terminals',
                 ptu.get_numpy(terminals),
             ))
+            self.eval_statistics['replay_buffer_len'] = self.replay_buffer._size
             policy_statistics = add_prefix(dist.get_diagnostics(), "policy/")
             self.eval_statistics.update(policy_statistics)
             self.eval_statistics.update(create_stats_ordered_dict(
