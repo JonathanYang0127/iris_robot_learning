@@ -95,5 +95,22 @@ export PYTHONPATH=$PYTHONPATH:/path/to/railrl-private/repo
 ```
 
 ## Credit
-A lot of the coding infrastructure is based on [rllab](https://github.com/rll/rllab).
-Also, the serialization and logger code are basically a carbon copy.
+This repository was initially developed primarily by [Vitchyr
+Pong](https://github.com/vitchyr), until July 2021, at which point it was
+transferred to the RAIL Berkeley organization and is primarily maintained
+by [Ashvin Nair](https://github.com/anair13).
+Other major collaborators and contributions:
+ - [Murtaza Dalal](https://github.com/mdalal2020)
+  - [Steven Lin](https://github.com/stevenlin1111)
+
+  A lot of the coding infrastructure is based on
+  [rllab](https://github.com/rll/rllab).
+  The serialization and logger code are basically a carbon copy of the rllab
+  versions.
+
+  The Dockerfile is based on the [OpenAI mujoco-py
+  Dockerfile](https://github.com/openai/mujoco-py/blob/master/Dockerfile).
+
+  The SMAC code builds off of the [PEARL
+  code](https://github.com/katerakelly/oyster), which built off of an older
+  RLKit version.
