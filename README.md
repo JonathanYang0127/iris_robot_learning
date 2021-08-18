@@ -35,7 +35,7 @@ Or if you want you can use the docker image included.
 ### Testing
 Writing more tests in progress. Run with:
 ```
-nose2 -v -s tests/regression
+nose2 -v -B -s tests/regression
 ```
 
 ### (Optional) Install doodad

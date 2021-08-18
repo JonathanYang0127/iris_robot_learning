@@ -19,6 +19,15 @@ from rlkit.core import logger
 from rlkit.testing import csv_util
 
 def test_awac_hand_online():
+    # the following hack required because of a conflict between env naming in d4rl and mj_envs
+    import gym
+    custom_envs = ['door-v0', 'pen-v0', 'relocate-v0', 'hammer-v0']
+    env_dict = gym.envs.registration.registry.env_specs.copy()
+    for custom_env in custom_envs:
+        if custom_env in env_dict:
+            print("Remove {} from registry".format(custom_env))
+            del gym.envs.registration.registry.env_specs[custom_env]
+
     cmd = "python experiments/references/awac/hand/awac1.py --1 --local --gpu --run 0 --seed 0 --debug"
     sys.argv = cmd.split(" ")[1:]
     main()
