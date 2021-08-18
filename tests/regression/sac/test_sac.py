@@ -90,7 +90,7 @@ import sys
 from rlkit.core import logger
 from rlkit.testing import csv_util
 
-if __name__ == "__main__":
+def test_sac_online():
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
@@ -126,3 +126,6 @@ if __name__ == "__main__":
     reference = csv_util.get_exp(reference_csv)
     keys = ["eval/Average Returns", "trainer/Q1 Predictions Mean", ]
     csv_util.check_equal(reference, output, keys)
+
+if __name__ == "__main__":
+    test_sac_online()
