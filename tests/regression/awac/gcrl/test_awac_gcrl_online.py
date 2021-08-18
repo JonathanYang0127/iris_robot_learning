@@ -1,5 +1,8 @@
 """Test AWAC GCRL online. Requires the Sawyer environment from this multiworld
 branch: https://github.com/vitchyr/multiworld/tree/ashvin-awac
+
+Data available for download:
+https://drive.google.com/file/d/1rVoR3hrFjd6Ec5TLdPpC9Ii5eIM1j7Gc/view?usp=sharing
 """
 import os
 import sys
