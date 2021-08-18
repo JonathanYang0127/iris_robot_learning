@@ -1,8 +1,4 @@
-"""Test AWAC on Mujoco benchmark tasks.
-
-Data available for download:
-https://drive.google.com/file/d/1edcuicVv2d-PqH1aZUVbO5CeRq3lqK89/view
-"""
+"""Test AWAC on Mujoco benchmark tasks."""
 import os
 import sys
 
