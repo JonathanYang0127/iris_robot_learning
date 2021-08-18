@@ -37,7 +37,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.multi_task = multi_task
         self.meta_batch_size = meta_batch_size
         self.train_tasks = train_tasks
-        self.eval_tasls = eval_tasks
+        self.eval_tasks = eval_tasks
         self.object_detector = object_detector
         self.biased_sampling = biased_sampling
         self.train_embedding_network = train_embedding_network

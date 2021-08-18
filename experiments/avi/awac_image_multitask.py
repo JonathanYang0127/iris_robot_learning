@@ -11,11 +11,13 @@ from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import ConcatCNN
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
+from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplayBuffer
 from rlkit.samplers.data_collector import ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v2, \
+    add_multitask_data_to_multitask_buffer_v2, \
     VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer
 
 import roboverse
@@ -50,7 +52,10 @@ class EmbeddingWrapper(gym.Env, Serializable):
 
 def experiment(variant):
     num_tasks = variant['num_tasks']
-    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=num_tasks)
+    env_num_tasks = num_tasks
+    if args.reset_free:
+        env_num_tasks -= 1
+    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
 
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
@@ -137,16 +142,19 @@ def experiment(variant):
     target_qf1 = ConcatCNN(**cnn_params)
     target_qf2 = ConcatCNN(**cnn_params)
 
-    replay_buffer = ObsDictReplayBuffer(
+    replay_buffer = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
         expl_env,
+        np.arange(num_tasks),
+        use_next_obs_in_context=False,
+        sparse_rewards=False,
         observation_keys=observation_keys
     )
 
     if variant['use_task_embedding']:
         add_data_to_buffer(data, replay_buffer, observation_keys)
     else:
-        add_multitask_data_to_singletask_buffer_v2(data, replay_buffer,
+        add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
                                                observation_keys, num_tasks)
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
@@ -167,6 +175,7 @@ def experiment(variant):
         target_qf1=target_qf1,
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
+        multitask=True,
         **variant['trainer_kwargs']
     )
 
@@ -191,13 +200,15 @@ def experiment(variant):
         replay_buffer=replay_buffer,
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
+        meta_batch_size=variant['meta_batch_size'],
         num_epochs=variant['num_epochs'],
         num_eval_steps_per_epoch=variant['num_eval_steps_per_epoch'],
         num_expl_steps_per_train_loop=variant['num_expl_steps_per_train_loop'],
         num_trains_per_train_loop=variant['num_trains_per_train_loop'],
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
-        num_tasks=num_tasks,
+        train_tasks=np.arange(num_tasks),
+        eval_tasks=np.arange(num_tasks),
     )
 
     video_func = VideoSaveFunctionBullet(variant)
@@ -223,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
+    parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -231,7 +243,8 @@ if __name__ == '__main__':
         algorithm="AWAC-Pixel",
 
         num_epochs=3000,
-        batch_size=256,
+        batch_size=64,
+        meta_batch_size=4,
         max_path_length=30,
         num_trains_per_train_loop=1000,
         # num_eval_steps_per_epoch=0,
