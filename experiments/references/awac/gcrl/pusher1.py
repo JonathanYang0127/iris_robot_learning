@@ -1,8 +1,6 @@
-"""Test algorithm without requiring env setup. Incomplete due to reliance on env.sample_goals"""
-
-from rlkit.core import logger
-from rlkit.testing import csv_util
-
+"""
+AWR + SAC from demo experiment
+"""
 
 from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
 from rlkit.launchers.experiments.awac.awac_gcrl import experiment, process_args
@@ -12,8 +10,7 @@ from rlkit.launchers.arglauncher import run_variants
 
 from rlkit.torch.sac.policies import GaussianPolicy
 
-from rlkit.testing.stub_classes import StubEnv, StubMultiEnv
-# from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_leap import SawyerPushAndReachXYEnv
+from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_leap import SawyerPushAndReachXYEnv
 
 def main():
     variant = dict(
@@ -108,14 +105,18 @@ def main():
         pretrain_rl=True,
         # save_pretrained_algorithm=True,
         # snapshot_mode="all",
-        env_class=StubMultiEnv,
+        env_class=SawyerPushAndReachXYEnv,
         env_kwargs=dict(
-            obs_dims=dict(
-                state_observation=4,
-                state_desired_goal=4,
-                state_achieved_goal=4,
-            ),
-            action_dim=2,
+            hand_low=(-0.20, 0.50),
+            hand_high=(0.20, 0.70),
+            puck_low=(-0.20, 0.50),
+            puck_high=(0.20, 0.70),
+            goal_low=(-0.20, 0.50, -0.20, 0.50),
+            goal_high=(0.20, 0.70, 0.20, 0.70),
+            fix_reset=False,
+            sample_realistic_goals=False,
+            reward_type='hand_and_puck_distance',
+            invisible_boundary_wall=True,
         ),
 
         observation_key="state_observation",
@@ -123,33 +124,13 @@ def main():
         achieved_goal_key="state_achieved_goal",
     )
 
-
     search_space = {
         'seedid': range(5),
-        'trainer_kwargs.beta': [0.001, ],
+        'trainer_kwargs.beta': [0.001, 0.01, 0.1, ],
         'num_trains_per_train_loop': [4000],
         'env_kwargs.reward_type': ['puck_distance', ],
         'policy_kwargs.min_log_std': [-6, ],
         # 'trainer_kwargs.bc_weight': [0, 1],
-
-        # env-specific hacks
-        'replay_buffer_kwargs.fraction_goals_env_goals': [0.0],
-        'replay_buffer_kwargs.recompute_rewards': [False],
-        'demo_replay_buffer_kwargs.recompute_rewards': [False],
-
-        # make experiment short and only offline
-        'batch_size': [5],
-        'num_epochs': [0],
-        'pretraining_logging_period': [1],
-        'trainer_kwargs.q_num_pretrain2_steps': [10],
-        'path_loader_kwargs.demo_paths': [
-            [dict(
-                    path=os.getcwd() + "/tests/regression/awac/gcrl/gcrl_data_mini/id0/video_0_vae.p",
-                    obs_dict=False, # misleading but this arg is really "unwrap_obs_dict"
-                    is_demo=True,
-                    data_split=1,
-            ),],
-        ],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -162,18 +143,5 @@ def main():
 
     run_variants(experiment, variants, process_args)
 
-import os
-import sys
-def test_awac_gcrl_online():
-    cmd = "python experiments/references/awac/gcrl/pusher_offline1.py --1 --local --gpu --run 0 --seed 0"
-    sys.argv = cmd.split(" ")[1:]
-    main()
-    reference_csv = "tests/regression/awac/gcrl/id0_offline/pretrain_q.csv"
-    output_csv = os.path.join(logger.get_snapshot_dir(), "pretrain_q.csv")
-    output = csv_util.get_exp(output_csv)
-    reference = csv_util.get_exp(reference_csv)
-    keys = ["trainer/batch", "trainer/Advantage Score Max", "trainer/Q1 Predictions Mean", "trainer/replay_buffer_len"]
-    csv_util.check_equal(reference, output, keys)
-
 if __name__ == "__main__":
-    test_awac_gcrl_online()
+    main()

@@ -1,5 +1,7 @@
-"""
-AWR + SAC from demo experiment
+"""Test AWAC online on Mujoco benchmark tasks.
+
+Data available for download:
+https://drive.google.com/file/d/1edcuicVv2d-PqH1aZUVbO5CeRq3lqK89/view
 """
 
 from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
@@ -9,6 +11,8 @@ import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.arglauncher import run_variants
 
 from rlkit.torch.sac.policies import GaussianPolicy
+
+from rlkit.testing.stub_classes import StubEnv
 
 def main():
     variant = dict(
@@ -86,8 +90,29 @@ def main():
         'train_rl':[True],
         'pretrain_rl':[True],
         'pretrain_policy':[False],
-        'env_id': ['HalfCheetah-v2', 'Ant-v2', 'Walker2d-v2', ],
+        # 'env_id': ['HalfCheetah-v2', 'Ant-v2', 'Walker2d-v2', ],
         'seedid': range(5),
+
+        # make experiment short and only offline
+        'batch_size': [5],
+        'num_epochs': [0],
+        'pretraining_logging_period': [1],
+        'trainer_kwargs.q_num_pretrain2_steps': [10],
+        'path_loader_kwargs.demo_paths': [
+            [dict(
+                    path=os.getcwd() + "/tests/regression/awac/mujoco/hc_action_noise_15.npy",
+                    obs_dict=False, # misleading but this arg is really "unwrap_obs_dict"
+                    is_demo=True,
+                    data_split=1,
+            ),],
+        ],
+        'env_class': [StubEnv], # replaces half-cheetah
+        'env_kwargs': [dict(
+            obs_dim=17,
+            action_dim=6,
+        ),],
+        'add_env_demos': [False],
+        'add_env_offpolicy_data': [False],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -99,6 +124,25 @@ def main():
 
     run_variants(experiment, variants, process_args)
 
-if __name__ == "__main__":
+
+import os
+import sys
+
+from rlkit.core import logger
+from rlkit.testing import csv_util
+
+def test_awac_mujoco_online():
+    cmd = "python experiments/references/awac/mujoco/awac_offline1.py --1 --local --gpu --run 0 --seed 0 --debug"
+    sys.argv = cmd.split(" ")[1:]
     main()
 
+    # check if offline training results matches
+    reference_csv = "tests/regression/awac/mujoco/id0_offline/pretrain_q.csv"
+    output_csv = os.path.join(logger.get_snapshot_dir(), "pretrain_q.csv")
+    output = csv_util.get_exp(output_csv)
+    reference = csv_util.get_exp(reference_csv)
+    keys = ["trainer/batch", "trainer/Advantage Score Max", "trainer/Q1 Predictions Mean", "trainer/replay_buffer_len"]
+    csv_util.check_equal(reference, output, keys)
+
+if __name__ == "__main__":
+    test_awac_mujoco_online()
