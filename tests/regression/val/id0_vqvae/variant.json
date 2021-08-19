@@ -44,12 +44,12 @@
   },
   "imsize": 48,
   "logger_config": {
-    "run_id": 0,
+    "run_id": 2,
     "snapshot_gap": 100,
     "snapshot_mode": "gap"
   },
   "num_epochs": 1,
-  "run_id": 0,
+  "run_id": 2,
   "save_period": 50,
   "seed": "0",
   "train_pixelcnn_kwargs": {
@@ -59,7 +59,7 @@
     "num_train_batches_per_epoch": 2
   },
   "trial_name": "id0",
-  "unique_id": "b81a0bcf-f1f4-405a-990a-088c1d1a2700",
+  "unique_id": "5a51fb9a-5614-4070-be38-a1708754a46a",
   "use_linear_dynamics": false,
   "vae_class": {
     "$class": "rlkit.torch.vae.vq_vae.VQ_VAE"
