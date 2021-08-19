@@ -4,7 +4,7 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictRelabelingBuffer
 from rlkit.exploration_strategies.base import \
     PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import GaussianAndEpislonStrategy
+from rlkit.exploration_strategies.gaussian_and_epsilon import GaussianAndEpsilonStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.util.io import load_local_or_remote_file
 from rlkit.samplers.data_collector import GoalConditionedPathCollector
@@ -39,7 +39,7 @@ def state_td3bc_experiment(variant):
             min_sigma=variant['exploration_noise'],
         )
     elif es_strat == 'gauss_eps':
-        es = GaussianAndEpislonStrategy(
+        es = GaussianAndEpsilonStrategy(
             action_space=expl_env.action_space,
             max_sigma=.2,
             min_sigma=.2,  # constant sigma

@@ -2,8 +2,8 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictRelabelingBuffer
 from rlkit.exploration_strategies.base import \
     PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import \
-    GaussianAndEpislonStrategy
+from rlkit.exploration_strategies.gaussian_and_epsilon import \
+    GaussianAndEpsilonStrategy
 from rlkit.samplers.data_collector import GoalConditionedPathCollector
 from rlkit.torch.her.her import HERTrainer
 from rlkit.torch.networks import ConcatMlp, TanhMlpPolicy, CNNPolicy
@@ -102,7 +102,7 @@ def encoder_wrapped_td3bc_experiment(variant):
     desired_goal_key = 'latent_desired_goal'
 
     achieved_goal_key = desired_goal_key.replace("desired", "achieved")
-    es = GaussianAndEpislonStrategy(
+    es = GaussianAndEpsilonStrategy(
         action_space=expl_env.action_space,
         **variant["exploration_kwargs"],
     )

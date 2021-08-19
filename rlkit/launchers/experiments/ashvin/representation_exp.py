@@ -26,7 +26,7 @@ from rlkit.launchers.contextual.util import (
 
 from rlkit.exploration_strategies.base import \
     PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import GaussianAndEpislonStrategy
+from rlkit.exploration_strategies.gaussian_and_epsilon import GaussianAndEpsilonStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 
 import os.path as osp

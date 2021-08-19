@@ -13,8 +13,8 @@ from rlkit.events.controllers import BetaQLbfgsController, BetaQMultigoalLbfgs, 
 from rlkit.events.networks import BetaQ, TanhFlattenMlpPolicy, BetaV
 from rlkit.exploration_strategies.base import \
     PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import \
-    GaussianAndEpislonStrategy
+from rlkit.exploration_strategies.gaussian_and_epsilon import \
+    GaussianAndEpsilonStrategy
 from rlkit.exploration_strategies.gaussian_strategy import GaussianStrategy
 from rlkit.launchers.launcher_util import setup_logger, run_experiment
 from rlkit.policies.simple import RandomPolicy
@@ -23,7 +23,7 @@ from rlkit.torch.networks import TanhMlpPolicy
 
 def experiment(variant):
     env = variant['env_class']()
-    es = GaussianAndEpislonStrategy(
+    es = GaussianAndEpsilonStrategy(
     # es = GaussianStrategy(
         action_space=env.action_space,
         **variant['es_kwargs']

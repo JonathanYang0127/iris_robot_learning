@@ -471,8 +471,8 @@ def get_envs(variant):
 def get_exploration_strategy(variant, env):
     from rlkit.exploration_strategies.epsilon_greedy import EpsilonGreedy
     from rlkit.exploration_strategies.gaussian_strategy import GaussianStrategy
-    from rlkit.exploration_strategies.gaussian_and_epislon import \
-        GaussianAndEpislonStrategy
+    from rlkit.exploration_strategies.gaussian_and_epsilon import \
+        GaussianAndEpsilonStrategy
     from rlkit.exploration_strategies.ou_strategy import OUStrategy
     from rlkit.exploration_strategies.noop import NoopStrategy
 
@@ -500,7 +500,7 @@ def get_exploration_strategy(variant, env):
             **es_kwargs
         )
     elif exploration_type == 'gaussian_and_epsilon':
-        es = GaussianAndEpislonStrategy(
+        es = GaussianAndEpsilonStrategy(
             action_space=env.action_space,
             # max_sigma=exploration_noise,
             # min_sigma=exploration_noise,  # Constant sigma
