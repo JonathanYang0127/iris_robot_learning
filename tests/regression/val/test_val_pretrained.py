@@ -283,7 +283,7 @@ def main():
 
 
 def test_val_full_online():
-    cmd = "python experiments/references/val/mini_pretrained1.py --1 --local --gpu --run 0 --seed 0 --debug"
+    cmd = "python examples/val/mini_pretrained1.py --1 --local --gpu --run 0 --seed 0 --debug"
     sys.argv = cmd.split(" ")[1:]
     main()
 

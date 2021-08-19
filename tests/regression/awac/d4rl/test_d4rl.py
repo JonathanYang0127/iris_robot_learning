@@ -2,13 +2,13 @@
 import os
 import sys
 
-from experiments.references.awac.d4rl.d4rl_offline import main
+from examples.awac.d4rl.d4rl_offline import main
 
 from rlkit.core import logger
 from rlkit.testing import csv_util
 
 def test_awac_d4rl():
-    cmd = "python experiments/references/awac/d4rl/d4rl_offline.py --1 --local --gpu --run 0 --seed 0 --debug"
+    cmd = "python examples/awac/d4rl/d4rl_offline.py --1 --local --gpu --run 0 --seed 0 --debug"
     sys.argv = cmd.split(" ")[1:]
     main()
 
