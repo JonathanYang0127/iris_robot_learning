@@ -5,7 +5,7 @@ import numpy as np
 
 from rlkit.misc.eval_util import create_stats_ordered_dict
 from rlkit.samplers.data_collector.base import PathCollector
-from rlkit.samplers.rollout_functions import rollout
+from rlkit.samplers.rollout_functions import rollout, fixed_contextual_rollout
 
 
 class MdpPathCollector(PathCollector):
@@ -176,6 +176,37 @@ class ObsDictPathCollector(MdpPathCollector):
         )
         super().__init__(*args, rollout_fn=rollout_fn, **kwargs)
         self._observation_keys = observation_keys
+
+    def get_snapshot(self):
+        snapshot = super().get_snapshot()
+        snapshot.update(
+            observation_keys=self._observation_keys,
+        )
+        return snapshot
+
+
+class ContextualObsDictPathCollector(MdpPathCollector):
+    def __init__(
+            self,
+            *args,
+            observation_keys=['observation',],
+            **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self._observation_keys = observation_keys
+
+    def collect_new_paths(
+            self,
+            *args,
+            context=None,
+            **kwargs
+    ):
+        self._rollout_fn = partial(
+            fixed_contextual_rollout,
+            observation_keys=self._observation_keys,
+            context=context
+        )
+        return super().collect_new_paths(*args, **kwargs)
 
     def get_snapshot(self):
         snapshot = super().get_snapshot()

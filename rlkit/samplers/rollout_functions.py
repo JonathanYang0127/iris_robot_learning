@@ -47,7 +47,7 @@ def contextual_rollout(
         observation_keys=None,
         context_keys_for_policy=None,
         obs_processor=None,
-        **kwargs
+       	**kwargs
 ):
     if context_keys_for_policy is None:
         context_keys_for_policy = ['context']
@@ -58,6 +58,26 @@ def contextual_rollout(
             for k in context_keys_for_policy:
                 combined_obs.append(o[k])
             return np.concatenate(combined_obs, axis=0)
+    paths = rollout(
+        env,
+        agent,
+        preprocess_obs_for_policy_fn=obs_processor,
+        **kwargs
+    )
+    return paths
+
+def fixed_contextual_rollout(
+        env,
+        agent,
+        observation_keys=None,
+        context=None,
+        **kwargs
+):
+    def obs_processor(o):
+        combined_obs = [o[k] for k in observation_keys]
+        combined_obs.append(context)
+        return np.concatenate(combined_obs, axis=0)
+
     paths = rollout(
         env,
         agent,

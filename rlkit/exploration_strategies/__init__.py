@@ -1,0 +1,2 @@
+from .embedding_gaussian_strategy import GaussianExplorationStrategy
+from .embedding_cem_strategy import CEMExplorationStrategy
