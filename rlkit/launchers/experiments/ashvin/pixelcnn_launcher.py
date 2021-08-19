@@ -121,6 +121,12 @@ def train_pixelcnn(
 
     print("Starting training")
 
+    logger.remove_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True
+    )
+    logger.add_tabular_output(
+        'pixelcnn_progress.csv', relative_to_snapshot_dir=True
+    )
     BEST_LOSS = 999
     for epoch in range(num_epochs):
         should_save = (epoch % save_period == 0) and (epoch > 0)
@@ -147,5 +153,11 @@ def train_pixelcnn(
             logger.record_tabular(k, v)
         logger.dump_tabular()
         trainer.end_epoch(epoch)
+    logger.remove_tabular_output(
+        'pixelcnn_progress.csv', relative_to_snapshot_dir=True
+    )
+    logger.add_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True
+    )
 
     return vqvae
