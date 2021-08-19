@@ -31,7 +31,7 @@ class PixelCNNTrainer(LossFunction):
         self.batch_size = batch_size
         self.lr = lr
 
-        self.criterion = nn.CrossEntropyLoss().cuda()
+        self.criterion = nn.CrossEntropyLoss().to(ptu.device)
         self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         # stateful tracking variables, reset every epoch
@@ -116,7 +116,7 @@ class PixelCNNTrainer(LossFunction):
         suffix = 'test' if test else 'train'
 
         rand_indices = np.random.choice(data.shape[0], size=(8,))
-        data_points = ptu.from_numpy(data[rand_indices, 0]).long().cuda()
+        data_points = ptu.from_numpy(data[rand_indices, 0]).long().to(ptu.device)
 
         root_len = self.vqvae.root_len
         input_channels = self.vqvae.input_channels

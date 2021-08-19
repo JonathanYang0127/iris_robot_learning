@@ -32,6 +32,12 @@ Or if you want you can use the docker image included.
 ### Download Simulation Env Code
 - [multiworld](https://github.com/vitchyr/multiworld) (contains environments):```git clone https://github.com/vitchyr/multiworld```
 
+### Testing
+Writing more tests in progress. Run with:
+```
+nose2 -v -B -s tests/regression
+```
+
 ### (Optional) Install doodad
 I recommend installing [doodad](https://github.com/justinjfu/doodad) to
 launch jobs. Some of its nice features include:

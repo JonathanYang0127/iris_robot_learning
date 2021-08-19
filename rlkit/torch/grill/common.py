@@ -166,6 +166,12 @@ def train_vae(variant, return_data=False):
                        **variant['algo_kwargs'])
     save_period = variant['save_period']
 
+    logger.remove_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True,
+    )
+    logger.add_tabular_output(
+        'vae_progress.csv', relative_to_snapshot_dir=True,
+    )
     dump_skew_debug_plots = variant.get('dump_skew_debug_plots', False)
     for epoch in range(variant['num_epochs']):
         should_save_imgs = (epoch % save_period == 0)
@@ -189,6 +195,12 @@ def train_vae(variant, return_data=False):
         if epoch % 50 == 0:
             logger.save_itr_params(epoch, model)
     logger.save_extra_data(model, 'model', mode='pickle')
+    logger.remove_tabular_output(
+        'vae_progress.csv', relative_to_snapshot_dir=True,
+    )
+    logger.add_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True,
+    )
 
     if return_data:
         return model, train_dataset, test_dataset

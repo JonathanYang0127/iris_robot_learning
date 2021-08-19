@@ -44,7 +44,7 @@ bottom_drawer_goals = 'sasha/presampled_goals/affordances/combined/bottom_drawer
 
 vqvae = "ashvin/valreproduce/combined1/run5/id0/best_vqvae.pt"
 
-if __name__ == "__main__":
+def main():
     variant = dict(
         imsize=48,
         env_kwargs=dict(
@@ -263,3 +263,6 @@ if __name__ == "__main__":
         variants.append(variant)
 
     run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args) #HERE
+
+if __name__ == "__main__":
+    main()

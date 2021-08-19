@@ -43,6 +43,7 @@ def train_pixelcnn(
     data_size=float('inf'),
     num_train_batches_per_epoch=None,
     num_test_batches_per_epoch=None,
+    dump_samples=True,
 ):
     trainer_kwargs = {} if trainer_kwargs is None else trainer_kwargs
     model_kwargs = {} if model_kwargs is None else model_kwargs
@@ -121,14 +122,21 @@ def train_pixelcnn(
 
     print("Starting training")
 
+    logger.remove_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True
+    )
+    logger.add_tabular_output(
+        'pixelcnn_progress.csv', relative_to_snapshot_dir=True
+    )
     BEST_LOSS = 999
     for epoch in range(num_epochs):
         should_save = (epoch % save_period == 0) and (epoch > 0)
         trainer.train_epoch(epoch, train_loader, num_train_batches_per_epoch)
         trainer.test_epoch(epoch, test_loader, num_test_batches_per_epoch)
 
-        trainer.dump_samples(epoch, test_data, test=True)
-        trainer.dump_samples(epoch, train_data, test=False)
+        if dump_samples:
+            trainer.dump_samples(epoch, test_data, test=True)
+            trainer.dump_samples(epoch, train_data, test=False)
 
         if should_save:
             logger.save_itr_params(epoch, model)
@@ -147,5 +155,11 @@ def train_pixelcnn(
             logger.record_tabular(k, v)
         logger.dump_tabular()
         trainer.end_epoch(epoch)
+    logger.remove_tabular_output(
+        'pixelcnn_progress.csv', relative_to_snapshot_dir=True
+    )
+    logger.add_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True
+    )
 
     return vqvae

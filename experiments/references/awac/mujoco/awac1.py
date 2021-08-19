@@ -10,7 +10,7 @@ from rlkit.launchers.arglauncher import run_variants
 
 from rlkit.torch.sac.policies import GaussianPolicy
 
-if __name__ == "__main__":
+def main():
     variant = dict(
         algo_kwargs=dict(
             num_epochs=501,
@@ -98,3 +98,7 @@ if __name__ == "__main__":
         variants.append(variant)
 
     run_variants(experiment, variants, process_args)
+
+if __name__ == "__main__":
+    main()
+

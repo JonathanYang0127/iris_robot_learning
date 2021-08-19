@@ -28,6 +28,7 @@ import time
 class VQ_VAETrainer(ConvVAETrainer, LossFunction):
 
     def train_batch(self, epoch, batch):
+        self.num_batches += 1
         self.model.train()
         self.optimizer.zero_grad()
         loss = self.compute_loss(batch, epoch, False)
@@ -80,6 +81,7 @@ class VQ_VAETrainer(ConvVAETrainer, LossFunction):
         loss = vq_loss + recon_error
 
         self.eval_statistics['epoch'] = epoch
+        self.eval_statistics['num_batches'] = self.num_batches
         self.eval_statistics[prefix + "losses"].append(loss.item())
         self.eval_statistics[prefix + "Recon Error"].append(recon_error.item())
         self.eval_statistics[prefix + "VQ Loss"].append(vq_loss.item())
@@ -134,7 +136,7 @@ class VAETrainer(VQ_VAETrainer):
         beta = float(self.beta_schedule.get_value(epoch))
         recon, error, kle = self.model.compute_loss(batch["x_t"])
         loss = error + beta * kle
-        
+
         self.eval_statistics['epoch'] = epoch
         self.eval_statistics['beta'] = beta
         self.eval_statistics[prefix + "losses"].append(loss.item())

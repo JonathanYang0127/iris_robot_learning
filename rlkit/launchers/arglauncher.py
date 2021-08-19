@@ -95,6 +95,10 @@ def process_run_args(variant):
     if "--debug" in sys.argv:
         variant["debug"] = True
 
+    if "--seed" in sys.argv:
+        i = sys.argv.index("--seed")
+        variant["seed"] = sys.argv[i+1]
+
     if "--parallel" in sys.argv:
         i = sys.argv.index("--parallel")
         parallel = int(sys.argv[i+1])
