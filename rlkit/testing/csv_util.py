@@ -24,5 +24,3 @@ def check_exactly_equal(reference, output, ):
         for key in reference_row:
             assert key in output_row, key
             assert reference_row[key] == output_row[key], "%s reference: %s, output: %s" % (key, reference_row[key], output_row[key])
-
-get_exp("tests/regression/awac/gcrl/id0/progress.csv")
