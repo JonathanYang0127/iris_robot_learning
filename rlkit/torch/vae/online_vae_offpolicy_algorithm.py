@@ -14,7 +14,7 @@ from torch.multiprocessing import Process, Pipe
 from threading import Thread
 import numpy as np
 from rlkit.core.logging import add_prefix
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 import torch
 
 class OnlineVaeOffpolicyAlgorithm(TorchBatchRLAlgorithm):

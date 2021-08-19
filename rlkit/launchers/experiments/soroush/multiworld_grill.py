@@ -22,7 +22,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.images.camera import (
     sawyer_init_camera_zoomed_in,
 )
-from rlkit.util.asset_loader import local_path_from_s3_or_local_path
+from rlkit.util.io import local_path_from_s3_or_local_path
 from rlkit.util.ml_util import PiecewiseLinearSchedule
 from rlkit.visualization.video import dump_video
 from rlkit.torch.her.her_td3 import HerTd3
