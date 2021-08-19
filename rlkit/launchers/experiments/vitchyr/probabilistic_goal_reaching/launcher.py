@@ -74,7 +74,7 @@ from rlkit.launchers.experiments.vitchyr.probabilistic_goal_reaching.visualize i
     ValueRenderer,
 )
 from rlkit.launchers.rl_exp_launcher_util import create_exploration_policy
-from rlkit.util import eval_util
+from rlkit.core import eval_util
 from rlkit.util.ml_util import create_schedule
 from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector

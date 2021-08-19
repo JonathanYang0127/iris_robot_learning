@@ -4,18 +4,10 @@ import numpy as np
 import torch
 from rlkit.core.loss import LossFunction
 from torch import optim
-from torch.distributions import Normal
-from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from multiworld.core.image_env import normalize_image
 from rlkit.core import logger
-from rlkit.util.eval_util import create_stats_ordered_dict
 from rlkit.torch import pytorch_util as ptu
-from rlkit.torch.data import (
-    ImageDataset,
-    InfiniteWeightedRandomSampler,
-    InfiniteRandomSampler,
-)
 from rlkit.util.ml_util import ConstantSchedule
 import collections
 
@@ -32,10 +24,9 @@ import matplotlib.pyplot as plt
 
 def get_data(variant):
     import numpy as np
-    from multiworld.core.image_env import ImageEnv, unormalize_image
     import rlkit.torch.pytorch_util as ptu
     from rlkit.data_management.dataset  import \
-        TrajectoryDataset, ImageObservationDataset, InitialObservationDataset, EpicTimePredictionDataset
+        ImageObservationDataset, InitialObservationDataset, EpicTimePredictionDataset
 
     dataset_name = variant.get("dataset_name")
     full_dataset_path = "/private/home/anair17/ashvindev/railrl/notebooks/outputs/%s_trajectories.p" % dataset_name

@@ -84,7 +84,7 @@ from rlkit.samplers.data_collector.contextual_path_collector import (
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv, ConditionalEncoderWrappedEnv
 from rlkit.envs.encoder_wrappers import DuelEncoderWrappedEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from collections import OrderedDict
 
 from multiworld.core.image_env import ImageEnv, unormalize_image

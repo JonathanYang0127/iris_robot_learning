@@ -3,9 +3,8 @@ from collections import OrderedDict
 
 from rlkit.core.timer import timer
 
-from rlkit.core import logger
+from rlkit.core import logger, eval_util
 from rlkit.core.logging import append_log
-from rlkit.util import eval_util
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.samplers.data_collector import DataCollector
 

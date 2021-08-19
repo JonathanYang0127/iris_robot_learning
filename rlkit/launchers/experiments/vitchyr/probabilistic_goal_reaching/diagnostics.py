@@ -12,7 +12,7 @@ from rlkit.envs.contextual.contextual_env import (
 from rlkit.launchers.experiments.vitchyr.probabilistic_goal_reaching.env import (
     NormalizeAntFullPositionGoalEnv
 )
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 
 
 class AntFullPositionGoalEnvDiagnostics(ContextualDiagnosticsFn):

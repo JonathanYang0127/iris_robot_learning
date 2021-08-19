@@ -11,8 +11,8 @@ from rlkit.envs.images.env_renderer import EnvRenderer
 from rlkit.envs.images.plot_renderer import TextRenderer, ScrollingPlotRenderer
 from rlkit.envs.pearl_envs import HalfCheetahDirEnv
 from rlkit.envs.wrappers.flat_to_dict import FlatToDictPolicy
-from rlkit.util import eval_util
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core import eval_util
+from rlkit.core.eval_util import create_stats_ordered_dict
 
 
 def make_named_path_compatible(fn, divider='/'):

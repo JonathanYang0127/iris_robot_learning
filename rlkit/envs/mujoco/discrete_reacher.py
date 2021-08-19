@@ -6,7 +6,7 @@ from gym import spaces
 from gym.envs.mujoco import mujoco_env
 import itertools
 
-from rlkit.util.eval_util import get_stat_in_paths, create_stats_ordered_dict
+from rlkit.core.eval_util import get_stat_in_paths, create_stats_ordered_dict
 
 
 class DiscreteReacherEnv(mujoco_env.MujocoEnv):

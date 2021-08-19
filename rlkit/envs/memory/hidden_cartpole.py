@@ -3,7 +3,7 @@ from collections import OrderedDict
 import numpy as np
 from cached_property import cached_property
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.samplers.util import split_paths
 from rllab.envs.box2d.cartpole_env import CartpoleEnv
 from rlkit.core import logger

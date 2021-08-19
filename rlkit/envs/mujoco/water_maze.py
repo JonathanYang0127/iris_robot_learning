@@ -3,7 +3,7 @@ from collections import deque, OrderedDict
 import numpy as np
 
 from rlkit.envs.mujoco.mujoco_env import MujocoEnv
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.samplers.util import split_paths
 from rlkit.core import logger
 from sandbox.rocky.tf.spaces.box import Box

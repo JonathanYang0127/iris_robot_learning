@@ -3,7 +3,7 @@ from collections import OrderedDict
 from gym.envs.mujoco import HopperEnv as GymHopperEnv
 
 from rlkit.core import logger as default_logger
-from rlkit.util.eval_util import get_stat_in_paths, create_stats_ordered_dict
+from rlkit.core.eval_util import get_stat_in_paths, create_stats_ordered_dict
 
 
 class HopperEnv(GymHopperEnv):

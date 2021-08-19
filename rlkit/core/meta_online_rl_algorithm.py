@@ -6,10 +6,9 @@ import gtimer as gt
 import numpy as np
 import torch
 
-from rlkit.core import logger
+from rlkit.core import logger, eval_util
 from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.data_management.path_builder import PathBuilder
-from rlkit.util import eval_util
 # from rlkit.samplers.in_place import InPlacePathSampler
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.core import np_to_pytorch_batch

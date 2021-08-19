@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch import nn as nn
 
 import rlkit.torch.pytorch_util as ptu
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchRLAlgorithm
 from rlkit.util.io import load_local_or_remote_file
 
@@ -19,11 +19,10 @@ from collections import OrderedDict
 import gtimer as gt
 import numpy as np
 
-from rlkit.core import logger
+from rlkit.core import logger, eval_util
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.data_management.path_builder import PathBuilder
 from rlkit.envs.remote import RemoteRolloutEnv
-from rlkit.util import eval_util
 from rlkit.policies.base import ExplorationPolicy
 from rlkit.samplers.in_place import InPlacePathSampler
 import rlkit.envs.env_utils as env_utils
