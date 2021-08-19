@@ -1,7 +1,7 @@
 import numpy as np
 from gym.spaces import Box, Dict
 from rlkit.core.distribution import DictDistribution, DictDistributionGenerator
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch import pytorch_util as ptu
 
 from rlkit.core import logger

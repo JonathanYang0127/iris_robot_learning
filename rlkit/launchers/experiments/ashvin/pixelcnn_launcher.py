@@ -8,7 +8,7 @@ from torchvision.utils import save_image
 import time
 from torchvision.transforms import ColorJitter, RandomResizedCrop, Resize
 from PIL import Image
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 import os
 from tqdm import tqdm
 import pickle

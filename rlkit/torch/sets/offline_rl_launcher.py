@@ -5,7 +5,7 @@ from rlkit.data_management.contextual_replay_buffer import \
     ContextualRelabelingReplayBuffer
 from rlkit.envs.images import EnvRenderer
 from rlkit.launchers.contextual.util import get_gym_env
-from rlkit.util import asset_loader
+from rlkit.util import io
 from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector,
 )
@@ -102,7 +102,7 @@ def generate_trajectories(
         save_observation_keys,
 ):
     ptu.set_gpu_mode(True)
-    snapshot = asset_loader.load_local_or_remote_file(
+    snapshot = io.load_local_or_remote_file(
         snapshot_path,
         file_type='torch',
     )
@@ -294,7 +294,7 @@ def offline_disco_experiment(
         eval_context_distrib.set_embedding_key,
     ]
 
-    raw_trajectories = asset_loader.load_local_or_remote_file(
+    raw_trajectories = io.load_local_or_remote_file(
         presampled_trajectories_path
     )
     paths = convert_raw_trajectories_into_paths(

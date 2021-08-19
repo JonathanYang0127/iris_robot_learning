@@ -90,7 +90,7 @@ def rl_context_experiment(variant):
             raise TypeError
 
         if 'ckpt' in variant:
-            from rlkit.util.asset_loader import local_path_from_s3_or_local_path
+            from rlkit.util.io import local_path_from_s3_or_local_path
             import os.path as osp
 
             filename = local_path_from_s3_or_local_path(osp.join(variant['ckpt'], 'masks.npy'))
@@ -196,7 +196,7 @@ def rl_context_experiment(variant):
     action_dim = env.action_space.low.size
 
     if 'ckpt' in variant and 'ckpt_epoch' in variant:
-        from rlkit.util.asset_loader import local_path_from_s3_or_local_path
+        from rlkit.util.io import local_path_from_s3_or_local_path
         import os.path as osp
 
         ckpt_epoch = variant['ckpt_epoch']
@@ -717,7 +717,7 @@ def rl_context_experiment(variant):
         algorithm._eval_get_diag_fns.append(get_mask_diagnostics)
         
     if 'ckpt' in variant:
-        from rlkit.util.asset_loader import local_path_from_s3_or_local_path
+        from rlkit.util.io import local_path_from_s3_or_local_path
         import os.path as osp
         assert variant['algo_kwargs'].get('eval_only', False)
 

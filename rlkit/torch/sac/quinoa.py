@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from rlkit.torch.networks import LinearTransform
 import time
 
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 
 class QuinoaTrainer(TorchTrainer):
     def __init__(

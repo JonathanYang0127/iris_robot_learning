@@ -208,7 +208,7 @@ def train_vae(variant, return_data=False):
     return model
 
 def concatenate_datasets(data_list):
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
     obs, envs, dataset = [], [], {}
     for path in data_list:
         curr_data = load_local_or_remote_file(path)
@@ -272,7 +272,7 @@ def generate_vae_dataset(variant):
 
     from multiworld.core.image_env import ImageEnv, unormalize_image
     import rlkit.torch.pytorch_util as ptu
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
     from rlkit.data_management.dataset  import (
         TrajectoryDataset, ImageObservationDataset, InitialObservationDataset,
         EnvironmentDataset, ConditionalDynamicsDataset, InitialObservationNumpyDataset,
@@ -561,7 +561,7 @@ def get_envs(variant):
     from rlkit.envs.vae_wrappers import VAEWrappedEnv, ConditionalVAEWrappedEnv
     from rlkit.envs.encoder_wrappers import VQVAEWrappedEnv
     from rlkit.envs.bigan_wrapper import BiGANWrappedEnv
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
     from rlkit.torch.vae.conditional_conv_vae import CVAE, ConditionalConvVAE
     from rlkit.torch.vae.vq_vae import VQ_VAE
     from rlkit.torch.gan.bigan import BiGAN

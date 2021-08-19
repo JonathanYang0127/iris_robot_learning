@@ -28,7 +28,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 
 import os.path as osp
 from rlkit.core import logger
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 
 from rlkit.data_management.obs_dict_replay_buffer import \
         ObsDictRelabelingBuffer

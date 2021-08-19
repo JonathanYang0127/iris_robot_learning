@@ -1093,7 +1093,7 @@ def HER_baseline_td3_experiment(variant):
     from rlkit.torch.networks import MergedCNN, CNNPolicy
     import torch
     from multiworld.core.image_env import ImageEnv
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
 
     init_camera = variant.get("init_camera", None)
     presample_goals = variant.get('presample_goals', False)
@@ -1241,7 +1241,7 @@ def HER_baseline_twin_sac_experiment(variant):
     from rlkit.torch.networks import MergedCNN, CNN
     import torch
     from multiworld.core.image_env import ImageEnv
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
 
     init_camera = variant.get("init_camera", None)
     presample_goals = variant.get('presample_goals', False)

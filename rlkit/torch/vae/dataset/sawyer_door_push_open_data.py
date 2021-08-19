@@ -13,7 +13,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.images.camera import sawyer_door_env_camera, sawyer_door_env_camera
 import cv2
 
-from rlkit.util.asset_loader import local_path_from_s3_or_local_path, sync_down
+from rlkit.util.io import local_path_from_s3_or_local_path, sync_down
 from rlkit.policies.simple import RandomPolicy
 from rlkit.torch import pytorch_util as ptu
 
