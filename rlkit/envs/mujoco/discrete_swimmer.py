@@ -3,7 +3,7 @@ from gym import utils
 from gym.envs.mujoco import mujoco_env
 from gym import spaces
 
-from rlkit.util.eval_util import get_stat_in_paths
+from rlkit.core.eval_util import get_stat_in_paths
 from rlkit.core import logger
 import itertools
 

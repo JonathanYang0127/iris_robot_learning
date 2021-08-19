@@ -1,12 +1,11 @@
 from rlkit.envs.remote import RemoteRolloutEnv
-from rlkit.util import eval_util
 from rlkit.samplers.rollout_functions import deprecated_rollout
 from rlkit.torch.core import PyTorchModule
 import rlkit.torch.pytorch_util as ptu
 import argparse
 import pickle
 import uuid
-from rlkit.core import logger
+from rlkit.core import logger, eval_util
 
 filename = str(uuid.uuid4())
 

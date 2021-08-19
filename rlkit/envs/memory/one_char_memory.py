@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.metrics import log_loss
 from random import randint, choice
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.util.np_util import np_print_options, softmax
 from collections import OrderedDict
 from rlkit.pythonplusplus import clip_magnitude

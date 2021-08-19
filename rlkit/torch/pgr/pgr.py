@@ -11,7 +11,7 @@ from torch.distributions.kl import kl_divergence
 from torch import nn as nn
 
 import rlkit.torch.pytorch_util as ptu
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.util.ml_util import ScalarSchedule, ConstantSchedule
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from rlkit.core.logging import add_prefix

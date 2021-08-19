@@ -2,7 +2,7 @@ from collections import defaultdict
 import numpy as np
 
 from multiworld.envs.pygame import PickAndPlaceEnv
-from rlkit.util.eval_util import diagnostics_from_paths_statistics
+from rlkit.core.eval_util import diagnostics_from_paths_statistics
 
 
 def get_env_diagnostics(env):

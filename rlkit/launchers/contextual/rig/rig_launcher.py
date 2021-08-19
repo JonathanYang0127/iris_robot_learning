@@ -36,7 +36,7 @@ from rlkit.core import logger
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
 from rlkit.util.io import load_local_or_remote_file
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 
 from collections import OrderedDict
 

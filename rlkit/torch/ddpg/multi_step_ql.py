@@ -6,7 +6,7 @@ import numpy as np
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.split_buffer import SplitReplayBuffer
 from rlkit.data_management.subtraj_replay_buffer import SubtrajReplayBuffer
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.ddpg import DDPG
 from rlkit.util import np_util
 

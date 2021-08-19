@@ -6,7 +6,7 @@ from gym.spaces import Box
 from pygame import Color
 
 from rlkit.envs.pygame.pygame_viewer import PygameViewer
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.samplers.util import split_paths
 from rlkit.core import logger
 

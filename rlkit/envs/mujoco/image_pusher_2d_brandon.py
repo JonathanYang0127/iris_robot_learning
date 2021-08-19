@@ -5,7 +5,7 @@ import numpy as np
 from rlkit.core import logger as default_logger
 from rlkit.envs.mujoco.pusher_2d_brandon import Pusher2dEnv
 from rlkit.util.random_util import random_point_in_circle
-from rlkit.util.eval_util import get_stat_in_paths, create_stats_ordered_dict
+from rlkit.core.eval_util import get_stat_in_paths, create_stats_ordered_dict
 
 import matplotlib
 matplotlib.use("Agg")

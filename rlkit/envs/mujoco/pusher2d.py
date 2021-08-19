@@ -6,7 +6,7 @@ import numpy as np
 from gym.envs.mujoco import MujocoEnv
 
 from rlkit.envs.env_utils import get_asset_full_path
-from rlkit.util.eval_util import create_stats_ordered_dict, get_stat_in_paths
+from rlkit.core.eval_util import create_stats_ordered_dict, get_stat_in_paths
 from rlkit.core import logger as default_logger
 
 

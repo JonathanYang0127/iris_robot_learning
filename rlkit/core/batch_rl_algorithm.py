@@ -2,9 +2,8 @@ from collections import OrderedDict
 
 from rlkit.core.timer import timer
 
-from rlkit.core import logger
+from rlkit.core import logger, eval_util
 from rlkit.data_management.replay_buffer import ReplayBuffer
-from rlkit.util import eval_util
 from rlkit.samplers.data_collector.path_collector import PathCollector
 from rlkit.core.rl_algorithm import BaseRLAlgorithm
 

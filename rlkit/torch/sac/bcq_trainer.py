@@ -16,7 +16,7 @@ import torch.optim as optim
 from rlkit.torch.sac.policies import MakeDeterministic
 from torch import nn as nn
 import rlkit.torch.pytorch_util as ptu
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.core import np_to_pytorch_batch
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from rlkit.core import logger

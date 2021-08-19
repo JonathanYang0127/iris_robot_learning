@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.sac.sac import SoftActorCritic
 from rlkit.state_distance.tdm import TemporalDifferenceModel
 import rlkit.torch.pytorch_util as ptu

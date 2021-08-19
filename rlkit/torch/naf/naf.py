@@ -7,7 +7,7 @@ from torch import nn as nn
 from torch.autograd import Variable
 from torch.nn import functional as F
 
-from rlkit.util.eval_util import (
+from rlkit.core.eval_util import (
     create_stats_ordered_dict,
 )
 from rlkit.torch import pytorch_util as ptu

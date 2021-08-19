@@ -24,7 +24,7 @@ import collections
 from collections import OrderedDict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.irl.irl_trainer import IRLTrainer
 
 Observation = Dict

@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from typing import Iterable
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch import pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
