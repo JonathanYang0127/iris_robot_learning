@@ -1,3 +1,20 @@
+"""Test VAL on Pybullet tasks.
+
+The environment is available here:
+https://github.com/anair13/bullet-manipulation-affordances
+
+Data available for download:
+https://drive.google.com/file/d/1SsVaQKZnY5UkuR78WrInp9XxTdKHbF0x/view
+
+Pretrained VQVAE for download:
+
+"""
+import os
+import sys
+
+from rlkit.core import logger
+from rlkit.testing import csv_util
+
 import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
 from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment, process_args
@@ -13,24 +30,24 @@ from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
 demo_paths=[dict(path='sasha/affordances/combined/drawer_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/drawer_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/pnp_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/tray_demos_0.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/pnp_demos_0.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
-            dict(path='sasha/affordances/combined/drawer_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/drawer_demos_3.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/pnp_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/tray_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-            dict(path='sasha/affordances/combined/drawer_demos_4.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/drawer_demos_5.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/pnp_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/tray_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/tray_demos_2.pkl', obs_dict=True, is_demo=True),
 
-            dict(path='sasha/affordances/combined/drawer_demos_6.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/drawer_demos_7.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/pnp_demos_3.pkl', obs_dict=True, is_demo=True),
-            dict(path='sasha/affordances/combined/tray_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path='sasha/affordances/combined/tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
 image_train_data = 'sasha/affordances/combined/combined_images.npy'
@@ -125,7 +142,7 @@ def main():
         reset_keys_map=dict(
             image_observation="initial_latent_state"
         ),
-        # pretrained_vae_path=vqvae,
+        pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
@@ -264,5 +281,27 @@ def main():
 
     run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args) #HERE
 
-if __name__ == "__main__":
+
+def test_val_full_online():
+    cmd = "python experiments/references/val/mini_pretrained1.py --1 --local --gpu --run 0 --seed 0 --debug"
+    sys.argv = cmd.split(" ")[1:]
     main()
+
+    # check if offline training results matches
+    reference_csv = "tests/regression/val/id0_pretrained/pretrain_q.csv"
+    output_csv = os.path.join(logger.get_snapshot_dir(), "pretrain_q.csv")
+    output = csv_util.get_exp(output_csv)
+    reference = csv_util.get_exp(reference_csv)
+    keys = ["trainer/batch", "trainer/Advantage Score Max", "trainer/Q1 Predictions Mean", "trainer/replay_buffer_len"]
+    csv_util.check_equal(reference, output, keys)
+
+    # check if online training results match
+    reference_csv = "tests/regression/val/id0_pretrained/progress.csv"
+    output_csv = os.path.join(logger.get_snapshot_dir(), "progress.csv")
+    output = csv_util.get_exp(output_csv)
+    reference = csv_util.get_exp(reference_csv)
+    keys = ["epoch", "eval/Actions Mean", "expl/Actions Mean", "eval/Average Returns", "expl/Average Returns", "trainer/Advantage Score Max", "trainer/Q1 Predictions Mean", "trainer/replay_buffer_len"]
+    csv_util.check_equal(reference, output, keys)
+
+if __name__ == "__main__":
+    test_val_full_online()
