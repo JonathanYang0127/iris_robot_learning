@@ -199,8 +199,5 @@ def process_launcher_args(variant):
         launcher_config["base_log_dir"] = "/Users/ashvin/data/s3doodad/"
 
     if "exp_name" not in launcher_config:
-        s = "experiments/"
-        n = len(s)
-        assert sys.argv[0][:n] == s
-        launcher_config["exp_name"] = sys.argv[0][n:-3]
+        launcher_config["exp_name"] = sys.argv[0][:-3]
 

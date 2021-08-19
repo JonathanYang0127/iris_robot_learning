@@ -151,7 +151,7 @@ from rlkit.core import logger
 from rlkit.testing import csv_util
 
 def test_awac_hand_online():
-    cmd = "python experiments/references/awac/hand/awac_offline1.py --1 --local --gpu --run 0 --seed 0 --debug"
+    cmd = "python examples/awac/hand/awac_offline1.py --1 --local --gpu --run 0 --seed 0 --debug"
     sys.argv = cmd.split(" ")[1:]
     main()
 

@@ -13,7 +13,7 @@ https://drive.google.com/file/d/1SsVaQKZnY5UkuR78WrInp9XxTdKHbF0x/view
 import os
 import sys
 
-from experiments.references.awac.hand.awac1 import main
+from examples.awac.hand.awac1 import main
 
 from rlkit.core import logger
 from rlkit.testing import csv_util
@@ -28,7 +28,7 @@ def test_awac_hand_online():
             print("Remove {} from registry".format(custom_env))
             del gym.envs.registration.registry.env_specs[custom_env]
 
-    cmd = "python experiments/references/awac/hand/awac1.py --1 --local --gpu --run 0 --seed 0 --debug"
+    cmd = "python examples/awac/hand/awac1.py --1 --local --gpu --run 0 --seed 0 --debug"
     sys.argv = cmd.split(" ")[1:]
     main()
 

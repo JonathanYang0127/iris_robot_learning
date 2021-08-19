@@ -4,11 +4,11 @@ import sys
 from rlkit.core import logger
 from rlkit.testing import csv_util
 
-from experiments.references.val.train_vqvae import main
+from examples.val.train_vqvae import main
 
 def test_train_vqvae_fn():
     # running with GPU fails! must be some source of randomness in VQVAE with GPU
-    cmd = "python experiments/references/val/train_vqvae.py --1 --local --run 1 --debug --seed 0"
+    cmd = "python examples/val/train_vqvae.py --1 --local --run 1 --debug --seed 0"
     sys.argv = cmd.split(" ")[1:]
     main()
 

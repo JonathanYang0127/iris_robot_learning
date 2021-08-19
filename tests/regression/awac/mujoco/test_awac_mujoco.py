@@ -6,13 +6,13 @@ https://drive.google.com/file/d/1edcuicVv2d-PqH1aZUVbO5CeRq3lqK89/view
 import os
 import sys
 
-from experiments.references.awac.mujoco.awac1 import main
+from examples.awac.mujoco.awac1 import main
 
 from rlkit.core import logger
 from rlkit.testing import csv_util
 
 def test_awac_mujoco_online():
-    cmd = "python experiments/references/awac/mujoco/awac1.py --1 --local --gpu --run 0 --seed 0 --debug"
+    cmd = "python examples/awac/mujoco/awac1.py --1 --local --gpu --run 0 --seed 0 --debug"
     sys.argv = cmd.split(" ")[1:]
     main()
 
