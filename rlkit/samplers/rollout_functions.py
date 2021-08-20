@@ -75,7 +75,7 @@ def fixed_contextual_rollout(
 ):
     def obs_processor(o):
         combined_obs = [o[k] for k in observation_keys]
-        combined_obs.append(context)
+        combined_obs = [combined_obs[0]] + [context] + combined_obs[1:]
         return np.concatenate(combined_obs, axis=0)
 
     paths = rollout(

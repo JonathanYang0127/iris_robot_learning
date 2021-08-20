@@ -37,7 +37,7 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
         if kwargs['success']:
             self._positive_embeddings[gm_key].append(copy.deepcopy(self._current_embedding))
         if self._update_counter[gm_key] % self.update_frequency == 0 and \
-            len(self._positive_embeddings[gm_key]) >= 3:
+            len(self._positive_embeddings[gm_key]) >= self.n_components:
             print("ADAPTING...")
             self._iteration[gm_key] += 1
             self._update_counter[gm_key] = 0
@@ -56,4 +56,3 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
             plt.savefig('plot_embeddings.png')
 
         return gm
-

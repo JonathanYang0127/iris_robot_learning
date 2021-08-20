@@ -8,7 +8,7 @@ matplotlib.use("PDF")
 import matplotlib.pyplot as plt
 
 class GaussianExplorationStrategy(BaseExplorationStrategy):
-    def __init__(self, embeddings, policy=None, q_function=None, n_components=5):
+    def __init__(self, embeddings, policy=None, q_function=None, n_components=10):
         super().__init__(embeddings, policy=policy, q_function=q_function)
         self.n_components = n_components
         self.gm = self.fit_gaussian(self.embeddings_batch, n_components=n_components)
@@ -24,7 +24,7 @@ class GaussianExplorationStrategy(BaseExplorationStrategy):
 
     def filter_embeddings_by_q_values(self, obs, percentile=90, plot_embeddings=True):
         embeddings_batch = self.embeddings_batch
-        
+
         obs_image = obs['image'][None].repeat(t*b, axis=0)
         obs_state = obs['state'][None].repeat(t*b, axis=0)
 

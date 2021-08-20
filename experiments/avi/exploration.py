@@ -1,5 +1,5 @@
 import rlkit.torch.pytorch_util as ptu
-from rlkit.misc.roboverse_utils import add_reward_filtered_data_to_buffers_multitask
+from rlkit.misc.roboverse_utils import add_reward_filtered_data_to_buffers_multitask, dump_video_basic
 from rlkit.exploration_strategies import *
 from rlkit.samplers.data_collector import ContextualObsDictPathCollector
 
@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument("--tsteps", type=int, default=20)
     parser.add_argument("--num-trajectories", type=int, default=50000)
     parser.add_argument("--action-noise", type=float, default=0.0)
+    parser.add_argument("--video_save_frequency", type=int, default=20)
     parser.add_argument("--buffer", type=str, required=True)
     parser.add_argument('-e', '--exploration-strategy', type=str,
         choices=('gaussian', 'gaussian_filtered', 'cem'))
@@ -79,12 +80,13 @@ if __name__ == '__main__':
 
     if args.exploration_strategy == 'gaussian':
         exploration_strategy = GaussianExplorationStrategy(embeddings, policy=eval_policy,
-            q_function=q_function)
+            q_function=q_function, n_components=10)
     elif args.exploration_strategy == 'gaussian_filtered':
         exploration_strategy = GaussianExplorationStrategy(embeddings, policy=eval_policy,
-            q_function=q_function)
+            q_function=q_function, n_components=10)
     elif args.exploration_strategy == 'cem':
-        exploration_strategy = CEMExplorationStrategy(embeddings, update_frequency=args.update_frequency)
+        exploration_strategy = CEMExplorationStrategy(embeddings, update_frequency=args.update_frequency,
+            n_components=10)
     else:
         raise NotImplementedError
 
@@ -98,11 +100,13 @@ if __name__ == '__main__':
     for j in range(args.num_trajectories):
         embedding_kwargs = {'reverse': False}
         embedding = exploration_strategy.sample_embedding(**embedding_kwargs)
-        print(embedding)
+        #print(embedding)
         new_paths = expl_path_collector.collect_new_paths(args.tsteps, args.tsteps,
-            True, context=embedding)
+            True, context=embedding, multi_task=True, task_index=args.task)
         post_trajectory_kwargs = {'reverse': False, 'success': np.sum(new_paths[0]['rewards']) > 0}
         print(post_trajectory_kwargs)
         exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
 
         paths.append(new_paths)
+        if args.video_save_frequency != 0 and j % args.video_save_frequency == 0:
+            dump_video_basic(f'videos/{j}', new_paths)
