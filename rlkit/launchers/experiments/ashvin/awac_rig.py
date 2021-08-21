@@ -231,6 +231,7 @@ def awac_rig_experiment(
         init_camera=None,
         qf_class=ConcatMlp,
         env_type=None, # For plotting
+        seed=None,
     ):
 
     #Kwarg Definitions
