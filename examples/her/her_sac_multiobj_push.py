@@ -2,14 +2,14 @@ import gym
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictRelabelingBuffer
-from rlkit.launchers.launcher_util import setup_logger
+from rlkit.launchers.launcher_util import run_experiment
 from rlkit.samplers.data_collector import GoalConditionedPathCollector
 from rlkit.torch.her.her import HERTrainer
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.sac.policies import MakeDeterministic, TanhGaussianPolicy
 from rlkit.torch.sac.sac import SACTrainer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
-from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj_subset import SawyerMultiobjectEnv
+from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_multiobj import SawyerMultiobjectEnv
 
 def experiment(variant):
     expl_env = variant['env_class'](**variant['env_kwargs'])
@@ -91,63 +91,67 @@ def experiment(variant):
     algorithm.train()
 
 
+x_var=0.2
+x_low = -x_var
+x_high = x_var
+y_low = 0.5
+y_high = 0.7
+t = 0.05
+variant = dict(
+    use_gpu=True,
+    algorithm='HER-SAC',
+    version='normal',
+    env_class=SawyerMultiobjectEnv,
+    env_kwargs=dict(
+        num_objects=1,
+        object_meshes=None,
+        # num_scene_objects=[1],
+        maxlen=0.1,
+        action_repeat=5,
+        puck_goal_low=(x_low, y_low),
+        puck_goal_high=(x_high, y_high),
+        hand_goal_low=(x_low, y_low),
+        hand_goal_high=(x_high, y_high),
+        mocap_low=(x_low, y_low, 0.0),
+        mocap_high=(x_high, y_high, 0.5),
+        object_low=(x_low + t + t, y_low + t, 0.02),
+        object_high=(x_high - t - t, y_high - t, 0.02),
+    ),
+    algo_kwargs=dict(
+        num_epochs=2000,
+        max_path_length=20,
+        batch_size=128,
+        num_eval_steps_per_epoch=1000,
+        num_expl_steps_per_train_loop=1000,
+        num_trains_per_train_loop=100,
+        min_num_steps_before_training=1000,
+    ),
+    sac_trainer_kwargs=dict(
+        discount=0.99,
+        soft_target_tau=5e-3,
+        target_update_period=1,
+        policy_lr=3E-4,
+        qf_lr=3E-4,
+        reward_scale=1,
+        use_automatic_entropy_tuning=True,
+    ),
+    replay_buffer_kwargs=dict(
+        max_size=int(1E6),
+        fraction_goals_rollout_goals=0.2,  # equal to k = 4 in HER paper
+        fraction_goals_env_goals=0,
+    ),
+    qf_kwargs=dict(
+        hidden_sizes=[400, 300],
+    ),
+    policy_kwargs=dict(
+        hidden_sizes=[400, 300],
+    ),
+)
+
+
+def main():
+    run_experiment(experiment, variant=variant, exp_name='her-sac-pusher', mode="here_no_doodad", unpack_variant=False)
+
 
 if __name__ == "__main__":
-    x_var=0.2
-    x_low = -x_var
-    x_high = x_var
-    y_low = 0.5
-    y_high = 0.7
-    t = 0.05
-    variant = dict(
-        use_gpu=True,
-        algorithm='HER-SAC',
-        version='normal',
-        env_class=SawyerMultiobjectEnv,
-        env_kwargs=dict(
-            num_objects=1,
-            object_meshes=None,
-            num_scene_objects=[1],
-            maxlen=0.1,
-            action_repeat=5,
-            puck_goal_low=(x_low, y_low),
-            puck_goal_high=(x_high, y_high),
-            hand_goal_low=(x_low, y_low),
-            hand_goal_high=(x_high, y_high),
-            mocap_low=(x_low, y_low, 0.0),
-            mocap_high=(x_high, y_high, 0.5),
-            object_low=(x_low + t + t, y_low + t, 0.02),
-            object_high=(x_high - t - t, y_high - t, 0.02),
-        ),
-        algo_kwargs=dict(
-            num_epochs=2000,
-            max_path_length=20,
-            batch_size=128,
-            num_eval_steps_per_epoch=1000,
-            num_expl_steps_per_train_loop=1000,
-            num_trains_per_train_loop=100,
-            min_num_steps_before_training=1000,
-        ),
-        sac_trainer_kwargs=dict(
-            discount=0.99,
-            soft_target_tau=5e-3,
-            target_update_period=1,
-            policy_lr=3E-4,
-            qf_lr=3E-4,
-            reward_scale=1,
-            use_automatic_entropy_tuning=True,
-        ),
-        replay_buffer_kwargs=dict(
-            max_size=int(1E6),
-            fraction_goals_rollout_goals=0.2,  # equal to k = 4 in HER paper
-            fraction_goals_env_goals=0,
-        ),
-        qf_kwargs=dict(
-            hidden_sizes=[400, 300],
-        ),
-        policy_kwargs=dict(
-            hidden_sizes=[400, 300],
-        ),
-    )
-    setup_logger('her-sac-pusher', variant=variant)
-    experiment(variant)
+    main()
