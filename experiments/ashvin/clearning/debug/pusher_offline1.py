@@ -14,7 +14,7 @@ from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_leap import SawyerPushAndReac
 
 from rlkit.torch.sac.clearning_trainer import CLearningTrainer
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.data_management.obs_dict_replay_buffer import ObsDictRelabelingBuffer, CLearningBuffer
+from rlkit.data_management.clearning_replay_buffer import CLearningReplayBuffer
 
 if __name__ == "__main__":
     variant = dict(
@@ -27,7 +27,7 @@ if __name__ == "__main__":
         batch_size=1024,
 
         replay_buffer_concat_goals_to_obs=False,
-        replay_buffer_class=CLearningBuffer,
+        replay_buffer_class=CLearningReplayBuffer,
         replay_buffer_kwargs=dict(
             max_size=int(1E6),
             fraction_goals_rollout_goals=0.2,
