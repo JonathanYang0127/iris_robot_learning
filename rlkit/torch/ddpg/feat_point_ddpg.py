@@ -5,7 +5,7 @@ import rlkit.torch.pytorch_util as ptu
 import torch
 from torch.autograd import Variable
 from torch import nn as nn
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.ddpg.ddpg import DDPG
 from PIL import Image
 

@@ -2,7 +2,7 @@ import torch
 from collections import OrderedDict
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.path_builder import PathBuilder
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.util.ml_util import ConstantSchedule
 from rlkit.state_distance.rollout_util import MultigoalSimplePathSampler
 from rlkit.torch.core import np_to_pytorch_batch

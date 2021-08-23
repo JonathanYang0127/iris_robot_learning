@@ -5,7 +5,7 @@ from rlkit.data_management.online_vae_replay_buffer import \
 from rlkit.data_management.shared_obs_dict_replay_buffer \
     import SharedObsDictRelabelingBuffer
 import rlkit.torch.vae.vae_schedules as vae_schedules
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
 )

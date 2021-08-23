@@ -52,7 +52,6 @@ class AutoSetup:
                 gpu_id=doodad_config.gpu_id,
             )
         variant.pop('logger_config', None)
-        variant.pop('seed', None)
         variant.pop('exp_id', None)
         variant.pop('run_id', None)
         if self.unpack_variant:

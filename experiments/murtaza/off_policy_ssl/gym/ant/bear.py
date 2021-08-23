@@ -2,7 +2,7 @@ import rlkit.util.hyperparameter as hyp
 from rlkit.launchers.launcher_util import run_experiment
 import os
 
-from rlkit.util.asset_loader import sync_down
+from rlkit.util.io import sync_down
 
 
 def experiment(variant):

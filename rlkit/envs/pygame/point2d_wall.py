@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from rlkit.core import logger as default_logger
 from rlkit.envs.pygame.pygame_viewer import PygameViewer
 from rlkit.envs.pygame.walls import HorizontalWall
-from rlkit.util.eval_util import create_stats_ordered_dict, get_path_lengths, \
+from rlkit.core.eval_util import create_stats_ordered_dict, get_path_lengths, \
     get_stat_in_paths
 
 

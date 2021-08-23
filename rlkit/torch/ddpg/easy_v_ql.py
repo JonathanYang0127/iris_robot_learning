@@ -6,7 +6,7 @@ from torch import nn as nn
 from torch.nn import init
 
 from rlkit.torch.core import PyTorchModule
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.ddpg import DDPG
 import rlkit.torch.pytorch_util as ptu
 import rlkit.torch.networks.experimental as M

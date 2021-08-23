@@ -28,8 +28,8 @@ def grill_her_td3_experiment_offpolicy_online_vae(variant):
     from rlkit.exploration_strategies.base import (
         PolicyWrappedWithExplorationStrategy
     )
-    from rlkit.exploration_strategies.gaussian_and_epislon import \
-        GaussianAndEpislonStrategy
+    from rlkit.exploration_strategies.gaussian_and_epsilon import \
+        GaussianAndEpsilonStrategy
     from rlkit.torch.vae.online_vae_offpolicy_algorithm import OnlineVaeOffpolicyAlgorithm
 
     import gc
@@ -88,7 +88,7 @@ def grill_her_td3_experiment_offpolicy_online_vae(variant):
         # **variant['policy_kwargs']
     )
     #es = get_exploration_strategy(varient, env)
-    es = GaussianAndEpislonStrategy(
+    es = GaussianAndEpsilonStrategy(
         action_space=env.action_space,
         max_sigma=.2,
         min_sigma=.2,  # constant sigma

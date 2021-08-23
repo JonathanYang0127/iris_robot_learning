@@ -32,7 +32,7 @@ import torchvision.transforms.functional as F
 from rlkit.torch.data import BatchLoader, InfiniteBatchLoader
 from rlkit.data_management.external.bair_dataset.config import BAIR_DATASET_LOCATION
 
-from rlkit.util.asset_loader import sync_down_folder
+from rlkit.util.io import sync_down_folder
 
 class BAIRDataset(data.Dataset):
     train_data = {}

@@ -24,8 +24,8 @@ def td3_experiment_online_vae(variant):
     from rlkit.exploration_strategies.base import (
         PolicyWrappedWithExplorationStrategy
     )
-    from rlkit.exploration_strategies.gaussian_and_epislon import \
-        GaussianAndEpislonStrategy
+    from rlkit.exploration_strategies.gaussian_and_epsilon import \
+        GaussianAndEpsilonStrategy
 
     preprocess_rl_variant(variant)
     env = get_envs(variant)
@@ -80,7 +80,7 @@ def td3_experiment_online_vae(variant):
         # **variant['policy_kwargs']
     )
 
-    es = GaussianAndEpislonStrategy(
+    es = GaussianAndEpsilonStrategy(
         action_space=env.action_space,
         max_sigma=.2,
         min_sigma=.2,  # constant sigma
@@ -448,8 +448,8 @@ def td3_experiment_offpolicy_online_vae(variant):
     from rlkit.exploration_strategies.base import (
         PolicyWrappedWithExplorationStrategy
     )
-    from rlkit.exploration_strategies.gaussian_and_epislon import \
-        GaussianAndEpislonStrategy
+    from rlkit.exploration_strategies.gaussian_and_epsilon import \
+        GaussianAndEpsilonStrategy
     from rlkit.torch.vae.online_vae_offpolicy_algorithm import OnlineVaeOffpolicyAlgorithm
 
     preprocess_rl_variant(variant)
@@ -505,7 +505,7 @@ def td3_experiment_offpolicy_online_vae(variant):
         # **variant['policy_kwargs']
     )
 
-    es = GaussianAndEpislonStrategy(
+    es = GaussianAndEpsilonStrategy(
         action_space=env.action_space,
         max_sigma=.2,
         min_sigma=.2,  # constant sigma
@@ -1093,7 +1093,7 @@ def HER_baseline_td3_experiment(variant):
     from rlkit.torch.networks import MergedCNN, CNNPolicy
     import torch
     from multiworld.core.image_env import ImageEnv
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
 
     init_camera = variant.get("init_camera", None)
     presample_goals = variant.get('presample_goals', False)
@@ -1241,7 +1241,7 @@ def HER_baseline_twin_sac_experiment(variant):
     from rlkit.torch.networks import MergedCNN, CNN
     import torch
     from multiworld.core.image_env import ImageEnv
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
 
     init_camera = variant.get("init_camera", None)
     presample_goals = variant.get('presample_goals', False)

@@ -8,7 +8,7 @@ from torch import optim
 
 from rlkit.state_distance.util import merge_into_flat_obs
 from rlkit.torch import pytorch_util as ptu
-from rlkit.util.eval_util import get_generic_path_information
+from rlkit.core.eval_util import get_generic_path_information
 from rlkit.core import logger
 
 

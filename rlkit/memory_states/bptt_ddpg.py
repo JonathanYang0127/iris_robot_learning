@@ -9,12 +9,11 @@ from rlkit.data_management.split_buffer import SplitReplayBuffer
 from rlkit.data_management.updatable_subtraj_replay_buffer import (
     UpdatableSubtrajReplayBuffer
 )
-from rlkit.util.eval_util import get_average_returns, create_stats_ordered_dict
+from rlkit.core.eval_util import get_average_returns, create_stats_ordered_dict
 from rlkit.pythonplusplus import batch, ConditionTimer
 from rlkit.core.rl_algorithm import RLAlgorithm
 from rlkit.torch import pytorch_util as ptu
-from rlkit.core import logger
-from rlkit.util import eval_util
+from rlkit.core import logger, eval_util
 
 
 # noinspection PyCallingNonCallable

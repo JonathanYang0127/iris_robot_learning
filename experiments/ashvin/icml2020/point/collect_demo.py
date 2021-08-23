@@ -2,7 +2,7 @@ from multiworld.core.image_env import ImageEnv
 from multiworld.envs.mujoco.cameras import sawyer_init_camera_zoomed_in
 import numpy as np
 from rlkit.demos.collect_demo import collect_demos, collect_demos_fixed
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 
 if __name__ == '__main__':
     data = load_local_or_remote_file('ashvin/icml2020/point/sac-online2/run10/id1/itr_100.pkl')

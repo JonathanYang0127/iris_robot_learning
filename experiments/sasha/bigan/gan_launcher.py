@@ -20,7 +20,7 @@ def train_gan(variant, return_data = False):
     import torchvision.transforms as transforms
     from rlkit.data_management.external.bair_dataset.config import BAIR_DATASET_LOCATION
 
-    from rlkit.util.asset_loader import sync_down_folder
+    from rlkit.util.io import sync_down_folder
 
     if not variant.get('simpusher', False):
         if variant["dataset"] == "bair":

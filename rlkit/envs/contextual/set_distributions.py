@@ -12,7 +12,8 @@ from rlkit.envs.contextual.contextual_env import (
     Diagnostics,
     ContextualRewardFn,
 )
-from rlkit.util import eval_util, np_util
+from rlkit.util import np_util
+from rlkit.core import eval_util
 from rlkit.torch.sets.set_projection import Set
 from rlkit.torch.sets import set_vae_trainer
 from rlkit.torch.vae.vae import VAE

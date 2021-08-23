@@ -17,7 +17,7 @@ from torch.nn import MSELoss
 
 from torch.distributions import Normal
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.networks import Mlp
 from rlkit.util.ml_util import ConstantSchedule
 from rlkit.util.ml_util import PiecewiseLinearSchedule

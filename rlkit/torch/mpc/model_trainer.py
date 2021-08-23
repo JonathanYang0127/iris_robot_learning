@@ -3,7 +3,7 @@ import numpy as np
 
 from torch import optim as optim
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.policies.simple import RandomPolicy
 from rlkit.samplers.util import rollout
 from rlkit.torch import pytorch_util as ptu

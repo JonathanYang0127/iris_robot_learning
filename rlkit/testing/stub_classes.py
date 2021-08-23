@@ -15,10 +15,10 @@ class StubEnv(object):
         action_high = np.ones(action_dim)
         self._action_space = Box(action_low, action_high)
 
-        print("unused kwargs", kwargs)
+        print("stub env unused kwargs", kwargs)
 
     def reset(self):
-        pass
+        return np.zeros(self.obs_dim)
 
     def step(self, action):
         return np.zeros(self.obs_dim), 0, 0, {}
@@ -52,17 +52,20 @@ class StubMultiEnv(object):
         action_high = np.ones(action_dim)
         self._action_space = Box(action_low, action_high)
 
-        print("unused kwargs", kwargs)
+        print("stub env unused kwargs", kwargs)
 
     def reset(self):
-        pass
+        return self.get_obs()
 
     def step(self, action):
+        return self.get_obs(), 0, 0, {}
+
+    def get_obs(self):
         obs = dict()
         for name in self.obs_dims:
             obs_dim = self.obs_dims[name]
             obs[name] = np.zeros(obs_dim)
-        return obs, 0, 0, {}
+        return obs
 
     @property
     def action_space(self):

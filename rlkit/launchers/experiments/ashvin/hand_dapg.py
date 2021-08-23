@@ -3,7 +3,7 @@
 import os.path as osp
 import pickle
 from rlkit.core import logger
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.core import logger
 
 from mjrl.utils.gym_env import GymEnv

@@ -31,7 +31,7 @@ from rlkit.torch.sac.policies import MakeDeterministic
 from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.torch.sac.sac import SACTrainer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
-from rlkit.core import logger
+from rlkit.core import logger, eval_util
 
 from rlkit.launchers.contextual.util import (
     get_gym_env,
@@ -507,7 +507,6 @@ def masking_sac_experiment(
 
     def get_mask_diagnostics(unused):
         from rlkit.core.logging import append_log, add_prefix, OrderedDict
-        from rlkit.util import eval_util
         log = OrderedDict()
         for prefix, collector in zip(log_prefixes, collectors):
             paths = collector.collect_new_paths(

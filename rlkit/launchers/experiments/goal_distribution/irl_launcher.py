@@ -35,7 +35,7 @@ from rlkit.torch.sac.sac import SACTrainer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm, JointTrainer
 from rlkit.util.hyperparameter import recursive_dictionary_update
 
-from rlkit.util.asset_loader import (
+from rlkit.util.io import (
     load_local_or_remote_file, sync_down_folder, get_absolute_path
 )
 from rlkit.envs.contextual.latent_distributions import (

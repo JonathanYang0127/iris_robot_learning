@@ -10,7 +10,7 @@ from rlkit.samplers.rollout_functions import (
 )
 from rlkit.torch.core import PyTorchModule
 import rlkit.torch.pytorch_util as ptu
-from rlkit.util.asset_loader import local_path_from_s3_or_local_path
+from rlkit.util.io import local_path_from_s3_or_local_path
 import torch
 from rlkit.launchers.arglauncher import run_variants
 import rlkit.util.hyperparameter as hyp

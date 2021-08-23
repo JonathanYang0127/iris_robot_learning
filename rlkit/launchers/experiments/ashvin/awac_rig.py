@@ -6,7 +6,7 @@ from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.networks.cnn import ConcatCNN
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
@@ -26,12 +26,12 @@ from rlkit.launchers.contextual.util import (
 
 from rlkit.exploration_strategies.base import \
     PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import GaussianAndEpislonStrategy
+from rlkit.exploration_strategies.gaussian_and_epsilon import GaussianAndEpsilonStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 
 import os.path as osp
 from rlkit.core import logger
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.launchers.contextual.rig.rig_launcher import StateImageGoalDiagnosticsFn
 from rlkit.data_management.obs_dict_replay_buffer import \
         ObsDictRelabelingBuffer
@@ -84,7 +84,7 @@ from rlkit.samplers.data_collector.contextual_path_collector import (
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv, ConditionalEncoderWrappedEnv
 from rlkit.envs.dual_encoder_wrapper import DualEncoderWrappedEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from collections import OrderedDict
 
 from multiworld.core.image_env import ImageEnv, unormalize_image
@@ -231,6 +231,7 @@ def awac_rig_experiment(
         init_camera=None,
         qf_class=ConcatMlp,
         env_type=None, # For plotting
+        seed=None,
     ):
 
     #Kwarg Definitions

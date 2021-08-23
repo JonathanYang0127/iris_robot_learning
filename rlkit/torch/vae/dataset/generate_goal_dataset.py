@@ -2,7 +2,7 @@ import cv2
 import rlkit.torch.pytorch_util as ptu
 from multiworld.core.image_env import ImageEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 from rlkit.exploration_strategies.ou_strategy import OUStrategy
 import numpy as np

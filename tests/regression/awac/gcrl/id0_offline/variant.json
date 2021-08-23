@@ -24,7 +24,7 @@
     "reward_type": "puck_distance"
   },
   "exp_id": 0,
-  "exp_name": "references/awac/gcrl/pusher1",
+  "exp_name": "references/awac/gcrl/pusher_offline1",
   "layer_size": 256,
   "load_demos": true,
   "logger_config": {
@@ -46,11 +46,10 @@
   "path_loader_kwargs": {
     "demo_paths": [
       {
-        "data_split": 0.1,
+        "data_split": 1,
         "is_demo": true,
         "obs_dict": false,
-        "path": "ashvin/icml2020/pusher/state2/random2/run12/id*/video_*_vae.p",
-        "sync_dir": "ashvin/icml2020/pusher/state2/random2/run12"
+        "path": "gcrl_data_mini/id0/video_0_vae.p"
       }
     ]
   },
@@ -107,6 +106,6 @@
     "use_reparam_update": false
   },
   "trial_name": "id0",
-  "unique_id": "84552520-1a96-47ae-8294-e1731cccf502",
+  "unique_id": "35082356-e289-43de-9f37-ca068cfb8be5",
   "version": "normal"
 }

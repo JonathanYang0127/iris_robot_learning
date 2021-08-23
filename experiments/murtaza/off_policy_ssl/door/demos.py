@@ -5,7 +5,7 @@ from multiworld.envs.mujoco.cameras import sawyer_door_env_camera_v0
 from rlkit.demos.collect_demo import collect_demos
 import os.path as osp
 
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 
 if __name__ == '__main__':
     data = load_local_or_remote_file('11-16-door-reset-free-state-td3-sweep-params-policy-update-period/11-16-door_reset_free_state_td3_sweep_params_policy_update_period_2019_11_17_00_26_50_id000--s89728/params.pkl')

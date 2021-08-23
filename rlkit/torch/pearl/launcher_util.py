@@ -1,4 +1,4 @@
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch.sac.policies import GaussianPolicy, TanhGaussianPolicy
 
 ENV_PARAMS = {

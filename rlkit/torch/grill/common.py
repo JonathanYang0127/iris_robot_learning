@@ -166,6 +166,12 @@ def train_vae(variant, return_data=False):
                        **variant['algo_kwargs'])
     save_period = variant['save_period']
 
+    logger.remove_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True,
+    )
+    logger.add_tabular_output(
+        'vae_progress.csv', relative_to_snapshot_dir=True,
+    )
     dump_skew_debug_plots = variant.get('dump_skew_debug_plots', False)
     for epoch in range(variant['num_epochs']):
         should_save_imgs = (epoch % save_period == 0)
@@ -189,6 +195,12 @@ def train_vae(variant, return_data=False):
         if epoch % 50 == 0:
             logger.save_itr_params(epoch, model)
     logger.save_extra_data(model, 'model', mode='pickle')
+    logger.remove_tabular_output(
+        'vae_progress.csv', relative_to_snapshot_dir=True,
+    )
+    logger.add_tabular_output(
+        'progress.csv', relative_to_snapshot_dir=True,
+    )
 
     if return_data:
         return model, train_dataset, test_dataset
@@ -196,7 +208,7 @@ def train_vae(variant, return_data=False):
     return model
 
 def concatenate_datasets(data_list):
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
     obs, envs, dataset = [], [], {}
     for path in data_list:
         curr_data = load_local_or_remote_file(path)
@@ -260,7 +272,7 @@ def generate_vae_dataset(variant):
 
     from multiworld.core.image_env import ImageEnv, unormalize_image
     import rlkit.torch.pytorch_util as ptu
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
     from rlkit.data_management.dataset  import (
         TrajectoryDataset, ImageObservationDataset, InitialObservationDataset,
         EnvironmentDataset, ConditionalDynamicsDataset, InitialObservationNumpyDataset,
@@ -549,7 +561,7 @@ def get_envs(variant):
     from rlkit.envs.vae_wrappers import VAEWrappedEnv, ConditionalVAEWrappedEnv
     from rlkit.envs.encoder_wrappers import VQVAEWrappedEnv
     from rlkit.envs.bigan_wrapper import BiGANWrappedEnv
-    from rlkit.util.asset_loader import load_local_or_remote_file
+    from rlkit.util.io import load_local_or_remote_file
     from rlkit.torch.vae.conditional_conv_vae import CVAE, ConditionalConvVAE
     from rlkit.torch.vae.vq_vae import VQ_VAE
     from rlkit.torch.gan.bigan import BiGAN

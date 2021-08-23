@@ -7,7 +7,7 @@ from rlkit.torch.vae.conv_vae import ConvVAE, ConvVAEDouble
 from rlkit.torch.vae.vae_trainer import ConvVAETrainer
 from rlkit.torch.grill.launcher import generate_vae_dataset
 from rlkit.torch.vae.conv_vae import imsize48_default_architecture
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 
 def experiment(variant):
     from rlkit.core import logger

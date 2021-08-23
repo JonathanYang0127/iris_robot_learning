@@ -1,5 +1,5 @@
 import numpy as np
-from rlkit.util.asset_loader import get_relative_path
+from rlkit.util.io import get_relative_path
 import cv2
 
 

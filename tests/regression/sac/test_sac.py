@@ -21,6 +21,9 @@ def experiment(variant):
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
 
+    expl_env.seed(0)
+    eval_env.seed(0)
+
     M = variant['layer_size']
     qf1 = ConcatMlp(
         input_size=obs_dim + action_dim,
@@ -81,10 +84,13 @@ def experiment(variant):
     algorithm.to(ptu.device)
     algorithm.train()
 
+import os
+import sys
 
+from rlkit.core import logger
+from rlkit.testing import csv_util
 
-
-if __name__ == "__main__":
+def test_sac_online():
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
@@ -92,7 +98,7 @@ if __name__ == "__main__":
         layer_size=5,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
-            num_epochs=5,
+            num_epochs=2,
             num_eval_steps_per_epoch=1000,
             num_trains_per_train_loop=1000,
             num_expl_steps_per_train_loop=1000,
@@ -109,27 +115,17 @@ if __name__ == "__main__":
             reward_scale=1,
             use_automatic_entropy_tuning=True,
         ),
+        seed=977983,
     )
-    run_experiment(experiment, variant=variant, unpack_variant=False)
-    # setup_logger('name-of-experiment', base_log_dir="/media/ashvin/data2/s3doodad", variant=variant)
-    # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
-    # experiment(variant)
+    run_experiment(experiment, variant=variant, unpack_variant=False, mode="here_no_doodad")
 
-class TestStringMethods(unittest.TestCase):
+    # check if online training results matches
+    reference_csv = "tests/regression/sac/21-08-18-default_2021_08_18_14_36_11_id478649--s977983/progress.csv"
+    output_csv = os.path.join(logger.get_snapshot_dir(), "progress.csv")
+    output = csv_util.get_exp(output_csv)
+    reference = csv_util.get_exp(reference_csv)
+    keys = ["eval/Average Returns", "trainer/Q1 Predictions Mean", ]
+    csv_util.check_equal(reference, output, keys)
 
-    def test_upper(self):
-        self.assertEqual('foo'.upper(), 'FOO')
-
-    def test_isupper(self):
-        self.assertTrue('FOO'.isupper())
-        self.assertFalse('Foo'.isupper())
-
-    def test_split(self):
-        s = 'hello world'
-        self.assertEqual(s.split(), ['hello', 'world'])
-        # check that s.split fails when the separator is not a string
-        with self.assertRaises(TypeError):
-            s.split(2)
-
-if __name__ == '__main__':
-    unittest.main()
+if __name__ == "__main__":
+    test_sac_online()

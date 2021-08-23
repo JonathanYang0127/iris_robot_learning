@@ -15,7 +15,7 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 from torchvision.utils import save_image
 
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.util.ml_util import ConstantSchedule
 from rlkit.pythonplusplus import identity
 from rlkit.torch import pytorch_util as ptu

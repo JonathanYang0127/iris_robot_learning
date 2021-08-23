@@ -4,7 +4,7 @@ Use this branch: git@github.com:anair13/awr.git
 Setup instructions to run on AWS:
 1. Add AWR code path to doodad code_dirs_to_mount
 2. If using AWS S3 from AWR, make sure you update the following hardcoded paths
-in util/asset_loader.py:
+in util/io.py:
 
 LOCAL_LOG_DIR = '/home/ashvin/data/s3doodad'
 AWS_S3_PATH="s3://s3doodad/doodad/logs"
@@ -19,7 +19,7 @@ exps = plot.load_exps(dirs, suppress_output=True,
 import os.path as osp
 import pickle
 from rlkit.core import logger
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.envs.wrappers import RewardWrapperEnv
 import rlkit.torch.pytorch_util as ptu
 

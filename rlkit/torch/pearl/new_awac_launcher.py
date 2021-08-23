@@ -4,7 +4,7 @@ from rlkit.core.simple_offline_rl_algorithm import OfflineMetaRLAlgorithm
 from rlkit.data_management.multitask_replay_buffer import MultiTaskReplayBuffer
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.samplers.data_collector.joint_path_collector import \
     JointPathCollector
 from rlkit.torch.networks import ConcatMlp

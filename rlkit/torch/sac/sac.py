@@ -9,7 +9,7 @@ from rlkit.core.loss import LossFunction, LossStatistics
 from torch import nn as nn
 
 import rlkit.torch.pytorch_util as ptu
-from rlkit.util.eval_util import create_stats_ordered_dict
+from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from rlkit.core.logging import add_prefix
 from rlkit.core.timer import timer

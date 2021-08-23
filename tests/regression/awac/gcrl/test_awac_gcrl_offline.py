@@ -12,7 +12,6 @@ from rlkit.launchers.arglauncher import run_variants
 
 from rlkit.torch.sac.policies import GaussianPolicy
 
-from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_leap import SawyerPushAndReachXYEnv
 from rlkit.testing.stub_classes import StubEnv, StubMultiEnv
 # from multiworld.envs.mujoco.sawyer_xyz.sawyer_push_leap import SawyerPushAndReachXYEnv
 
@@ -124,6 +123,7 @@ def main():
         achieved_goal_key="state_achieved_goal",
     )
 
+
     search_space = {
         'seedid': range(5),
         'trainer_kwargs.beta': [0.001, ],
@@ -142,6 +142,14 @@ def main():
         'num_epochs': [0],
         'pretraining_logging_period': [1],
         'trainer_kwargs.q_num_pretrain2_steps': [10],
+        'path_loader_kwargs.demo_paths': [
+            [dict(
+                    path=os.getcwd() + "/tests/regression/awac/gcrl/gcrl_data_mini/id0/video_0_vae.p",
+                    obs_dict=False, # misleading but this arg is really "unwrap_obs_dict"
+                    is_demo=True,
+                    data_split=1,
+            ),],
+        ],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

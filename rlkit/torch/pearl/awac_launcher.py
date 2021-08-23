@@ -8,7 +8,7 @@ from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
 from rlkit.envs.pearl_envs import ENVS, register_pearl_envs
 from rlkit.envs.wrappers import NormalizedBoxEnv
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.pearl.agent import PEARLAgent
 from rlkit.torch.pearl.networks import MlpEncoder, DummyMlpEncoder, MlpDecoder

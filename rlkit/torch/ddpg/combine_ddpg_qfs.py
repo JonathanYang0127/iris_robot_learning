@@ -8,7 +8,7 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.util import split_paths
 from rlkit.samplers.in_place import InPlacePathSampler
 from rlkit.torch.core import np_to_pytorch_batch
-from rlkit.util.eval_util import get_generic_path_information, \
+from rlkit.core.eval_util import get_generic_path_information, \
     get_average_returns, create_stats_ordered_dict
 from rlkit.core import logger
 

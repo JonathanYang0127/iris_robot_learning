@@ -19,7 +19,7 @@ from BEAR.logger import create_stats_ordered_dict
 # import point_mass
 
 from rlkit.core import logger as railrl_logger
-from rlkit.util.asset_loader import load_local_or_remote_file
+from rlkit.util.io import load_local_or_remote_file
 
 import mj_envs
 

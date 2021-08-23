@@ -1,6 +1,6 @@
 from rlkit.demos.td3_bc import TD3BCTrainer
 from rlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from rlkit.exploration_strategies.gaussian_and_epislon import GaussianAndEpislonStrategy
+from rlkit.exploration_strategies.gaussian_and_epsilon import GaussianAndEpsilonStrategy
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.envs.wrappers import NormalizedBoxEnv
 import rlkit.torch.pytorch_util as ptu
@@ -64,7 +64,7 @@ def experiment(variant):
     action_dim = eval_env.action_space.low.size
 
     M = variant['layer_size']
-    es = GaussianAndEpislonStrategy(
+    es = GaussianAndEpsilonStrategy(
         action_space=expl_env.action_space,
         max_sigma=.2,
         min_sigma=.2,  # constant sigma

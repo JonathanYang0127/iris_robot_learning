@@ -1,30 +1,17 @@
-from collections import OrderedDict
-import pickle
 import numpy as np
-import torch
-import torch.optim as optim
-from torch import nn as nn
-import torch.nn.functional as F
 import copy
 import rlkit.torch.pytorch_util as ptu
-from rlkit.util.eval_util import create_stats_ordered_dict
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
-from rlkit.util.asset_loader import (
-    load_local_or_remote_file, sync_down_folder, get_absolute_path, sync_down
+from rlkit.util.io import (
+    load_local_or_remote_file, sync_down_folder, get_absolute_path
 )
 
-import random
 from rlkit.torch.core import np_to_pytorch_batch
 from rlkit.data_management.path_builder import PathBuilder
-
-from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
 
 # import matplotlib
 # matplotlib.use('TkAgg')
 # import matplotlib.pyplot as plt
-
-from rlkit.core import logger
 
 import glob
 
