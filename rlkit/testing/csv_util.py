@@ -18,7 +18,7 @@ def check_equal(reference, output, keys, ):
             assert key in output_row, "line %d key %s not in output" % (i, key)
             r = float(reference_row[key])
             o = float(output_row[key])
-            assert math.isclose(r, o), "line %d key %s reference: %s, output: %s" % (i, key, r, o)
+            assert math.isclose(r, o, rel_tol=1e-5), "line %d key %s reference: %s, output: %s" % (i, key, r, o)
 
 def check_exactly_equal(reference, output, ):
     for i in range(len(reference)):
