@@ -12,8 +12,10 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-image_train_data = 'sasha/affordances/combined/combined_images.npy'
-image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
+VAL_DATA_PATH = "sasha/affordances/combined/"
+
+image_train_data = VAL_DATA_PATH + 'combined_images.npy'
+image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
 def process_args(variant):
     if variant.get("debug", False):

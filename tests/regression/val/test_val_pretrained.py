@@ -4,7 +4,16 @@ The environment is available here:
 https://github.com/anair13/bullet-manipulation-affordances
 
 Data available for download:
-https://drive.google.com/file/d/1SsVaQKZnY5UkuR78WrInp9XxTdKHbF0x/view
+Premade data (~50GB) is available at: https://drive.google.com/drive/u/1/folders/1Kq77B8CWEpY3HQHv3FoRjHycS9SjZIw7
+
+A zip file (2.5GB) available at https://drive.google.com/file/d/1haNopjb0-Qic40YJARnSYiyMGH84j2KK/view?usp=sharing
+
+You can download the zip file on command line with:
+
+```gdown https://drive.google.com/uc?id=1haNopjb0-Qic40YJARnSYiyMGH84j2KK
+unzip val_sim_data.zip
+```
+Then point VAL_DATA_PATH to the downloaded path.
 
 Pretrained VQVAE for download:
 
@@ -29,37 +38,39 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-demo_paths=[dict(path='sasha/affordances/combined/drawer_demos_0.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/drawer_demos_1.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/pnp_demos_0.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/tray_demos_0.pkl', obs_dict=True, is_demo=True),
+VAL_DATA_PATH = "sasha/affordances/combined/"
 
-            # dict(path='sasha/affordances/combined/drawer_demos_2.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/drawer_demos_3.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/pnp_demos_1.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/tray_demos_1.pkl', obs_dict=True, is_demo=True),
+demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path='sasha/affordances/combined/drawer_demos_4.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/drawer_demos_5.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/pnp_demos_2.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/tray_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path='sasha/affordances/combined/drawer_demos_6.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/drawer_demos_7.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/pnp_demos_3.pkl', obs_dict=True, is_demo=True),
-            # dict(path='sasha/affordances/combined/tray_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
+
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
-image_train_data = 'sasha/affordances/combined/combined_images.npy'
-image_test_data = 'sasha/affordances/combined/combined_test_images.npy'
+image_train_data = VAL_DATA_PATH + 'combined_images.npy'
+image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
-tray_goals = 'sasha/presampled_goals/affordances/combined/tray_goals.pkl'
-pnp_goals = 'sasha/presampled_goals/affordances/combined/pnp_goals.pkl'
+tray_goals = VAL_DATA_PATH + 'tray_goals.pkl'
+pnp_goals = VAL_DATA_PATH + 'pnp_goals.pkl'
 
-top_drawer_goals = 'sasha/presampled_goals/affordances/combined/top_drawer_goals.pkl'
-bottom_drawer_goals = 'sasha/presampled_goals/affordances/combined/bottom_drawer_goals.pkl'
+top_drawer_goals = VAL_DATA_PATH + 'top_drawer_goals.pkl'
+bottom_drawer_goals = VAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 
-vqvae = "ashvin/valreproduce/combined1/run5/id0/best_vqvae.pt"
+vqvae = VAL_DATA_PATH + "best_vqvae.pt"
 
 def main():
     variant = dict(
