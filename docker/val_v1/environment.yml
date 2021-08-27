@@ -207,7 +207,6 @@ dependencies:
     - pyzmq==19.0.0
     - qtconsole==4.7.2
     - qtpy==1.9.0
-    - rand-param-envs==0.1
     - requests==2.23.0
     - s3transfer==0.3.0
     - sapien==0.6.0.dev0
