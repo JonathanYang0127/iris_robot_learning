@@ -121,6 +121,60 @@ class EncoderNet(nn.Module):
         z = reparameterize(mu, log_var)
         return z, mu, log_var
 
+class EncoderNetEndToEnd(nn.Module):
+    def __init__(self, latent_dim, image_size, image_augmentation=False,
+                 augmentation_padding=4):
+
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.image_size = image_size
+        self.image_augmentation = image_augmentation
+        self.augmentation_padding = augmentation_padding
+
+        if self.image_augmentation:
+            self.augmentation_transform = RandomCrop(
+                image_size, self.augmentation_padding, device='cuda')
+
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+
+        if self.image_size == 48:
+            # (48 - 4)/2 (22 - 4 / 2) = 9
+            flat_dim = 16*9*9
+        elif self.image_size == 64:
+            # (64 - 4)/2 (30 - 4) / 2 = 13
+            flat_dim = 16*13*13
+        else:
+            raise ValueError
+
+        self.fc1 = nn.Linear(flat_dim, 512)
+
+        # self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc_mu = nn.Linear(256, latent_dim)
+        self.fc_var = nn.Linear(256, latent_dim)
+
+    def forward(self, encoder_input):
+        batch_size, obs_dim = encoder_input.shape
+        conv_input = encoder_input.narrow(start=0, length=3*self.image_size*self.image_size,
+                              dim=1).contiguous()
+        x = conv_input.view(batch_size, 3, self.image_size, self.image_size)
+
+        if x.shape[0] > 1 and self.image_augmentation:
+            # x.shape[0] > 1 ensures we apply this only during training
+            x = self.augmentation_transform(x)
+
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        mu = self.fc_mu(x)
+        log_var = self.fc_var(x)
+        z = reparameterize(mu, log_var)
+        return z, mu, log_var
+
 
 class WideResEncoderNet(Wide_ResNet):
 
@@ -150,12 +204,12 @@ class TransformerEncoderNet(nn.Module):
         super().__init__()
         self.latent_dim = latent_dim
         self.image_size = image_size
-        
+
         self.config = SmallGPTConfig(2, 15)
         self.config.cnn_params['image_augmentation'] = image_augmentation
         assert encoder_keys[0] == 'observations'
         self.config.encoder_keys = encoder_keys
-        self.encoder = GPT(self.config) 
+        self.encoder = GPT(self.config)
 
     def forward(self, *encoder_input):
         num_tasks, b, num_timesteps, _ = encoder_input[0].shape
@@ -253,7 +307,7 @@ class EncoderDecoderNet(nn.Module):
 
 
 class TransformerEncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, image_augmentation=False, 
+    def __init__(self, image_size, latent_dim, image_augmentation=False,
         encoder_keys=['observations']):
         super().__init__()
 
@@ -275,4 +329,3 @@ class TransformerEncoderDecoderNet(nn.Module):
             z, mu, log_var = self.encoder_net(*encoder_input)
         predicted_reward = self.decoder_net(z, decoder_input)
         return predicted_reward, mu, log_var
-

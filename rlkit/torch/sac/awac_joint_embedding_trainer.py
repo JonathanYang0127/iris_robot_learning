@@ -15,10 +15,16 @@ from rlkit.misc.ml_util import PiecewiseLinearSchedule, ConstantSchedule
 import torch.nn.functional as F
 from rlkit.torch.networks import LinearTransform
 import time
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import os.path as osp
 
 from itertools import chain
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 
+def kl_anneal_linear_function(step, x0):
+    return min(1.0, step/x0)
 
 class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
     def __init__(
@@ -31,6 +37,10 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             target_qf2,
             task_encoder,
             reward_predictor,
+            use_kl_loss,
+            kl_lambda_target,
+            kl_anneal_steps,
+            visualize_embeddings,
             buffer_policy=None,
 
             train_encoder_independently=False,
@@ -114,6 +124,10 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         self.target_qf2 = target_qf2
         self.task_encoder = task_encoder
         self.reward_predictor = reward_predictor
+        self.use_kl_loss = use_kl_loss
+        self.kl_lambda_target = kl_lambda_target
+        self.kl_anneal_steps = kl_anneal_steps
+        self.visualize_embeddings = visualize_embeddings
         self.buffer_policy = buffer_policy
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
@@ -153,7 +167,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         )
         self.optimizers[self.policy] = self.policy_optimizer
 
-        self.reward_predictor_optimizer = optimizer_class(
+        self.context_optimizer = optimizer_class(
             chain(self.reward_predictor.parameters(), self.task_encoder.parameters()),
             weight_decay=q_weight_decay,
             lr=qf_lr,
@@ -538,18 +552,27 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         QF Loss
         """
         reward_criterion = nn.CrossEntropyLoss()
-        context_embedding = self.task_encoder(context)
+        context_embedding, mu, log_var = self.task_encoder(context)
         reward_predictions = self.reward_predictor(context_embedding, obs_og)
         #TODO(avi) Fix the .cuda() below
         gt_rewards = rewards.type(torch.LongTensor).cuda()
         reward_prediction_loss = reward_criterion(reward_predictions, gt_rewards[:,0])
 
-        if self._n_train_steps_total % self.q_update_period == 0:
-            self.reward_predictor_optimizer.zero_grad()
-            reward_prediction_loss.backward()
-            self.reward_predictor_optimizer.step()
+        # KL loss
+        if self.use_kl_loss:
+            kl_div = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
+            kl_lambda = self.kl_lambda_target*kl_anneal_linear_function(self._n_train_steps_total, self.kl_anneal_steps)
+            kl_loss = kl_lambda * kl_div
+            context_loss = kl_loss + reward_prediction_loss
+        else:
+            context_loss = reward_prediction_loss
 
-        context_embedding = self.task_encoder(context)
+        if self._n_train_steps_total % self.q_update_period == 0:
+            self.context_optimizer.zero_grad()
+            context_loss.backward()
+            self.context_optimizer.step()
+
+        context_embedding, mu, logvar = self.task_encoder(context)
         obs = torch.cat([obs_og, context_embedding], dim=1)
         next_obs = torch.cat([next_obs_og, context_embedding], dim=1)
         q1_pred = self.qf1(obs, actions)
@@ -567,7 +590,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             qf1_loss.backward()
             self.qf1_optimizer.step()
 
-        context_embedding = self.task_encoder(context)
+        context_embedding, mu, log_var = self.task_encoder(context)
         obs = torch.cat([obs_og, context_embedding], dim=1)
         q2_pred = self.qf2(obs, actions)
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
@@ -576,7 +599,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             qf2_loss.backward()
             self.qf2_optimizer.step()
 
-        context_embedding = self.task_encoder(context)
+        context_embedding, mu, logvar = self.task_encoder(context)
         obs = torch.cat([obs_og, context_embedding], dim=1)
         # next_obs = torch.cat([next_obs_og, context_embedding], dim=1)
         dist = self.policy(obs)
@@ -856,6 +879,16 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             self.eval_statistics['context/1/min'] = np.min(context_embedding_np[:, 1])
             self.eval_statistics['context/1/max'] = np.max(context_embedding_np[:, 1])
 
+            if self.use_kl_loss:
+                self.eval_statistics['KL Loss'] = np.mean(ptu.get_numpy(kl_loss))
+
+            # visualize context embeddings
+            if self.visualize_embeddings:
+                plt.scatter(context_embedding_np[:, 0], context_embedding_np[:, 1])
+                save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(self._n_train_steps_total))
+                plt.savefig(save_path)
+                plt.close()
+
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
             self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
@@ -999,4 +1032,3 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             task_encoder=self.task_encoder,
             reward_predictor=self.reward_predictor,
         )
-
