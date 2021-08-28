@@ -249,8 +249,8 @@ if __name__ == '__main__':
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--train-encoder-independently", default=False, action='store_true')
-    parser.add_argument("--use-kl-loss", default=True, action="store_true")
-    parser.add_argument("--visualize-embeddings", default=True, action="store_true")
+    parser.add_argument("--use-kl-loss", default=False, action="store_true")
+    parser.add_argument("--visualize-embeddings", default=False, action="store_true")
     args = parser.parse_args()
 
     variant = dict(
