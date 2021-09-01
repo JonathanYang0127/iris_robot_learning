@@ -18,6 +18,7 @@ import time
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import os.path as osp
 
 from itertools import chain
@@ -884,7 +885,10 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
 
             # visualize context embeddings
             if self.visualize_embeddings:
-                plt.scatter(context_embedding_np[:, 0], context_embedding_np[:, 1])
+                colors = cm.rainbow(np.linspace(0, 1, t))
+                for i in range(t):
+                    plt.scatter(context_embedding_np[i*b:(i+1)*b, 0], context_embedding_np[i*b:(i+1)*b, 1], color=colors[i], label=i)
+                plt.legend()
                 save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(self._n_train_steps_total))
                 plt.savefig(save_path)
                 plt.close()

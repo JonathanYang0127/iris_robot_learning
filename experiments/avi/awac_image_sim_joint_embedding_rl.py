@@ -125,7 +125,8 @@ def experiment(variant):
     #                                      'encoder_image_aug'])
     task_encoder = EncoderNetEndToEnd(variant['latent_dim'], image_size,
                                      image_augmentation=variant[
-                                         'encoder_image_aug'])
+                                         'encoder_image_aug'],
+                                         encoder_resnet=variant['encoder_resnet'])
     reward_predictor = DecoderNet(image_size, variant['latent_dim'],
                                   image_augmentation=False,
                                   extra_obs_dim=state_observation_dim)
@@ -269,6 +270,7 @@ if __name__ == '__main__':
         latent_dim=2,
         encoder_image_aug=True,
         use_next_obs_in_context=False,
+        encoder_resnet=False,
 
         # for reward predictor
         hard_negative_mining=False,
