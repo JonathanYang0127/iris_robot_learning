@@ -163,3 +163,4 @@ if __name__ == "__main__":
     parser.add_argument("--network", required=True, choices=('simple', 'transformer'))
     args = parser.parse_args()
     main(args)
+

@@ -27,7 +27,7 @@ import numpy as np
 from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
 from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, \
-    VanillaEncoderNet, DecoderNet
+    VanillaEncoderNet, DecoderNet, EncoderNet, EncoderNetEndToEnd
 
 BUFFER = '/media/avi/data/sim_data/aug3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_4K_save_all_noise_0.1_2021-08-03T15-06-13_3840.npy'
 
@@ -54,7 +54,7 @@ class EmbeddingWrapper(gym.Env, Serializable):
             [self.env.task_idx], 1,
         )
         goal_image = ptu.from_numpy(positive_data['observations'][0])
-        self.curr_embedding = ptu.get_numpy(self.embedding_network(goal_image))[
+        self.curr_embedding = ptu.get_numpy(self.embedding_network(goal_image)[0])[
             0]
         # a bit of a hack, we are just adding the embedding to the state
         new_state_obs = np.concatenate([obs['state'], self.curr_embedding],
@@ -120,9 +120,13 @@ def experiment(variant):
     target_qf1 = concat_cnn_class(**cnn_params)
     target_qf2 = concat_cnn_class(**cnn_params)
 
-    task_encoder = VanillaEncoderNet(variant['latent_dim'], image_size,
+    # task_encoder = VanillaEncoderNet(variant['latent_dim'], image_size,
+    #                                  image_augmentation=variant[
+    #                                      'encoder_image_aug'])
+    task_encoder = EncoderNetEndToEnd(variant['latent_dim'], image_size,
                                      image_augmentation=variant[
-                                         'encoder_image_aug'])
+                                         'encoder_image_aug'],
+                                         encoder_resnet=variant['encoder_resnet'])
     reward_predictor = DecoderNet(image_size, variant['latent_dim'],
                                   image_augmentation=False,
                                   extra_obs_dim=state_observation_dim)
@@ -246,6 +250,8 @@ if __name__ == '__main__':
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--train-encoder-independently", default=False, action='store_true')
+    parser.add_argument("--use-kl-loss", default=False, action="store_true")
+    parser.add_argument("--visualize-embeddings", default=False, action="store_true")
     args = parser.parse_args()
 
     variant = dict(
@@ -264,6 +270,7 @@ if __name__ == '__main__':
         latent_dim=2,
         encoder_image_aug=True,
         use_next_obs_in_context=False,
+        encoder_resnet=False,
 
         # for reward predictor
         hard_negative_mining=False,
@@ -289,7 +296,10 @@ if __name__ == '__main__':
             alpha=0,
             compute_bc=False,
             awr_min_q=True,
-
+            use_kl_loss = args.use_kl_loss,
+            kl_lambda_target = 0.001,
+            kl_anneal_steps = 10000,
+            visualize_embeddings=args.visualize_embeddings,
             train_encoder_independently=args.train_encoder_independently,
 
             bc_num_pretrain_steps=0,

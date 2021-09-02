@@ -18,7 +18,8 @@ from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v2, \
     add_multitask_data_to_multitask_buffer_v2, \
-    VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer
+    VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer, \
+    add_data_to_buffer_multitask_v2
 
 import roboverse
 import numpy as np
@@ -152,7 +153,6 @@ def experiment(variant):
     )
 
     add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
-                                               observation_keys, num_tasks)
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)
