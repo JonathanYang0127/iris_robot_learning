@@ -16,6 +16,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             min_num_steps_before_training=0,
             object_detector=None,
             multi_task=False,
+            exploration_task=None,
             meta_batch_size=4,
             train_tasks=0,
             eval_tasks=0,
@@ -35,6 +36,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
         self.multi_task = multi_task
+        self.exploration_task = exploration_task
         self.meta_batch_size = meta_batch_size
         self.train_tasks = train_tasks
         self.eval_tasks = eval_tasks
@@ -62,7 +64,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         timer.start_timer('evaluation sampling')
         if self.epoch % self._eval_epoch_freq == 0 and self.num_eval_steps_per_epoch > 0:
             if self.multi_task:
-                for i in self.train_tasks:
+                for i in self.eval_tasks:
                     self.eval_data_collector.collect_new_paths(
                         self.max_path_length,
                         self.num_eval_steps_per_epoch,
@@ -81,21 +83,38 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         if not self._eval_only:
             for _ in range(self.num_train_loops_per_epoch):
                 if self.num_expl_steps_per_train_loop > 0:
-                    timer.start_timer('exploration sampling', unique=False)
-                    print("collecting explorations")
-                    new_expl_paths = self.expl_data_collector.collect_new_paths(
-                        self.max_path_length,
-                        self.num_expl_steps_per_train_loop,
-                        discard_incomplete_paths=False,
-                        object_detector=self.object_detector,
-                    )
-                    print("done collecting explorations")
-                    timer.stop_timer('exploration sampling')
+                    if self.multi_task:
+                        timer.start_timer('exploration sampling', unique=False)
+                        print("collecting explorations")
+                        new_expl_paths = self.expl_data_collector.collect_new_paths(
+                            self.max_path_length,
+                            self.num_expl_steps_per_train_loop,
+                            discard_incomplete_paths=False,
+                            multi_task=True,
+                            task_index=self.exploration_task
+                        )
+                        print("done collecting explorations")
+                        timer.stop_timer('exploration sampling')
 
-                    timer.start_timer('replay buffer data storing', unique=False)
-                    self.replay_buffer.add_paths(new_expl_paths)
-                    timer.stop_timer('replay buffer data storing')
-                    print("self.replay_buffer._size", self.replay_buffer._size)
+                        timer.start_timer('replay buffer data storing', unique=False)
+                        self.replay_buffer.add_paths(self.exploration_task, new_expl_paths)
+                        timer.stop_timer('replay buffer data storing')
+                    else:
+                        timer.start_timer('exploration sampling', unique=False)
+                        print("collecting explorations")
+                        new_expl_paths = self.expl_data_collector.collect_new_paths(
+                            self.max_path_length,
+                            self.num_expl_steps_per_train_loop,
+                            discard_incomplete_paths=False,
+                            object_detector=self.object_detector,
+                        )
+                        print("done collecting explorations")
+                        timer.stop_timer('exploration sampling')
+
+                        timer.start_timer('replay buffer data storing', unique=False)
+                        self.replay_buffer.add_paths(new_expl_paths)
+                        timer.stop_timer('replay buffer data storing')
+                        print("self.replay_buffer._size", self.replay_buffer._size)
 
                 timer.start_timer('training', unique=False)
                 for _ in range(self.num_trains_per_train_loop):

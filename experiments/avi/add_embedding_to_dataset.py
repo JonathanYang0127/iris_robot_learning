@@ -55,7 +55,7 @@ def main(args):
                                                   (replay_buffer_full_val, lambda r: True))
 
     latent_dim = 2
-    net = EncoderDecoderNet(latent_dim, encoder_resnet=False)
+    net = EncoderDecoderNet(args.image_dim, latent_dim, encoder_resnet=False)
     net.load_state_dict(torch.load(args.chkpt))
     net.cuda()
 
@@ -89,6 +89,7 @@ if __name__ == "__main__":
     parser.add_argument("--chkpt", type=str, default=CHECKPOINT)
     parser.add_argument("--num-tasks", default=2, type=int)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument("--image-dim", default=48, type=int)
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu

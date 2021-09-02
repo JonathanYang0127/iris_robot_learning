@@ -74,14 +74,17 @@ def fixed_contextual_rollout(
         **kwargs
 ):
     def obs_processor(o):
-        combined_obs = [o[k] for k in observation_keys]
-        combined_obs = [combined_obs[0]] + [context] + combined_obs[1:]
+        combined_obs = [o[k] if k != 'task_embedding' else context for k in observation_keys]
         return np.concatenate(combined_obs, axis=0)
+
+    def full_o_postprocess_func(env, agent, o):
+        o['task_embedding'] = context
 
     paths = rollout(
         env,
         agent,
         preprocess_obs_for_policy_fn=obs_processor,
+        full_o_postprocess_func=full_o_postprocess_func,
         **kwargs
     )
     return paths

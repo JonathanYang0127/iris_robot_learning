@@ -8,8 +8,9 @@ import matplotlib
 matplotlib.use("PDF")
 import matplotlib.pyplot as plt
 
-class CEMExplorationStrategy(BaseExplorationStrategy):
-    def __init__(self, embeddings, policy=None, q_function=None, n_components=10, update_frequency=20):
+class FastExplorationStrategy(BaseExplorationStrategy):
+    def __init__(self, embeddings, policy=None, q_function=None, n_components=10, update_frequency=20,
+        epsilon0=0.3):
         super().__init__(embeddings, policy=policy, q_function=q_function)
         self.n_components = n_components
         self.update_frequency = update_frequency
@@ -17,6 +18,10 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
         self._iteration = {'forward': 0, 'reverse': 0}
         self._current_embedding = None
         self._positive_embeddings = {'forward': [], 'reverse': []}
+        self._embedding_idx = {'forward': None, 'reverse': None}
+        self._embedding_probs = {'forward': [], 'reverse': []}
+        self.epsilon0 = epsilon0
+        self.epsilon = epsilon0
 
         self.gms = {'forward': self.fit_gaussian(self.embeddings_batch, n_components=self.n_components),
             'reverse': self.fit_gaussian(self.embeddings_batch, n_components=self.n_components)}
@@ -24,25 +29,33 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
     def sample_embedding(self, **kwargs):
         assert 'reverse' in kwargs
         gm_key = 'reverse' if kwargs['reverse'] else 'forward'
-        if kwargs['reverse']:
-            return [-0.6, -1.8]
-        z, _ = self.gms[gm_key].sample()
-        self._current_embedding = z.flatten()
+        use_random_embedding = bool(np.random.rand() < self.epsilon)
+        if (use_random_embedding or len(self._positive_embeddings[gm_key]) <= 1) and len(self._positive_embeddings[gm_key]) <= 40:
+            z, _ = self.gms[gm_key].sample()
+            self._current_embedding = z.flatten()
+            self._embedding_idx[gm_key] = None
+        else:
+            probs = np.array(self._embedding_probs[gm_key]) / np.sum(self._embedding_probs[gm_key])
+            self._embedding_idx[gm_key] = np.random.choice(len(self._positive_embeddings[gm_key]),
+                p=probs)
+            self._current_embedding = self._positive_embeddings[gm_key][self._embedding_idx[gm_key]]
         return self._current_embedding
 
     def post_trajectory_update(self, plot=False, **kwargs):
         assert 'success' in kwargs and 'reverse' in kwargs
         gm_key = 'reverse' if kwargs['reverse'] else 'forward'
         self._update_counter[gm_key] += 1
-        if kwargs['success']:
-            self._positive_embeddings[gm_key].append(copy.deepcopy(self._current_embedding))
-        if self._update_counter[gm_key] % self.update_frequency == 0 and \
-            len(self._positive_embeddings[gm_key]) >= self.n_components:
-            print("ADAPTING...")
-            self._iteration[gm_key] += 1
-            self._update_counter[gm_key] = 0
-            self.gms[gm_key] = self.fit_gaussian(np.array(self._positive_embeddings[gm_key]),
-                n_components=self.n_components, plot=plot)
+        embedding_idx = self._embedding_idx[gm_key]
+        if embedding_idx is not None:
+            self._embedding_probs[gm_key][embedding_idx] = 0.8 * self._embedding_probs[gm_key][embedding_idx] + 0.2 * int(kwargs['success'])
+        else:
+            if kwargs['success']:
+                if 'embedding' in kwargs:
+                    update_embedding = kwargs['embedding']
+                else:
+                    update_embedding = self._current_embedding
+                self._positive_embeddings[gm_key].append(copy.deepcopy(update_embedding))
+                self._embedding_probs[gm_key].append(1.0)
   
     def fit_gaussian(self, batch, n_components=1, plot=False):
         gm = GaussianMixture(n_components=n_components)

@@ -185,27 +185,40 @@ class ObsDictPathCollector(MdpPathCollector):
         return snapshot
 
 
-class ContextualObsDictPathCollector(MdpPathCollector):
+class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
     def __init__(
             self,
+            exploration_strategy,
             *args,
             observation_keys=['observation',],
             **kwargs
     ):
+        '''
+        Replaces context given by observation with context given by exploration strategy
+        '''
         super().__init__(*args, **kwargs)
+        self._exploration_strategy = exploration_strategy
         self._observation_keys = observation_keys
 
     def collect_new_paths(
             self,
             *args,
-            context=None,
             **kwargs
     ):
-        self._rollout_fn = partial(
-            fixed_contextual_rollout,
-            observation_keys=self._observation_keys,
-            context=context
-        )
+        def exploration_rollout(*args, **kwargs):
+            embedding_kwargs = {'reverse': False}
+            embedding = self._exploration_strategy.sample_embedding(**embedding_kwargs)
+            rollout = fixed_contextual_rollout(*args, 
+                observation_keys=self._observation_keys,
+                context=embedding, 
+                **kwargs)
+            post_trajectory_kwargs = {'reverse': False,
+                'embedding': embedding,
+                'success': np.sum(rollout['rewards']) > 0}
+            print(post_trajectory_kwargs)
+            self._exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
+            return rollout
+        self._rollout_fn = exploration_rollout
         return super().collect_new_paths(*args, **kwargs)
 
     def get_snapshot(self):

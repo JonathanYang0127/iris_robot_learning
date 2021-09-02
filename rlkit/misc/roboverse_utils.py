@@ -104,7 +104,7 @@ def add_data_to_buffer_multitask_v2(data, replay_buffer, observation_keys):
 
 
 def add_multitask_data_to_singletask_buffer_v2(data, replay_buffer, observation_keys, num_tasks):
-    assert 'one_hot_task_id' in observation_keys
+    #assert 'one_hot_task_id' in observation_keys
 
     for j in range(len(data)):
         assert (len(data[j]['actions']) == len(data[j]['observations']) == len(
@@ -130,7 +130,7 @@ def add_multitask_data_to_singletask_buffer_v2(data, replay_buffer, observation_
         replay_buffer.add_path(path)
 
 def add_multitask_data_to_multitask_buffer_v2(data, replay_buffer, observation_keys, num_tasks):
-    assert 'one_hot_task_id' in observation_keys
+    #assert 'one_hot_task_id' in observation_keys
     for j in range(len(data)):
         assert len(data[j]['actions']) == len(data[j]['observations']) == len(
             data[j]['next_observations'])
