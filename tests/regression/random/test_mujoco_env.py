@@ -19,12 +19,16 @@ def test_mujoco_env_hc():
 
     np.random.seed(0)
     env.reset()
+    N = 1000
+    M = 17
+    observations = np.zeros((N, M))
+    expected_observations = np.load("tests/regression/random/test_mujoco_env_obs.npy")
     for i in range(1000):
         obs, _, _, _ = env.step(np.random.random(6))
-    print("after 1000 random steps")
-    print(list(obs))
-    expected_result = np.array([-0.3263179600825879, 0.6492020813555217, 0.16532766445113722, 0.14633128010624102, 0.02102182953217496, 0.6339041111185411, 0.47114413140930184, 0.3968163693547198, 0.11888247920490755, 0.29629303579287725, 1.0030749062585305, 0.22736923388192692, -8.405420840306487, -1.3047398302019213, 0.5393905655813453, -2.3596392581412027, -0.24464995109771925])
-    assert np.isclose(obs, expected_result).all()
+        assert np.isclose(obs, expected_observations[i, :]).all(), "observation %d diverged" % i
+        observations[i, :] = obs
+    print("results matched after %d steps" % N)
+    # np.save("tests/regression/random/test_mujoco_env_obs.npy", observations)
 
 if __name__ == "__main__":
     test_mujoco_env_hc()
