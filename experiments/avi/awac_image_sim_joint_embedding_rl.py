@@ -27,19 +27,21 @@ import numpy as np
 from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
 from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, \
-    VanillaEncoderNet, DecoderNet, EncoderNet, EncoderNetEndToEnd
+    VanillaEncoderNet, DecoderNet, EncoderNet, EncoderNetEndToEnd, TransformerEncoderNet
 
 BUFFER = '/media/avi/data/sim_data/aug3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_4K_save_all_noise_0.1_2021-08-03T15-06-13_3840.npy'
 
 
 class EmbeddingWrapper(gym.Env, Serializable):
 
-    def __init__(self, env, embedding_network, positive_buffer=None):
+    def __init__(self, env, embedding_network, encoder_type='regular',
+                 positive_buffer=None):
         self.env = env
         self.action_space = env.action_space
         self.observation_space = env.observation_space
         self.embedding_network = embedding_network
         self.positive_buffer = positive_buffer
+        self.encoder_type = encoder_type
 
     def step(self, action):
         obs, rew, done, info = self.env.step(action)
@@ -50,12 +52,18 @@ class EmbeddingWrapper(gym.Env, Serializable):
 
     def reset(self):
         obs = self.env.reset()
-        positive_data = self.positive_buffer.sample_batch(
-            [self.env.task_idx], 1,
-        )
-        goal_image = ptu.from_numpy(positive_data['observations'][0])
-        self.curr_embedding = ptu.get_numpy(self.embedding_network(goal_image)[0])[
-            0]
+        if not self.encoder_type == 'transformer':
+            positive_data = self.positive_buffer.sample_batch(
+                [self.env.task_idx], 1,
+            )
+            goal_image = ptu.from_numpy(positive_data['observations'][0])
+            self.curr_embedding = ptu.get_numpy(self.embedding_network(goal_image)[0])[0]
+        else:
+            positive_data = self.positive_buffer.sample_batch_of_trajectories(
+                [self.env.task_idx], 1
+            )
+            pos_sequence = ptu.from_numpy(positive_data['observations'])
+            self.curr_embedding = ptu.get_numpy(self.embedding_network(pos_sequence)[0])[0]
         # a bit of a hack, we are just adding the embedding to the state
         new_state_obs = np.concatenate([obs['state'], self.curr_embedding],
                                        axis=0)
@@ -120,18 +128,15 @@ def experiment(variant):
     target_qf1 = concat_cnn_class(**cnn_params)
     target_qf2 = concat_cnn_class(**cnn_params)
 
-    # task_encoder = VanillaEncoderNet(variant['latent_dim'], image_size,
-    #                                  image_augmentation=variant[
-    #                                      'encoder_image_aug'])
     task_encoder = EncoderNetEndToEnd(variant['latent_dim'], image_size,
-                                     image_augmentation=variant[
-                                         'encoder_image_aug'],
-                                         encoder_resnet=variant['encoder_resnet'])
+                                         image_augmentation=variant[
+                                             'encoder_image_aug'],
+                                             encoder_type=variant['encoder_type'])
     reward_predictor = DecoderNet(image_size, variant['latent_dim'],
                                   image_augmentation=False,
                                   extra_obs_dim=state_observation_dim)
 
-    eval_env = EmbeddingWrapper(eval_env, task_encoder)
+    eval_env = EmbeddingWrapper(eval_env, task_encoder, encoder_type=variant['encoder_type'])
     expl_env = eval_env
 
     replay_buffer = ObsDictMultiTaskReplayBuffer(
@@ -189,6 +194,7 @@ def experiment(variant):
         task_encoder=task_encoder,
         reward_predictor=reward_predictor,
         buffer_policy=buffer_policy,
+        encoder_type=variant['encoder_type'],
         **variant['trainer_kwargs']
     )
 
@@ -213,6 +219,7 @@ def experiment(variant):
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
         train_embedding_network=True,
+        encoder_type=variant['encoder_type'],
         replay_buffer_positive=replay_buffer_positive,
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
@@ -270,7 +277,7 @@ if __name__ == '__main__':
         latent_dim=2,
         encoder_image_aug=True,
         use_next_obs_in_context=False,
-        encoder_resnet=False,
+        encoder_type='regular',
 
         # for reward predictor
         hard_negative_mining=False,

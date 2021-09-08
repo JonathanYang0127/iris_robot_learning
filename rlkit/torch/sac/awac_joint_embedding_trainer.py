@@ -45,6 +45,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
             buffer_policy=None,
 
             train_encoder_independently=False,
+            encoder_type='regular',
 
             discount=0.99,
             reward_scale=1.0,
@@ -134,6 +135,7 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         self.target_update_period = target_update_period
 
         self.train_encoder_independently = train_encoder_independently
+        self.encoder_type = encoder_type
 
         self.use_awr_update = use_awr_update
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
@@ -527,7 +529,8 @@ class AWACJointEmbeddingMultitaskTrainer(TorchTrainer):
         next_obs_og = next_obs.view(t * b, -1)
         rewards = rewards.view(t * b, 1)
         terminals = terminals.view(t * b, 1)
-        context = context.view(t * b, -1)
+        if not self.encoder_type == 'transformer':
+            context = context.view(t * b, -1)
 
         """
         Policy and Alpha Loss
