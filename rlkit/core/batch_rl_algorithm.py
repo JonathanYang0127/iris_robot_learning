@@ -23,6 +23,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             biased_sampling=False,
             replay_buffer_positive=None,
             train_embedding_network=False,
+            encoder_type='regular',
             *args,
             **kwargs
     ):
@@ -43,6 +44,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.object_detector = object_detector
         self.biased_sampling = biased_sampling
         self.train_embedding_network = train_embedding_network
+        self.encoder_type = encoder_type
         if self.train_embedding_network:
             assert replay_buffer_positive is not None
             self.replay_buffer_positive = replay_buffer_positive
@@ -141,10 +143,16 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                         )
                     if self.train_embedding_network:
                         # import IPython; IPython.embed()
-                        positive_data = self.replay_buffer_positive.sample_batch(
-                            task_indices,
-                            self.batch_size
-                        )
+                        if not self.encoder_type == 'transformer':
+                            positive_data = self.replay_buffer_positive.sample_batch(
+                                task_indices,
+                                self.batch_size
+                            )
+                        else:
+                            positive_data = self.replay_buffer_positive.sample_batch_of_trajectories(
+                                task_indices,
+                                self.batch_size
+                            )
                         train_data['context'] = positive_data['observations']
                     self.trainer.train(train_data)
                 timer.stop_timer('training')
