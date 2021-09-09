@@ -9,10 +9,11 @@ matplotlib.use("PDF")
 import matplotlib.pyplot as plt
 
 class CEMExplorationStrategy(BaseExplorationStrategy):
-    def __init__(self, embeddings, policy=None, q_function=None, n_components=10, update_frequency=20):
+    def __init__(self, embeddings, policy=None, q_function=None, n_components=10, update_frequency=20, update_window=100):
         super().__init__(embeddings, policy=policy, q_function=q_function)
         self.n_components = n_components
         self.update_frequency = update_frequency
+        self.update_window=update_window
         self._update_counter = {'forward': 0, 'reverse': 0}
         self._iteration = {'forward': 0, 'reverse': 0}
         self._current_embedding = None
@@ -41,7 +42,7 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
             print("ADAPTING...")
             self._iteration[gm_key] += 1
             self._update_counter[gm_key] = 0
-            self.gms[gm_key] = self.fit_gaussian(np.array(self._positive_embeddings[gm_key]),
+            self.gms[gm_key] = self.fit_gaussian(np.array(self._positive_embeddings[gm_key][-self.update_window:]),
                 n_components=self.n_components, plot=plot)
   
     def fit_gaussian(self, batch, n_components=1, plot=False):

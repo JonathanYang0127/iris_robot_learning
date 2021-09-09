@@ -199,8 +199,8 @@ class ObsDictReplayBuffer(ReplayBuffer):
             # indices = np.where(biased_coin_flip, indices_1, indices_2)
         else:
             if self.bias_point is not None:
-                indices_1 = np.random.randint(0, self.bias_point, batch_size)
-                indices_2 = np.random.randint(self.bias_point, self._size, batch_size)
+                indices_1 = np.random.choice(np.arange(self.bias_point), batch_size)
+                indices_2 = np.random.choice(np.arange(self.bias_point, self._size), batch_size)
                 biased_coin_flip = (np.random.uniform(size=batch_size) <
                                     self.before_bias_point_probability)
                 indices = np.where(biased_coin_flip, indices_1, indices_2)

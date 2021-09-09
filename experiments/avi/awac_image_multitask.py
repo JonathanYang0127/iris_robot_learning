@@ -152,7 +152,7 @@ def experiment(variant):
         observation_keys=observation_keys
     )
 
-    add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
+    add_multitask_data_to_multitask_buffer_v2(data, replay_buffer, observation_keys, variant['num_tasks'])
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)

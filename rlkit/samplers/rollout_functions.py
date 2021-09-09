@@ -85,6 +85,7 @@ def fixed_contextual_rollout(
         agent,
         preprocess_obs_for_policy_fn=obs_processor,
         full_o_postprocess_func=full_o_postprocess_func,
+        full_next_o_postprocess_func=full_o_postprocess_func,
         **kwargs
     )
     return paths
@@ -100,6 +101,7 @@ def rollout(
         get_action_kwargs=None,
         return_dict_obs=False,
         full_o_postprocess_func=None,
+        full_next_o_postprocess_func=None,
         reset_callback=None,
 ):
     if render_kwargs is None:
@@ -129,10 +131,13 @@ def rollout(
         o_for_agent = preprocess_obs_for_policy_fn(o)
         a, agent_info = agent.get_action(o_for_agent, **get_action_kwargs)
 
+        next_o, r, d, env_info = env.step(a.copy())
+
         if full_o_postprocess_func:
             full_o_postprocess_func(env, agent, o)
+        if full_next_o_postprocess_func:
+            full_next_o_postprocess_func(env, agent, next_o)
 
-        next_o, r, d, env_info = env.step(a.copy())
         if render:
             env.render(**render_kwargs)
         observations.append(o)

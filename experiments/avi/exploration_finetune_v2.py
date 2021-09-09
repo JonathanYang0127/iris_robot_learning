@@ -172,12 +172,9 @@ def experiment(variant):
 
     add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
                                            observation_keys, num_tasks)
-    '''
-    Uncomment for biased sampling
-    for i in range(num_tasks):
-        replay_buffer.task_buffers[i].bias_point = replay_buffer.task_buffers[i]._top
-        replay_buffer.task_buffers[i].before_bias_point_probability = 0.7
-    '''
+    replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
+    replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
+    
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)
     # else:
@@ -227,13 +224,14 @@ def experiment(variant):
         eval_policy,
         observation_keys=observation_keys,
     )
+    
 
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
         evaluation_env=eval_env,
         exploration_data_collector=expl_path_collector,
-        evaluation_data_collector=eval_path_collector,
+        evaluation_data_collector=expl_path_collector,
         replay_buffer=replay_buffer,
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
@@ -245,7 +243,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-        train_tasks=np.arange(num_tasks),
+        train_tasks=np.arange(num_tasks), #[variant['exploration_task']],
         eval_tasks=[variant['exploration_task']],
     )
 
@@ -290,8 +288,8 @@ if __name__ == '__main__':
         num_trains_per_train_loop=1000,
         # num_eval_steps_per_epoch=0,
         num_eval_steps_per_epoch=1200,
-        num_expl_steps_per_train_loop=0,#40 * 10,
-        min_num_steps_before_training=0,
+        num_expl_steps_per_train_loop=40 * 40,
+        min_num_steps_before_training=100 * 40,
 
         dump_video_kwargs=dict(
             save_video_period=1,

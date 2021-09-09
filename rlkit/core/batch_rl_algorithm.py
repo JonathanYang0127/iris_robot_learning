@@ -53,12 +53,22 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             return OrderedDict(), done
 
         if self.epoch == 0 and self.min_num_steps_before_training > 0:
-            init_expl_paths = self.expl_data_collector.collect_new_paths(
-                self.max_path_length,
-                self.min_num_steps_before_training,
-                discard_incomplete_paths=False,
-            )
-            self.replay_buffer.add_paths(init_expl_paths)
+            if self.multi_task:
+                init_expl_paths = self.expl_data_collector.collect_new_paths(
+                    self.max_path_length,
+                    self.num_eval_steps_per_epoch,
+                    discard_incomplete_paths=True,
+                    multi_task=True,
+                    task_index=1
+                )
+                self.replay_buffer.add_paths(self.exploration_task, init_expl_paths)
+            else:
+                init_expl_paths = self.expl_data_collector.collect_new_paths(
+                    self.max_path_length,
+                    self.min_num_steps_before_training,
+                    discard_incomplete_paths=False,
+                )
+                self.replay_buffer.add_paths(init_expl_paths)
             self.expl_data_collector.end_epoch(-1)
 
         timer.start_timer('evaluation sampling')
