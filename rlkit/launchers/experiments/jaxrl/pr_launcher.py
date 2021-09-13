@@ -65,13 +65,17 @@ def pr_experiment(variant):
     eval_returns = []
     observation, done = env.reset(), False
 
+    action_noise_scale = variant.get("action_noise_scale", 0)
+
     # Use negative indices for pretraining steps.
     for i in tqdm.tqdm(range(1 - variant.num_pretraining_steps,
                              variant.max_steps + 1),
                        smoothing=0.1,
                        disable=not variant.tqdm):
         if i >= 1:
-            action = agent.sample_actions(observation)
+            action = agent.sample_actions(observation, ) # temperature=0.0
+            noise = np.random.normal(size=action.shape) * action_noise_scale
+            action = np.clip(action + noise, -1, 1)
             next_observation, reward, done, info = env.step(action)
 
             if not done or 'TimeLimit.truncated' in info:
