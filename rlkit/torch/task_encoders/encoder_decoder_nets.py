@@ -193,13 +193,13 @@ class WideResEncoderNet(Wide_ResNet):
         return z, mu, log_var
 
 class TransformerEncoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, image_augmentation=False,
+    def __init__(self, image_size, latent_dim, path_len, image_augmentation=False,
                  augmentation_padding=4, encoder_keys=['observations']):
         super().__init__()
         self.latent_dim = latent_dim
         self.image_size = image_size
 
-        self.config = SmallGPTConfig(self.latent_dim, 15)
+        self.config = SmallGPTConfig(self.latent_dim, path_len)
         self.config.cnn_params['image_augmentation'] = image_augmentation
         self.config.cnn_params['input_width'] = image_size
         self.config.cnn_params['input_height'] = image_size
@@ -303,7 +303,7 @@ class EncoderDecoderNet(nn.Module):
 
 
 class TransformerEncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, image_augmentation=False,
+    def __init__(self, image_size, latent_dim, path_len, image_augmentation=False,
         encoder_keys=['observations']):
         super().__init__()
 
@@ -312,6 +312,7 @@ class TransformerEncoderDecoderNet(nn.Module):
 
         self.encoder_net = TransformerEncoderNet(image_size,
                                       latent_dim,
+                                      path_len,
                                       image_augmentation=image_augmentation,
                                       encoder_keys=encoder_keys)
         self.decoder_net = DecoderNet(image_size,

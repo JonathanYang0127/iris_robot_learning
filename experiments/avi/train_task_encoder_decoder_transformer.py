@@ -15,7 +15,6 @@ from torch import optim
 from rlkit.launchers.config import LOCAL_LOG_DIR
 from rlkit.core import logger
 from rlkit.launchers.launcher_util import setup_logger
-from rlkit.misc.wx250_utils import add_data_to_buffer_real_robot, DummyEnv, process_image
 
 from rlkit.torch.task_encoders.encoder_decoder_nets import TransformerEncoderDecoderNet
 from rlkit.torch.task_encoders.transformer_encoder_trainer import TransformerTaskEncoderTrainer
@@ -57,6 +56,16 @@ def add_reward_filtered_data_to_buffers_multitask(
                                       path['terminals'][i], path['next_observations'][i]
                                       )
 
+def process_image(image):
+    if len(image.shape) == 3:
+        image = np.transpose(image, [2, 0, 1])
+        image = (image.flatten())
+
+    if np.mean(image) > 5:
+        image = image / 255.0
+    return image
+
+
 def enable_gpus(gpu_str):
     if gpu_str != "":
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
@@ -69,6 +78,7 @@ VALIDATION_BUFFER = ('/nfs/kun1/users/jonathan/robotnetv2_data/july_15_kulbot_va
 
 def main(args):
     variant = dict(
+        env=args.env,
         buffer=args.buffer,
         val_buffer=args.val_buffer,
         beta_target=args.beta_target,
@@ -79,8 +89,8 @@ def main(args):
         batch_size=args.batch_size,
         num_tasks=args.num_tasks,
         image_augmentation=args.use_image_aug,
-        encoder_keys=['observations'],
-        path_len=variant['path_len']
+        encoder_keys=['observations', 'actions'],
+        path_len=args.path_len
     )
 
     enable_gpus(args.gpu)
@@ -89,15 +99,15 @@ def main(args):
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
 
+    assert len(data[0]['actions']) == variant['path_len']
     num_transitions = get_buffer_size_multitask(data)
     max_replay_buffer_size = num_transitions + 10
-    image_size = 64
-    expl_env = DummyEnv(image_size=image_size, use_wrist=True)
+    image_size = 48
+    expl_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=variant['num_tasks'])
     train_task_indices = list(range(variant['num_tasks']))
     observation_keys = ['image',]
 
     buffer_kwargs = {
-        path_len=variant['path_len'],
         'use_next_obs_in_context': False,
         'sparse_rewards': False,
         'observation_keys': observation_keys
@@ -115,12 +125,14 @@ def main(args):
         int(max_replay_buffer_size/2),
         expl_env,
         train_task_indices,
+        path_len=variant['path_len'],
         **buffer_kwargs
     )
     replay_buffer_full = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
         expl_env,
         train_task_indices,
+        path_len=variant['path_len'],
         **buffer_kwargs
     )
     # train_task_indices = list(range(32))
@@ -133,6 +145,7 @@ def main(args):
     with open(variant['val_buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
 
+    assert len(data[0]['actions']) == variant['path_len'], "Data len {} doesn't match {}".format(len(data[0]['actions']), variant['path_len'])
     num_transitions = get_buffer_size_multitask(data)
     max_replay_buffer_size = num_transitions + 10
 
@@ -149,12 +162,14 @@ def main(args):
         int(max_replay_buffer_size/2),
         expl_env,
         train_task_indices,
+        path_len=variant['path_len'],
         **buffer_kwargs
     )
     replay_buffer_full_val = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
         expl_env,
         train_task_indices,
+        path_len=variant['path_len'],
         **buffer_kwargs
     )
     add_reward_filtered_trajectories_to_buffers_multitask(data, observation_keys,
@@ -164,11 +179,11 @@ def main(args):
                                                   (replay_buffer_positive, lambda r: r > 0))
 
     latent_dim = variant['latent_dim']
-    net = TransformerEncoderDecoderNet(image_size, latent_dim,
+    net = TransformerEncoderDecoderNet(image_size, latent_dim, variant['path_len'],
                             image_augmentation=args.use_image_aug,
                             encoder_keys=variant['encoder_keys'])
     net.to(ptu.device)
-    exp_prefix = '{}-task-encoder-decoder-real-data-transformer'.format(time.strftime("%y-%m-%d"))
+    exp_prefix = '{}-task-encoder-decoder-transformer'.format(time.strftime("%y-%m-%d"))
     save_freq = 100
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=save_freq, )
@@ -197,12 +212,13 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--env", type=str, required=True)
     parser.add_argument("--buffer", type=str, default=BUFFER)
     parser.add_argument("--val-buffer", type=str, default=VALIDATION_BUFFER)
     parser.add_argument("--num-tasks", type=int, default=2)
     parser.add_argument("--anneal", type=str, default='linear',
                         choices=('sigmoid', 'linear', 'none'))
-    parser.add_argument("--path-len", default=15, type=int)
+    parser.add_argument("--path-len", default=30, type=int)
     parser.add_argument("--latent-dim", default=2, type=int)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--gpu", default='0', type=str)

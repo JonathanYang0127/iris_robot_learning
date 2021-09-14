@@ -23,6 +23,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
             self,
             max_size,
             env,
+            path_len=None,
             ob_keys_to_save=None,
             internal_keys=None,
             observation_key=None,  # for backwards compatibility
@@ -57,6 +58,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
         assert isinstance(env.observation_space, Dict)
         self.max_size = max_size
         self.env = env
+        self.path_len=path_len
         self.observation_keys = observation_keys
         self.save_data_in_snapshot = save_data_in_snapshot
 
@@ -234,11 +236,13 @@ class ObsDictReplayBuffer(ReplayBuffer):
         }
         return batch
 
-    def random_trajectory(self, batch_size, traj_len=15):
+    def random_trajectory(self, batch_size):
         """
         Be careful that the buffer hasn't wrapped around before calling this function.
         TODO: check for wrapping around, get trajectory length from somewhere else
         """
+        traj_len = self.path_len
+        assert traj_len is not None and self._size % traj_len == 0
         num_traj_indices = self._size // traj_len
         traj_indices = np.random.choice(num_traj_indices, batch_size)
         indices = np.concatenate([np.arange(traj_len * i, traj_len * (i + 1)) for i in traj_indices])

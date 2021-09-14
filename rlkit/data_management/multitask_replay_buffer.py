@@ -83,8 +83,8 @@ class MultiTaskReplayBuffer(ReplayBuffer):
                 print(task)
         return batch
 
-    def random_trajectory(self, task, batch_size, traj_len=15):
-        return self.task_buffers[task].random_trajectory(batch_size, traj_len=traj_len)
+    def random_trajectory(self, task, batch_size):
+        return self.task_buffers[task].random_trajectory(batch_size)
 
     def num_steps_can_sample(self, task):
         return self.task_buffers[task].num_steps_can_sample()
@@ -132,7 +132,7 @@ class MultiTaskReplayBuffer(ReplayBuffer):
             'terminals': terms,
         }
     
-    def sample_batch_of_trajectories(self, indices, batch_size, traj_len=15):
+    def sample_batch_of_trajectories(self, indices, batch_size):
         """
         sample batch of trajectories from a list of tasks
 
@@ -141,7 +141,7 @@ class MultiTaskReplayBuffer(ReplayBuffer):
         :return:
             [num_tasks, batch_size, traj_len, dim] array
         """
-        batches = [self.random_trajectory(idx, batch_size=batch_size, traj_len=traj_len) for idx in indices]
+        batches = [self.random_trajectory(idx, batch_size=batch_size) for idx in indices]
         unpacked = [self.unpack_batch(batch) for batch in batches]
         unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
         unpacked = [np.concatenate(x, axis=0) for x in unpacked]
@@ -213,6 +213,7 @@ class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):
             use_next_obs_in_context,
             sparse_rewards,
             observation_keys,
+            path_len=None,
             use_ground_truth_context=False,
             ground_truth_tasks=None,
             env_info_sizes=None,
@@ -244,6 +245,7 @@ class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):
         self.task_buffers = dict([(idx, ObsDictReplayBuffer(
             max_replay_buffer_size,
             env,
+            path_len=path_len,
             observation_keys=observation_keys,
             # env_info_sizes=env_info_sizes,
         )) for idx in task_indices])
