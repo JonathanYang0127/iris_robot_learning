@@ -133,6 +133,7 @@ def experiment(variant):
     else:
         env_info_sizes = dict()
 
+    replay_buffer_class = variant.get("replay_buffer_class", ObsDictRelabelingBuffer)
     replay_buffer_kwargs=dict(
         env=env,
         observation_key=observation_key,
@@ -140,19 +141,14 @@ def experiment(variant):
         achieved_goal_key=achieved_goal_key,
     )
     replay_buffer_kwargs.update(variant.get('replay_buffer_kwargs', dict()))
-    replay_buffer = ConcatToObsWrapper(
-        ObsDictRelabelingBuffer(**replay_buffer_kwargs),
-        ["resampled_goals", ],
-    )
+    replay_buffer = replay_buffer_class(**replay_buffer_kwargs)
     replay_buffer_kwargs.update(variant.get('demo_replay_buffer_kwargs', dict()))
-    demo_train_buffer = ConcatToObsWrapper(
-        ObsDictRelabelingBuffer(**replay_buffer_kwargs),
-        ["resampled_goals", ],
-    )
-    demo_test_buffer = ConcatToObsWrapper(
-        ObsDictRelabelingBuffer(**replay_buffer_kwargs),
-        ["resampled_goals", ],
-    )
+    demo_train_buffer = replay_buffer_class(**replay_buffer_kwargs)
+    demo_test_buffer = replay_buffer_class(**replay_buffer_kwargs)
+    if variant.get("replay_buffer_concat_goals_to_obs", True):
+        replay_buffer = ConcatToObsWrapper(replay_buffer, ["resampled_goals", ], )
+        demo_train_buffer = ConcatToObsWrapper(demo_train_buffer, ["resampled_goals", ],)
+        demo_test_buffer = ConcatToObsWrapper(demo_test_buffer, ["resampled_goals", ], )
 
     M = variant['layer_size']
     qf1 = ConcatMlp(
@@ -231,7 +227,8 @@ def experiment(variant):
         else:
             error
 
-    trainer = AWACTrainer(
+    trainer_class = variant.get("trainer_class", AWACTrainer)
+    trainer = trainer_class(
         env=eval_env,
         policy=policy,
         qf1=qf1,

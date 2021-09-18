@@ -27,6 +27,7 @@ class AWACTrainer(TorchTrainer):
             target_qf1,
             target_qf2,
             buffer_policy=None,
+            z=None,
 
             discount=0.99,
             reward_scale=1.0,
@@ -104,6 +105,7 @@ class AWACTrainer(TorchTrainer):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
+        self.z = z
         self.buffer_policy = buffer_policy
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
@@ -150,6 +152,13 @@ class AWACTrainer(TorchTrainer):
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
+
+        if self.z:
+            self.z_optimizer = optimizer_class(
+                self.z.parameters(),
+                weight_decay=q_weight_decay,
+                lr=qf_lr,
+            )
 
         if buffer_policy and train_bc_on_rl_buffer:
             self.buffer_policy_optimizer =  optimizer_class(
@@ -569,6 +578,17 @@ class AWACTrainer(TorchTrainer):
         else:
             beta = self.beta_schedule.get_value(self._n_train_steps_total)
 
+        if self.z: # partition function
+            # z_pred = torch.exp(self.z(obs) / beta)
+            # exp_score = torch.exp(q_adv - v_pi / beta)
+            # z_loss = self.qf_criterion(z_pred, exp_score.detach())
+            # z_pred = z_pred.detach()
+
+            log_z_pred = self.z(obs)
+            adv = q_adv - v_pi
+            z_loss = self.qf_criterion(log_z_pred, adv.detach())
+            log_z_pred = log_z_pred.detach()
+
         if self.normalize_over_state == "advantage":
             score = q_adv - v_pi
             if self.mask_positive_advantage:
@@ -609,6 +629,11 @@ class AWACTrainer(TorchTrainer):
             # logZ = torch.logsumexp(q_b/beta - logK, dim=1, keepdim=True)
             # logS = q_adv/beta - logZ
             score = F.softmax(logS, dim=0) # score / sum(score)
+        elif self.normalize_over_state == "Zreg":
+            score = q_adv - v_pi
+            scaled_score = score / beta
+            scaled_score = scaled_score - max(scaled_score)
+            score = torch.exp(scaled_score) # / z_pred
         else:
             error
 
@@ -627,6 +652,8 @@ class AWACTrainer(TorchTrainer):
                 weights = torch.exp(score / beta)
             elif self.normalize_over_batch == "step_fn":
                 weights = (score > 0).float()
+            elif self.normalize_over_batch == "simplex":
+                weights = F.normalize(score, dim=0, p=1)
             elif self.normalize_over_batch == False:
                 weights = score
             else:
@@ -723,6 +750,11 @@ class AWACTrainer(TorchTrainer):
             qf2_loss.backward()
             self.qf2_optimizer.step()
 
+            if self.z:
+                self.z_optimizer.zero_grad()
+                z_loss.backward()
+                self.z_optimizer.step()
+
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
@@ -798,6 +830,16 @@ class AWACTrainer(TorchTrainer):
                 ptu.get_numpy(score),
             ))
 
+            # self.eval_statistics.update(create_stats_ordered_dict(
+            #     'z_pred',
+            #     ptu.get_numpy(z_pred),
+            # ))
+            if self.z:
+                self.eval_statistics.update(create_stats_ordered_dict(
+                    'log_z_pred',
+                    ptu.get_numpy(log_z_pred),
+                ))
+                self.eval_statistics['z_loss'] = ptu.get_numpy(z_loss)
             if self.normalize_over_state == "Z":
                 self.eval_statistics.update(create_stats_ordered_dict(
                     'logZ',
@@ -884,6 +926,8 @@ class AWACTrainer(TorchTrainer):
             self.target_qf1,
             self.target_qf2,
         ]
+        if self.z:
+            nets.append(self.z)
         if self.buffer_policy:
             nets.append(self.buffer_policy)
         return nets

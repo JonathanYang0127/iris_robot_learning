@@ -12,6 +12,7 @@ def pr_experiment(variant):
     from jaxrl.datasets.dataset_utils import make_env_and_dataset
     from jaxrl.evaluation import evaluate
     from jaxrl.utils import make_env
+    from jaxrl.datasets.awac_dataset import AWACDataset
 
     from rlkit.core import logger
 
@@ -62,6 +63,12 @@ def pr_experiment(variant):
                                  replay_buffer_size or variant.max_steps)
     replay_buffer.initialize_with_dataset(dataset, variant.init_dataset_size)
 
+    demo_dataset = AWACDataset(variant.env_name, dataset_names=('awac_demo',))
+    demo_buffer = ReplayBuffer(env.observation_space, action_dim,
+                                 replay_buffer_size or variant.max_steps)
+    demo_buffer.initialize_with_dataset(demo_dataset, variant.init_dataset_size)
+
+
     eval_returns = []
     observation, done = env.reset(), False
 
@@ -98,6 +105,9 @@ def pr_experiment(variant):
 
         batch = replay_buffer.sample(variant.batch_size)
         update_info = agent.update(batch)
+
+        demo_batch = demo_buffer.sample(variant.batch_size)
+        update_info = {**update_info, **agent.eval(demo_batch)}
 
         if i % variant.log_interval == 0:
             for k, v in update_info.items():
