@@ -1,4 +1,6 @@
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
+from gym.spaces import Dict, Discrete
+import numpy as np
 
 class CLearningReplayBuffer(ObsDictReplayBuffer):
     """

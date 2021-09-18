@@ -13,35 +13,31 @@ if __name__ == "__main__":
         log_interval = 1000,
         eval_interval = 10000,
         batch_size = 1024,
-        max_steps = int(1e6),
+        max_steps = int(5e6),
         init_dataset_size = None,
         num_pretraining_steps = int(5e4),
         tqdm = True,
         save_video = False,
         config = dict(
-            algo = 'awac',
-            actor_optim_kwargs = dict(
-                learning_rate = 3e-4,
-                weight_decay = 1e-4,
-            ),
-            actor_hidden_dims = (256, 256, 256, 256),
-            state_dependent_std = False,
+            algo = 'pr',
+            actor_lr = 3e-4,
+            value_lr = 3e-4,
             critic_lr = 3e-4,
-            critic_hidden_dims = (256, 256),
+            hidden_dims = (256, 256),
             discount = 0.99,
+            quantile = 0.8,
+            temperature = 10.0,
             tau = 0.005,
             target_update_period = 1,
-            beta = 10.0,
-            num_samples = 1,
             replay_buffer_size = None,
-            clamp_q = True,
         )
     )
 
     search_space = {
-        'env_name': ["relocate-binary-v0", "door-binary-v0", "pen-binary-v0",],
-        'config.beta': [0.1, 0.3],
-        'seedid': range(3),
+        'env_name': ["relocate-binary-v0", ],
+        'seedid': range(20, 30),
+        'config.quantile': [0.8, ], # [0.5, 0.8, 0.9, 0.95],
+        'config.temperature': [3.0, ], # [3.0, 1.0],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

@@ -25,6 +25,7 @@ from multiworld.core.gym_to_multi_env import GymToMultiEnv
 from rlkit.util.hyperparameter import recursive_dictionary_update
 
 import torch
+from torch.nn import functional as F
 import numpy as np
 from torchvision.utils import save_image
 
@@ -247,6 +248,15 @@ def experiment(variant):
         **qf_kwargs
     )
 
+    # def positive_activation(x):
+        # return F.relu(x) + 1e-8
+
+    z = ConcatMlp(
+        input_size=obs_dim,
+        output_size=1,
+        **qf_kwargs
+    )
+
     policy_class = variant.get("policy_class", TanhGaussianPolicy)
     policy_kwargs = variant['policy_kwargs']
     policy_path = variant.get("policy_path", False)
@@ -343,6 +353,7 @@ def experiment(variant):
         target_qf1=target_qf1,
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
+        z=z,
         **variant['trainer_kwargs']
     )
     if variant['collection_mode'] == 'online':
