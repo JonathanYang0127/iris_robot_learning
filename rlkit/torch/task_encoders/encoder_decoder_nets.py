@@ -273,6 +273,7 @@ class DecoderNet(nn.Module):
         x = torch.flatten(x, 1) # flatten all dimensions except batch
         x = torch.cat((x, extra_fc_input, task_embedding), dim=1)
         x = F.relu(self.fc1(x))
+
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
@@ -303,10 +304,11 @@ class EncoderDecoderNet(nn.Module):
 
 
 class TransformerEncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, path_len, image_augmentation=False,
+    def __init__(self, image_size, latent_dim, num_tasks, path_len, image_augmentation=False,
         encoder_keys=['observations']):
         super().__init__()
 
+        self.num_tasks = num_tasks
         self.latent_dim = latent_dim
         self.image_augmentation = image_augmentation
 
@@ -318,11 +320,15 @@ class TransformerEncoderDecoderNet(nn.Module):
         self.decoder_net = DecoderNet(image_size,
                                       latent_dim,
                                       image_augmentation=image_augmentation)
+        self.fc_task_predictor1 = nn.Linear(latent_dim, 256)
+        self.fc_task_predictor2 = nn.Linear(256, self.num_tasks)
 
     def forward(self, encoder_input, decoder_input):
         if isinstance(encoder_input, torch.Tensor):
             z, mu, log_var = self.encoder_net(encoder_input)
         elif isinstance(encoder_input, (list, tuple)):
             z, mu, log_var = self.encoder_net(*encoder_input)
-        predicted_reward = self.decoder_net(z, decoder_input)
-        return predicted_reward, mu, log_var
+        predicted_reward  = self.decoder_net(z, decoder_input)
+        x = self.fc_task_predictor1(z)
+        predicted_task = self.fc_task_predictor2(F.relu(x))
+        return predicted_reward, predicted_task, mu, log_var

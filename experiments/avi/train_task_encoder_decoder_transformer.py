@@ -28,6 +28,8 @@ def add_reward_filtered_trajectories_to_buffers_multitask(
     for j in range(len(data)):
         path_len = len(data[j]['actions'])
         path = data[j]
+        task_idx = data[j]['env_infos'][0]['task_idx']
+        
         for arg in args:
             if arg[1](path['rewards']):
                 for i in range(path_len):
@@ -46,6 +48,7 @@ def add_reward_filtered_data_to_buffers_multitask(
     for j in range(len(data)):
         path_len = len(data[j]['actions'])
         path = data[j]
+        task_idx = path['env_infos'][0]['task_idx']
         for i in range(path_len):
             for arg in args:
                 path['observations'][i]['image'] = process_image(path['observations'][i]['image'])
@@ -86,6 +89,7 @@ def main(args):
         latent_dim=args.latent_dim,
         decoder_resnet=args.decoder_resnet,
         total_steps=int(5e5),
+        meta_batch_size=args.meta_batch_size,
         batch_size=args.batch_size,
         num_tasks=args.num_tasks,
         image_augmentation=args.use_image_aug,
@@ -105,6 +109,7 @@ def main(args):
     image_size = 48
     expl_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=variant['num_tasks'])
     train_task_indices = list(range(variant['num_tasks']))
+    print(train_task_indices)
     observation_keys = ['image',]
 
     buffer_kwargs = {
@@ -113,7 +118,7 @@ def main(args):
         'observation_keys': observation_keys
     }
     traj_buffer_positive = ObsDictMultiTaskReplayBuffer(
-        int(max_replay_buffer_size/2),
+        int(max_replay_buffer_size),
         expl_env,
         train_task_indices,
         path_len=variant['path_len'],
@@ -122,7 +127,7 @@ def main(args):
         sparse_rewards=False
     )
     replay_buffer_positive = ObsDictMultiTaskReplayBuffer(
-        int(max_replay_buffer_size/2),
+        int(max_replay_buffer_size),
         expl_env,
         train_task_indices,
         path_len=variant['path_len'],
@@ -135,6 +140,8 @@ def main(args):
         path_len=variant['path_len'],
         **buffer_kwargs
     )
+    import pickle
+
     # train_task_indices = list(range(32))
 
     add_reward_filtered_trajectories_to_buffers_multitask(data, observation_keys,
@@ -142,6 +149,9 @@ def main(args):
                                                   (replay_buffer_full, lambda r: True))
     add_reward_filtered_data_to_buffers_multitask(data, observation_keys,
                                                   (replay_buffer_positive, lambda r: r > 0))
+    with open('/home/jonathan/traj_sim.pkl', 'wb') as f:
+        pickle.dump(traj_buffer_positive, f)
+
     with open(variant['val_buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
 
@@ -150,7 +160,7 @@ def main(args):
     max_replay_buffer_size = num_transitions + 10
 
     traj_buffer_positive_val = ObsDictMultiTaskReplayBuffer(
-        int(max_replay_buffer_size/2),
+        int(max_replay_buffer_size),
         expl_env,
         train_task_indices,
         path_len=variant['path_len'],
@@ -159,7 +169,7 @@ def main(args):
         sparse_rewards=False
     )
     replay_buffer_positive_val = ObsDictMultiTaskReplayBuffer(
-        int(max_replay_buffer_size/2),
+        int(max_replay_buffer_size),
         expl_env,
         train_task_indices,
         path_len=variant['path_len'],
@@ -179,7 +189,7 @@ def main(args):
                                                   (replay_buffer_positive, lambda r: r > 0))
 
     latent_dim = variant['latent_dim']
-    net = TransformerEncoderDecoderNet(image_size, latent_dim, variant['path_len'],
+    net = TransformerEncoderDecoderNet(image_size, latent_dim, variant['num_tasks'], variant['path_len'],
                             image_augmentation=args.use_image_aug,
                             encoder_keys=variant['encoder_keys'])
     net.to(ptu.device)
@@ -189,6 +199,7 @@ def main(args):
                  snapshot_mode='gap_and_last', snapshot_gap=save_freq, )
 
 
+    meta_batch_size = variant['meta_batch_size']
     batch_size = variant['batch_size']
 
     optimizer = optim.Adam(net.parameters(), lr=3e-4)
@@ -206,9 +217,10 @@ def main(args):
                                  beta_target, half_beta_target_steps, args.anneal, 
                                  encoder_keys=variant['encoder_keys'])
 
+    tasks_to_sample = np.arange(variant['num_tasks'])
     trainer.train(replay_buffer_full, replay_buffer_positive, traj_buffer_positive, replay_buffer_full_val,
-                  replay_buffer_positive_val, traj_buffer_positive_val, total_steps, batch_size, tasks_to_sample, logger)
-
+                  replay_buffer_positive_val, traj_buffer_positive_val, total_steps, meta_batch_size, batch_size,
+                  tasks_to_sample, logger)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -221,6 +233,7 @@ if __name__ == "__main__":
     parser.add_argument("--path-len", default=30, type=int)
     parser.add_argument("--latent-dim", default=2, type=int)
     parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--meta-batch-size", type=int, default=8)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--beta-target", type=float, default=0.001)
     parser.add_argument("--beta-anneal-steps", type=int, default=10000)

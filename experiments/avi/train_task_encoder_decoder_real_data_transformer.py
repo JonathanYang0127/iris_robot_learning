@@ -77,10 +77,11 @@ def main(args):
         decoder_resnet=args.decoder_resnet,
         total_steps=int(5e5),
         batch_size=args.batch_size,
+        meta_batch_size=8,
         num_tasks=args.num_tasks,
         image_augmentation=args.use_image_aug,
         encoder_keys=['observations'],
-        path_len=variant['path_len']
+        path_len=args.path_len
     )
 
     enable_gpus(args.gpu)
@@ -97,7 +98,7 @@ def main(args):
     observation_keys = ['image',]
 
     buffer_kwargs = {
-        path_len=variant['path_len'],
+        'path_len': variant['path_len'],
         'use_next_obs_in_context': False,
         'sparse_rewards': False,
         'observation_keys': observation_keys
@@ -130,6 +131,8 @@ def main(args):
                                                   (replay_buffer_full, lambda r: True))
     add_reward_filtered_data_to_buffers_multitask(data, observation_keys,
                                                   (replay_buffer_positive, lambda r: r > 0))
+    with open('/home/jonathan/traj_real.pkl', 'wb') as f:
+        pickle.dump(traj_buffer_positive, f)
     with open(variant['val_buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
 
@@ -164,9 +167,9 @@ def main(args):
                                                   (replay_buffer_positive, lambda r: r > 0))
 
     latent_dim = variant['latent_dim']
-    net = TransformerEncoderDecoderNet(image_size, latent_dim,
-                            image_augmentation=args.use_image_aug,
-                            encoder_keys=variant['encoder_keys'])
+    net = TransformerEncoderDecoderNet(image_size, latent_dim,variant['num_tasks'],
+        variant['path_len'], image_augmentation=args.use_image_aug,
+        encoder_keys=variant['encoder_keys']) 
     net.to(ptu.device)
     exp_prefix = '{}-task-encoder-decoder-real-data-transformer'.format(time.strftime("%y-%m-%d"))
     save_freq = 100
@@ -175,6 +178,7 @@ def main(args):
 
 
     batch_size = variant['batch_size']
+    meta_batch_size = variant['meta_batch_size']
 
     optimizer = optim.Adam(net.parameters(), lr=3e-4)
     # log_alpha = ptu.zeros(1, requires_grad=True)
@@ -191,9 +195,7 @@ def main(args):
                                  beta_target, half_beta_target_steps, args.anneal, 
                                  encoder_keys=variant['encoder_keys'])
 
-    trainer.train(replay_buffer_full, replay_buffer_positive, traj_buffer_positive, replay_buffer_full_val,
-                  replay_buffer_positive_val, traj_buffer_positive_val, total_steps, batch_size, tasks_to_sample, logger)
-
+    trainer.train(replay_buffer_full, replay_buffer_positive, traj_buffer_positive, replay_buffer_full_val, replay_buffer_positive_val, traj_buffer_positive_val, total_steps, meta_batch_size, batch_size, tasks_to_sample, logger) 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
