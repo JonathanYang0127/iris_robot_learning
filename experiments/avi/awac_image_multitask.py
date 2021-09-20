@@ -190,6 +190,8 @@ def experiment(variant):
 
     if args.reset_free:
         eval_tasks = np.arange(num_tasks // 2)
+    else:
+        eval_tasks = np.arange(num_tasks)
 
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
