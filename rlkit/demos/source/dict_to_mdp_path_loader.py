@@ -145,7 +145,7 @@ class DictToMDPPathLoader:
             sync_down_folder(sync_dir)
             paths = glob.glob(get_absolute_path(path))
         else:
-            paths = [path]
+            paths = glob.glob(get_absolute_path(path))
 
         data = []
 

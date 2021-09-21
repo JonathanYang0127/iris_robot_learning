@@ -12,27 +12,27 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-VAL_DATA_PATH = "sasha/affordances/combined/"
+VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" #"/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/" 
 
 demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
-            dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-            dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
 
-            dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
-            dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+            # dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
@@ -44,7 +44,7 @@ pnp_goals = VAL_DATA_PATH + 'pnp_goals.pkl'
 top_drawer_goals = VAL_DATA_PATH + 'top_drawer_goals.pkl'
 bottom_drawer_goals = VAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 
-vqvae = VAL_DATA_PATH + "best_vqvae.pt"
+vqvae =  "/2tb/home/patrickhaoy/data/train-vqvae/run20/id0/best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run24/id0/best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run22/id0/best_vqvae.pt" #"/home/patrickhaoy/logs/full1/run4/id0/best_vqvae.pt"
 
 if __name__ == "__main__":
     variant = dict(
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         max_path_length=65, #50
         algo_kwargs=dict(
             batch_size=1024, #1024
-            num_epochs=1001, #1001
+            num_epochs=250, #1001
             num_eval_steps_per_epoch=1000, #1000
             num_expl_steps_per_train_loop=1000, #1000
             num_trains_per_train_loop=1000, #1000
@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
         observation_key='latent_observation',
         desired_goal_key='latent_desired_goal',
-        save_video=False,
+        save_video=True,
         save_video_kwargs=dict(
             save_video_period=25,
             pad_color=0,
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     search_space = {
         "seed": range(2),
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [3.5, 4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     variants = []
     for variant in sweeper.iterate_hyperparameters():
         env_type = variant['env_type']
-        eval_goals = 'sasha/presampled_goals/affordances/combined/{0}_goals.pkl'.format(env_type)
+        eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         if env_type in ['top_drawer', 'bottom_drawer']:

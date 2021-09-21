@@ -1,21 +1,21 @@
 # Change these things
 CODE_DIRS_TO_MOUNT = [
-    # '/home/ashvin/code/rlkit',
-    # '/home/ashvin/code/doodad',
-    '/home/ashvin/code/railrl-private',
-    '/home/ashvin/code/multiworld',
-    '/home/ashvin/code/mj_envs',
-    '/home/ashvin/code/mjrl',
+    # '/home/patrickhaoy/code/rlkit',
+    # '/home/patrickhaoy/code/doodad',
+    '/home/patrickhaoy/code/railrl-private',
+    '/home/patrickhaoy/code/multiworld',
+    '/home/patrickhaoy/code/mj_envs',
+    '/home/patrickhaoy/code/mjrl',
 ]
 DIR_AND_MOUNT_POINT_MAPPINGS = [
     dict(
-        local_dir='/home/ashvin/.mujoco/',
+        local_dir='/home/patrickhaoy/.mujoco/',
         mount_point='/root/.mujoco',
     ),
 ]
-LOCAL_LOG_DIR = '/media/ashvin/data2/s3doodad/' # '/home/ashvin/data/s3doodad' # '/Users/ashvin/data/s3doodad'
+LOCAL_LOG_DIR = '/home/patrickhaoy/logs' # '/home/patrickhaoy/data/s3doodad' # '/Users/patrickhaoy/data/s3doodad'
 RUN_DOODAD_EXPERIMENT_SCRIPT_PATH = (
-    '/home/ashvin/code/railrl-private/scripts/run_experiment_from_doodad.py'
+    '/home/patrickhaoy/code/railrl-private/scripts/run_experiment_from_doodad.py'
 )
 
 AWS_S3_PATH="s3://s3doodad/doodad/logs"

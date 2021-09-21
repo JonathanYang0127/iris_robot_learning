@@ -38,7 +38,7 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-VAL_DATA_PATH = "sasha/affordances/combined/"
+VAL_DATA_PATH = "/home/patrickhaoy/data/affordances/combined/"
 
 demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
@@ -277,7 +277,7 @@ def main():
     variants = []
     for variant in sweeper.iterate_hyperparameters():
         env_type = variant['env_type']
-        eval_goals = 'sasha/presampled_goals/affordances/combined/{0}_goals.pkl'.format(env_type)
+        eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         if env_type in ['top_drawer', 'bottom_drawer']:

@@ -88,8 +88,8 @@ if __name__ == "__main__":
         path_loader_kwargs=dict(
             demo_paths=[
                 dict(
-                    path="ashvin/icml2020/pusher/state2/random2/run12/id*/video_*_vae.p",
-                    sync_dir="ashvin/icml2020/pusher/state2/random2/run12",
+                    path="/2tb/home/patrickhaoy/data/gcrl_data/id*/video_*_vae.p", #"ashvin/icml2020/pusher/state2/random2/run12/id*/video_*_vae.p",
+                    #sync_dir="ashvin/icml2020/pusher/state2/random2/run12",
                     obs_dict=False, # misleading but this arg is really "unwrap_obs_dict"
                     is_demo=True,
                     data_split=0.1,
