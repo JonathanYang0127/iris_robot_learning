@@ -7,7 +7,8 @@ from rlkit.torch.networks.cnn import ConcatCNN
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
 from rlkit.util.io import load_local_or_remote_file
-from rlkit.torch.sac.awac_trainer import AWACTrainer
+#from rlkit.torch.sac.awac_trainer import AWACTrainer
+from rlkit.torch.sac.clearning_trainer import CLearningTrainer
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
     TorchOnlineRLAlgorithm,
@@ -55,8 +56,12 @@ from rlkit.envs.contextual.goal_conditioned import (
 
 
 from torch.utils import data
-from rlkit.data_management.contextual_replay_buffer import (
-    ContextualRelabelingReplayBuffer,
+# from rlkit.data_management.contextual_replay_buffer import (
+#     ContextualRelabelingReplayBuffer,
+#     RemapKeyFn,
+# )
+from rlkit.data_management.contextual_clearning_replay_buffer import (
+    ContextualRelabelingCLearningReplayBuffer,
     RemapKeyFn,
 )
 from rlkit.envs.contextual import ContextualEnv
@@ -174,7 +179,7 @@ def process_args(variant):
         ))
         # import ipdb; ipdb.set_trace()
 
-def awac_rig_experiment(
+def clearning_rig_experiment(
         max_path_length,
         qf_kwargs,
         trainer_kwargs,
@@ -414,14 +419,14 @@ def awac_rig_experiment(
         cont_keys = [context_key]
 
     #Replay Buffer
-    def concat_context_to_obs(batch, replay_buffer, obs_dict, next_obs_dict, new_contexts):
-        obs = batch['observations']
-        next_obs = batch['next_observations']
-        context = batch[context_key]
-        batch['observations'] = np.concatenate([obs, context], axis=1)
-        batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
-        return batch
-    replay_buffer = ContextualRelabelingReplayBuffer(
+    # def concat_context_to_obs(batch, replay_buffer, obs_dict, next_obs_dict, new_contexts):
+    #     obs = batch['observations']
+    #     next_obs = batch['next_observations']
+    #     context = batch[context_key]
+    #     batch['observations'] = np.concatenate([obs, context], axis=1)
+    #     batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
+    #     return batch
+    replay_buffer = ContextualRelabelingCLearningReplayBuffer(
         env=eval_env,
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
@@ -429,11 +434,11 @@ def awac_rig_experiment(
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
-        post_process_batch_fn=concat_context_to_obs,
+        # post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
     replay_buffer_kwargs.update(demo_replay_buffer_kwargs)
-    demo_train_buffer = ContextualRelabelingReplayBuffer(
+    demo_train_buffer = ContextualRelabelingCLearningReplayBuffer(
         env=eval_env,
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
@@ -441,10 +446,10 @@ def awac_rig_experiment(
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
-        post_process_batch_fn=concat_context_to_obs,
+        # post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
-    demo_test_buffer = ContextualRelabelingReplayBuffer(
+    demo_test_buffer = ContextualRelabelingCLearningReplayBuffer(
         env=eval_env,
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
@@ -452,7 +457,7 @@ def awac_rig_experiment(
         context_distribution=expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
-        post_process_batch_fn=concat_context_to_obs,
+        # post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
 
@@ -494,7 +499,7 @@ def awac_rig_experiment(
     )
 
     #Algorithm
-    trainer = AWACTrainer(
+    trainer = CLearningTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
@@ -557,6 +562,7 @@ def awac_rig_experiment(
     if save_paths:
         algorithm.post_train_funcs.append(save_paths)
 
+    #import pdb; pdb.set_trace()
     if load_demos:
         path_loader = path_loader_class(trainer,
             replay_buffer=replay_buffer,

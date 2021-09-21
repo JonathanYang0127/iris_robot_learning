@@ -1,36 +1,39 @@
 import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
-from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment, process_args
+# from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment, process_args
+from rlkit.launchers.experiments.ashvin.clearning_rig import clearning_rig_experiment, process_args
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
-from rlkit.torch.networks import Clamp
+from rlkit.torch.networks import Clamp, Sigmoid
 from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" #"/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/" 
+VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/" 
+#VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/" 
+#VAL_DATA_PATH = "/home/patrickhaoy/data/affordances/combined/" 
 
 demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
@@ -44,7 +47,11 @@ pnp_goals = VAL_DATA_PATH + 'pnp_goals.pkl'
 top_drawer_goals = VAL_DATA_PATH + 'top_drawer_goals.pkl'
 bottom_drawer_goals = VAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 
-vqvae =  "/2tb/home/patrickhaoy/data/train-vqvae/run20/id0/best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run24/id0/best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run22/id0/best_vqvae.pt" #"/home/patrickhaoy/logs/full1/run4/id0/best_vqvae.pt"
+vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run22/id0/best_vqvae.pt" ## example data
+#vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run24/id0/best_vqvae.pt" ## new data
+#vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt"
+#vqvae = "/home/patrickhaoy/logs/full1/run4/id0/best_vqvae.pt" 
+#vqvae = "/2tb/home/patrickhaoy/data/train-vqvae/run20/id0/best_vqvae.pt"
 
 if __name__ == "__main__":
     variant = dict(
@@ -229,8 +236,8 @@ if __name__ == "__main__":
     search_space = {
         "seed": range(2),
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
-        'reward_kwargs.epsilon': [3.5, 4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'env_type': ['top_drawer'], #['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
@@ -242,7 +249,8 @@ if __name__ == "__main__":
         'trainer_kwargs.awr_min_q': [True, ],
         'trainer_kwargs.reward_transform_kwargs': [None, ],
         'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
-        'qf_kwargs.output_activation': [Clamp(max=0)],
+        'qf_kwargs.output_activation': [Sigmoid()], #[Clamp(max=0)],
+        'replay_buffer_kwargs.max_size' : [250000], 
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
@@ -264,4 +272,4 @@ if __name__ == "__main__":
 
         variants.append(variant)
 
-    run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args) #HERE
+    run_variants(clearning_rig_experiment, variants, run_id=0, process_args_fn=process_args) #HERE

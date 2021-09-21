@@ -513,17 +513,26 @@ class CLearningTrainer(TorchTrainer):
             obj_b = torch.log(1 - C(s_current, s_random, a_current, ))
             w = C(s_next, s_future, a_next, ) / (1 - C(s_next, s_future, a_next, ))
             w = w.detach()
+            w_no_clamp = w
+            w = torch.clamp(w, min=0, max=20)
             obj_c = gamma * w * torch.log(C(s_current, s_random, a_current, ))
             objective = obj_a + obj_b + obj_c
-            return -1.0 * torch.mean(objective)
+            return -1.0 * torch.mean(objective), obj_a, obj_b, obj_c, objective, w_no_clamp, w
 
         # sdim = int(obs.shape[1]/2)
         # s = obs[:, :sdim]
         s = states
         next_s = next_states # [:, :sdim]
 
-        qf1_loss = classifier_loss_td(self.qf1, s, actions, next_s, new_obs_actions, random_obs, future_obs, self.discount)
-        qf2_loss = classifier_loss_td(self.qf2, s, actions, next_s, new_obs_actions, random_obs, future_obs, self.discount)
+        qf1_loss, qf1_obj_a, qf1_obj_b, qf1_obj_c, qf1_objective, qf1_w_no_clamp, qf1_w = classifier_loss_td(self.qf1, s, actions, next_s, new_obs_actions, random_obs, future_obs, self.discount)
+
+        # if torch.sum(torch.isnan(qf1_loss)) > 0:
+        #     import pdb; pdb.set_trace()
+
+        qf2_loss, qf2_obj_a, qf2_obj_b, qf2_obj_c, qf2_objective, qf2_w_no_clamp, qf2_w  = classifier_loss_td(self.qf2, s, actions, next_s, new_obs_actions, random_obs, future_obs, self.discount)
+
+        # if torch.sum(torch.isnan(qf2_loss)) > 0:
+        #     import pdb; pdb.set_trace()
 
         """
         Policy Loss
@@ -748,14 +757,23 @@ class CLearningTrainer(TorchTrainer):
             qf1_loss.backward()
             self.qf1_optimizer.step()
 
+            # if torch.sum(torch.isnan(self.qf1(obs, actions))) > 0:
+            #     import pdb; pdb.set_trace()
+
             self.qf2_optimizer.zero_grad()
             qf2_loss.backward()
             self.qf2_optimizer.step()
+
+            # if torch.sum(torch.isnan(self.qf2(obs, actions))) > 0:
+            #     import pdb; pdb.set_trace()
 
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
+
+            # if torch.sum(torch.isnan(self.policy(obs).sample())) > 0:
+            #     import pdb; pdb.set_trace()
 
         if self.train_bc_on_rl_buffer and self._n_train_steps_total % self.policy_update_period == 0 :
             self.buffer_policy_optimizer.zero_grad()
@@ -815,6 +833,56 @@ class CLearningTrainer(TorchTrainer):
                 'terminals',
                 ptu.get_numpy(terminals),
             ))
+
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF1 obj_a',
+                ptu.get_numpy(qf1_obj_a),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF1 obj_b',
+                ptu.get_numpy(qf1_obj_b),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Qf1 obj_c',
+                ptu.get_numpy(qf1_obj_c),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Qf1 objective',
+                ptu.get_numpy(qf1_objective),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Qf1 w_no_clamp',
+                ptu.get_numpy(qf1_w_no_clamp),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Qf1 w',
+                ptu.get_numpy(qf1_w),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF2 obj_a',
+                ptu.get_numpy(qf2_obj_a),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF2 obj_b',
+                ptu.get_numpy(qf2_obj_b),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF2 obj_c',
+                ptu.get_numpy(qf2_obj_c),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF2 objective',
+                ptu.get_numpy(qf2_objective),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF2 w_no_clamp',
+                ptu.get_numpy(qf2_w_no_clamp),
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'QF2 w',
+                ptu.get_numpy(qf2_w),
+            ))
+
             policy_statistics = add_prefix(dist.get_diagnostics(), "policy/")
             self.eval_statistics.update(policy_statistics)
             self.eval_statistics.update(create_stats_ordered_dict(

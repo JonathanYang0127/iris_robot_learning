@@ -1,6 +1,13 @@
 import torch
 from torch import nn
 
+class Sigmoid(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.__name__ = "Sigmoid"
+    
+    def forward(self, x):
+        return torch.sigmoid(x)
 
 class Clamp(nn.Module):
     def __init__(self, **kwargs):

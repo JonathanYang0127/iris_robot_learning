@@ -80,8 +80,8 @@ if __name__ == "__main__":
         path_loader_kwargs=dict(
             demo_paths=[
                 dict(
-                    path="ashvin/icml2020/pusher/state2/random2/run12/id*/video_*_vae.p",
-                    sync_dir="ashvin/icml2020/pusher/state2/random2/run12",
+                    path="/2tb/home/patrickhaoy/data/gcrl_data/id*/video_*_vae.p",#"ashvin/icml2020/pusher/state2/random2/run12/id*/video_*_vae.p",
+                    #sync_dir="ashvin/icml2020/pusher/state2/random2/run12",
                     obs_dict=False, # misleading but this arg is really "unwrap_obs_dict"
                     is_demo=True,
                     data_split=0.1,
@@ -122,6 +122,12 @@ if __name__ == "__main__":
         observation_key="state_observation",
         desired_goal_key="state_desired_goal",
         achieved_goal_key="state_achieved_goal",
+
+        save_video=True,
+        save_video_kwargs=dict(
+            save_video_period=25,
+            pad_color=0,
+        ),
     )
 
     search_space = {

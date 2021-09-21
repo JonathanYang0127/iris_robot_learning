@@ -151,25 +151,30 @@ def experiment(variant):
         demo_test_buffer = ConcatToObsWrapper(demo_test_buffer, ["resampled_goals", ], )
 
     M = variant['layer_size']
+    qf_kwargs = variant.get('qf_kwargs', dict())
     qf1 = ConcatMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
+        **qf_kwargs
     )
     qf2 = ConcatMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
+        **qf_kwargs
     )
     target_qf1 = ConcatMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
+        **qf_kwargs
     )
     target_qf2 = ConcatMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
+        **qf_kwargs
     )
 
     policy_class = variant.get("policy_class", TanhGaussianPolicy)
