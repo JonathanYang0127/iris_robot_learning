@@ -20,7 +20,7 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 
 from rlkit.core import logger
 from rlkit.torch.vae.pixelcnn_trainer import PixelCNNTrainer
-from rlkit.data_management.dataset  import InfiniteBatchLoader
+from rlkit.data_management.dataset import InfiniteBatchLoader
 
 """
 data loaders
@@ -84,9 +84,11 @@ def train_pixelcnn(
         n = min(data["observations"].shape[0], data_size)
 
         for i in tqdm(range(n)):
-            obs = ptu.from_numpy(data["observations"][i] / 255.0)
+            obs = ptu.from_numpy(data["observations"][i, 0, :] / 255.0)
+            cond = ptu.from_numpy(data["env"][i, :] / 255.0)
             latent = vqvae.encode(obs, cont=False)
-            all_data.append(latent)
+            latent_cond = vqvae.encode(cond, cont=False)
+            all_data.append(torch.cat([latent_cond, latent, ], dim=0))
 
         encodings = ptu.get_numpy(torch.stack(all_data, dim=0))
         return encodings
@@ -148,8 +150,8 @@ def train_pixelcnn(
             BEST_LOSS = cur_loss
             vqvae.set_pixel_cnn(model)
             logger.save_extra_data(vqvae, 'best_vqvae', mode='torch')
-        else:
-            return vqvae
+        # else:
+        #     return vqvae
 
         for k, v in stats.items():
             logger.record_tabular(k, v)

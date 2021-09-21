@@ -94,7 +94,7 @@ class ConditionalLatentBlockDataset(Dataset):
 
     def __getitem__(self, idx):
         traj_i = idx // self.traj_length
-        trans_i = idx % self.traj_length
+        trans_i = 1 # idx % self.traj_length
 
         obs = self.data[traj_i, trans_i, :]
         cond = self.data[traj_i, 0, :]
