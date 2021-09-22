@@ -97,8 +97,8 @@ def main():
     search_space = {
         'env_id': ["pen-binary-v0", "door-binary-v0", "relocate-binary-v0", ],
         'seedid': range(5),
-        'trainer_kwargs.beta': [0.5, ],
-        'trainer_kwargs.clip_score': [0.5, ],
+        'trainer_kwargs.beta': [0.3, ],
+        'trainer_kwargs.clip_score': [2.0, ],
         'trainer_kwargs.awr_use_mle_for_vf': [True, ],
     }
 
