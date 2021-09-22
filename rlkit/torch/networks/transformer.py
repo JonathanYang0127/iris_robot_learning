@@ -32,7 +32,7 @@ class SmallGPTConfig(GPTConfig):
     n_layer = 5
     n_head = 5
     n_embd = 240
-    encoder_keys = ['observations']
+    encoder_keys = ['observations', 'actions']
     space_fc_dims = dict(
         observations=8,
         actions=5,

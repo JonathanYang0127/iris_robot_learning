@@ -23,7 +23,8 @@ def kl_anneal_linear_function(step, x0):
 class TransformerTaskEncoderTrainer:
 
     def __init__(self, net, optimizer, criterion, print_freq, save_freq,
-                 beta_target, half_beta_target_steps, anneal, encoder_keys=['observations']):
+                 beta_target, half_beta_target_steps, anneal, encoder_keys=['observations'],
+                 use_task_predictor_loss=True):
         self.net = net
         self.optimizer = optimizer
         self.criterion = criterion
@@ -33,19 +34,22 @@ class TransformerTaskEncoderTrainer:
         self.half_beta_target_steps = half_beta_target_steps
         self.anneal = anneal
         self.encoder_keys = encoder_keys
+        self.use_task_predictor_loss = use_task_predictor_loss
 
     def train(self, replay_buffer_full, replay_buffer_positive, traj_buffer_positive,
               replay_buffer_full_val, replay_buffer_positive_val, traj_buffer_positive_val,
-              total_steps, batch_size, tasks_to_sample, logger):
+              total_steps, meta_batch_size, batch_size, tasks, logger):
 
         val_batch_size = batch_size*4
         running_loss_entropy = 0.
         running_loss_kl = 0.
         start_time = time.time()
-        num_tasks = len(tasks_to_sample)
+        num_tasks = len(tasks)
+
 
         for i in range(total_steps):
             self.optimizer.zero_grad()
+            tasks_to_sample = np.random.choice(tasks, meta_batch_size)
             encoder_batch = traj_buffer_positive.sample_batch_of_trajectories(tasks_to_sample, batch_size)
             # positives
             decoder_batch_1 = replay_buffer_positive.sample_batch(tasks_to_sample, batch_size // 2)
@@ -70,9 +74,15 @@ class TransformerTaskEncoderTrainer:
                                           decoder_batch_3['observations']
                                           ),
                                          axis=1))
+            encoder_tasks = torch.LongTensor(np.repeat(tasks_to_sample, batch_size)).to(ptu.device)
+            
             encoder_batch_traj = [ptu.from_numpy(encoder_batch[k]) for k in self.encoder_keys]
-            reward_predictions, mu, logvar = self.net.forward(
+            out = self.net.forward(
                 encoder_batch_traj, decoder_obs)
+            if self.use_task_predictor_loss:
+                reward_predictions, task_predictions, mu, logvar = out
+            else:
+                reward_predictions, mu, logvar = out
             for e in encoder_batch_traj:
                 e.detach().cpu()
             decoder_obs.detach().cpu()
@@ -86,7 +96,7 @@ class TransformerTaskEncoderTrainer:
                 beta = self.beta_target
             else:
                 raise NotImplementedError
-
+            gamma = 1 - kl_anneal_linear_function(i, self.half_beta_target_steps)
             # gt_rewards = torch.from_numpy(decoder_batch['rewards'].astype(np.int64)).cuda()
             decoder_rewards = np.concatenate(
                 (decoder_batch_1['rewards'],
@@ -99,13 +109,16 @@ class TransformerTaskEncoderTrainer:
             assert rew_dim == 1
             gt_rewards = gt_rewards.view(t*b,)
 
-            entropy_loss = self.criterion(reward_predictions, gt_rewards)
+            entropy_loss = self.criterion(reward_predictions, gt_rewards) 
             var = torch.exp(logvar)
             KLD = torch.sum(-logvar + (mu ** 2)*0.5 + var, 1) - self.net.latent_dim
             KLD = KLD.mean()
             # KLD = td.kl_divergence(q_z, p_z).sum()
 
-            loss = entropy_loss + beta*KLD
+            loss = entropy_loss + beta * KLD
+            if self.use_task_predictor_loss:
+                task_predictor_loss = self.criterion(task_predictions, encoder_tasks)
+                loss += gamma * task_predictor_loss
 
             running_loss_kl += KLD.item()
             running_loss_entropy += entropy_loss.item()
@@ -131,14 +144,18 @@ class TransformerTaskEncoderTrainer:
                 running_loss_entropy = 0.
                 running_loss_kl = 0.
 
-                encoder_batch_val = traj_buffer_positive_val.sample_batch_of_trajectories(tasks_to_sample, val_batch_size)
-                decoder_batch_val = replay_buffer_full_val.sample_batch(tasks_to_sample, val_batch_size)
+                encoder_batch_val = traj_buffer_positive_val.sample_batch_of_trajectories(tasks, val_batch_size)
+                decoder_batch_val = replay_buffer_full_val.sample_batch(tasks, val_batch_size)
                 encoder_batch_val_traj = [ptu.from_numpy(encoder_batch_val[k]) for k in self.encoder_keys]
                 decoder_batch_val_obs = ptu.from_numpy(decoder_batch_val['observations']) 
                 with torch.no_grad():
-                    reward_predictions, mu, logvar = self.net.forward(
+                    out = self.net.forward(
                         encoder_batch_val_traj,
                         decoder_batch_val_obs)
+                    if self.use_task_predictor_loss:
+                        reward_predictions, task_predictions, mu, logvar = out
+                    else:
+                        reward_predictions, mu, logvar = out
                     for e in encoder_batch_val_traj:
                         e.detach().cpu()
                     decoder_batch_val_obs.detach().cpu()
@@ -159,6 +176,7 @@ class TransformerTaskEncoderTrainer:
 
                 mu_max = mu.max()
                 mu_min = mu.min()
+                logger.record_tabular('train/task_loss', task_predictor_loss.item())
                 logger.record_tabular('val/mu/min', mu_min.item())
                 logger.record_tabular('val/mu/max', mu_max.item())
 
