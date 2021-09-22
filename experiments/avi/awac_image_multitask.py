@@ -234,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument("--max-path-len", type=int, default=30)
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
 
@@ -260,6 +261,7 @@ if __name__ == '__main__':
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
         use_task_embedding=args.use_task_embedding,
+        seed=args.seed,
         trainer_kwargs=dict(
             discount=0.99,
             soft_target_tau=5e-3,
@@ -317,6 +319,6 @@ if __name__ == '__main__':
 
     exp_prefix = '{}-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+                 snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
 
     experiment(variant)
