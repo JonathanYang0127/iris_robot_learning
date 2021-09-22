@@ -248,8 +248,12 @@ def experiment(variant):
         **qf_kwargs
     )
 
-    # def positive_activation(x):
-        # return F.relu(x) + 1e-8
+    vf_kwargs = variant.get("vf_kwargs", dict(hidden_sizes=[256, 256, ],))
+    vf1 = ConcatMlp(
+        input_size=obs_dim,
+        output_size=1,
+        **vf_kwargs
+    )
 
     z = ConcatMlp(
         input_size=obs_dim,
@@ -354,6 +358,7 @@ def experiment(variant):
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
         z=z,
+        vf1=vf1,
         **variant['trainer_kwargs']
     )
     if variant['collection_mode'] == 'online':

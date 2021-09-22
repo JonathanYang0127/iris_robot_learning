@@ -17,7 +17,7 @@ from rlkit.torch.networks import LinearTransform
 import time
 
 
-class AWACTrainer(TorchTrainer):
+class PRTrainer(TorchTrainer):
     def __init__(
             self,
             env,
@@ -26,9 +26,10 @@ class AWACTrainer(TorchTrainer):
             qf2,
             target_qf1,
             target_qf2,
+            vf1=None,
+            quantile=0.5,
             buffer_policy=None,
             z=None,
-            vf1=None,
 
             discount=0.99,
             reward_scale=1.0,
@@ -106,6 +107,7 @@ class AWACTrainer(TorchTrainer):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
+        self.vf1 = vf1
         self.z = z
         self.buffer_policy = buffer_policy
         self.soft_target_tau = soft_target_tau
@@ -150,6 +152,11 @@ class AWACTrainer(TorchTrainer):
         )
         self.qf2_optimizer = optimizer_class(
             self.qf2.parameters(),
+            weight_decay=q_weight_decay,
+            lr=qf_lr,
+        )
+        self.vf1_optimizer = optimizer_class(
+            self.vf1.parameters(),
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
@@ -217,6 +224,7 @@ class AWACTrainer(TorchTrainer):
         self.normalize_over_batch = normalize_over_batch
         self.normalize_over_state = normalize_over_state
         self.Z_K = Z_K
+        self.quantile = quantile
 
         self.reward_transform_class = reward_transform_class or LinearTransform
         self.reward_transform_kwargs = reward_transform_kwargs or dict(m=1, b=0)
@@ -498,14 +506,22 @@ class AWACTrainer(TorchTrainer):
         # Make sure policy accounts for squashing functions like tanh correctly!
         next_dist = self.policy(next_obs)
         new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
-        target_q_values = torch.min(
-            self.target_qf1(next_obs, new_next_actions),
-            self.target_qf2(next_obs, new_next_actions),
-        ) - alpha * new_log_pi
+        # target_q_values = torch.min(
+        #     self.target_qf1(next_obs, new_next_actions),
+        #     self.target_qf2(next_obs, new_next_actions),
+        # ) - alpha * new_log_pi
+        target_q_values = self.vf1(next_obs)
 
         q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
+
+        q_pred = ((q1_pred + q2_pred) / 2).detach()
+        vf1_pred = self.vf1(obs)
+        vf1_err = vf1_pred - q_pred
+        vf1_sign = (vf1_err > 0).float()
+        vf1_weight = (1 - vf1_sign) * self.quantile + vf1_sign * (1 - self.quantile)
+        vf1_loss = (vf1_weight * (vf1_err ** 2)).mean()
 
         """
         Policy Loss
@@ -518,26 +534,27 @@ class AWACTrainer(TorchTrainer):
         )
 
         # Advantage-weighted regression
-        if self.awr_use_mle_for_vf:
-            v1_pi = self.qf1(obs, policy_mle)
-            v2_pi = self.qf2(obs, policy_mle)
-            v_pi = torch.min(v1_pi, v2_pi)
-        else:
-            if self.vf_K > 1:
-                vs = []
-                for i in range(self.vf_K):
-                    u = dist.sample()
-                    q1 = self.qf1(obs, u)
-                    q2 = self.qf2(obs, u)
-                    v = torch.min(q1, q2)
-                    # v = q1
-                    vs.append(v)
-                v_pi = torch.cat(vs, 1).mean(dim=1)
-            else:
-                # v_pi = self.qf1(obs, new_obs_actions)
-                v1_pi = self.qf1(obs, new_obs_actions)
-                v2_pi = self.qf2(obs, new_obs_actions)
-                v_pi = torch.min(v1_pi, v2_pi)
+        # if self.awr_use_mle_for_vf:
+        #     v1_pi = self.qf1(obs, policy_mle)
+        #     v2_pi = self.qf2(obs, policy_mle)
+        #     v_pi = torch.min(v1_pi, v2_pi)
+        # else:
+        #     if self.vf_K > 1:
+        #         vs = []
+        #         for i in range(self.vf_K):
+        #             u = dist.sample()
+        #             q1 = self.qf1(obs, u)
+        #             q2 = self.qf2(obs, u)
+        #             v = torch.min(q1, q2)
+        #             # v = q1
+        #             vs.append(v)
+        #         v_pi = torch.cat(vs, 1).mean(dim=1)
+        #     else:
+        #         # v_pi = self.qf1(obs, new_obs_actions)
+        #         v1_pi = self.qf1(obs, new_obs_actions)
+        #         v2_pi = self.qf2(obs, new_obs_actions)
+        #         v_pi = torch.min(v1_pi, v2_pi)
+        v_pi = vf1_pred
 
         if self.awr_sample_actions:
             u = new_obs_actions
@@ -756,6 +773,10 @@ class AWACTrainer(TorchTrainer):
                 z_loss.backward()
                 self.z_optimizer.step()
 
+            self.vf1_optimizer.zero_grad()
+            vf1_loss.backward()
+            self.vf1_optimizer.step()
+
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
@@ -830,6 +851,12 @@ class AWACTrainer(TorchTrainer):
                 'Advantage Score',
                 ptu.get_numpy(score),
             ))
+
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'V1 Predictions',
+                ptu.get_numpy(vf1_pred),
+            ))
+            self.eval_statistics['VF1 Loss'] = np.mean(ptu.get_numpy(vf1_loss))
 
             # self.eval_statistics.update(create_stats_ordered_dict(
             #     'z_pred',
@@ -926,6 +953,7 @@ class AWACTrainer(TorchTrainer):
             self.qf2,
             self.target_qf1,
             self.target_qf2,
+            self.vf1,
         ]
         if self.z:
             nets.append(self.z)
