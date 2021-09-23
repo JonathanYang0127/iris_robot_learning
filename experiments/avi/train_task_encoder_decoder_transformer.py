@@ -94,7 +94,8 @@ def main(args):
         num_tasks=args.num_tasks,
         image_augmentation=args.use_image_aug,
         encoder_keys=['observations', 'actions'],
-        path_len=args.path_len
+        path_len=args.path_len,
+        traj_positive_buffer_save_path=args.traj_positive_buffer_save_path,
     )
 
     enable_gpus(args.gpu)
@@ -149,8 +150,10 @@ def main(args):
                                                   (replay_buffer_full, lambda r: True))
     add_reward_filtered_data_to_buffers_multitask(data, observation_keys,
                                                   (replay_buffer_positive, lambda r: r > 0))
-    with open('/home/jonathan/traj_sim.pkl', 'wb') as f:
-        pickle.dump(traj_buffer_positive, f)
+
+    if variant['traj_positive_buffer_save_path']:
+        with open(variant['traj_positive_buffer_save_path'], 'wb') as f:
+            pickle.dump(traj_buffer_positive, f)
 
     with open(variant['val_buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
@@ -240,5 +243,6 @@ if __name__ == "__main__":
     parser.add_argument("--decoder-resnet", default=False, action='store_true')
     parser.add_argument("--use-image-aug", default=False, action='store_true')
     parser.add_argument("--use-alpha", default=False, action='store_true')
+    parser.add_argument("--traj-positive-buffer-save-path", default="")
     args = parser.parse_args()
     main(args)
