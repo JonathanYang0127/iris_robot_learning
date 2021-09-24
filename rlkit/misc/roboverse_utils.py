@@ -21,12 +21,9 @@ def process_keys(observations, observation_keys):
                 image = observations[i]['image']
                 if len(image.shape) == 3:
                     image = np.transpose(image, [2, 0, 1])
-                    image = (image.flatten())/255.0
-                elif len(image.shape) == 1:
-                    image = image/255.0
-                else:
-                    print('image shape: {}'.format(image.shape))
-                    raise ValueError
+                    image = (image.flatten())
+                if np.mean(image) > 5:
+                    image = image / 255.0
                 observation[key] = image
             else:
                 observation[key] = np.array(observations[i][key])
@@ -185,6 +182,25 @@ def add_data_to_positive_and_zero_buffers_multitask(
 
         # replay_buffer.add_path(data[j]['env_infos'][0]['task_idx'], path)
 
+
+def add_reward_filtered_trajectories_to_buffers_multitask(
+        data, observation_keys,
+        *args):
+    for arg in args:
+        assert len(arg) == 2
+    for j in range(len(data)):
+        path_len = len(data[j]['actions'])
+        path = data[j]
+        task_idx = data[j]['env_infos'][0]['task_idx']
+        
+        for arg in args:
+            if arg[1](path['rewards']):
+                path['observations'] = process_keys(path['observations'], observation_keys)
+                path['next_observations'] = process_keys(path['next_observations'], observation_keys)
+                for i in range(path_len):
+                    arg[0].add_sample(data[j]['env_infos'][0]['task_idx'], path['observations'][i], 
+                        path['actions'][i], path['rewards'][i], 
+                        path['terminals'][i], path['next_observations'][i]) 
 
 def add_reward_filtered_data_to_buffers_multitask(
         data, observation_keys,

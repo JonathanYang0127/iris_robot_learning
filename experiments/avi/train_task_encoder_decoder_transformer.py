@@ -18,56 +18,8 @@ from rlkit.launchers.launcher_util import setup_logger
 
 from rlkit.torch.task_encoders.encoder_decoder_nets import TransformerEncoderDecoderNet
 from rlkit.torch.task_encoders.transformer_encoder_trainer import TransformerTaskEncoderTrainer
-
-
-def add_reward_filtered_trajectories_to_buffers_multitask(
-        data, observation_keys,
-        *args):
-    for arg in args:
-        assert len(arg) == 2
-    for j in range(len(data)):
-        path_len = len(data[j]['actions'])
-        path = data[j]
-        task_idx = data[j]['env_infos'][0]['task_idx']
-        
-        for arg in args:
-            if arg[1](path['rewards']):
-                for i in range(path_len):
-                    path['observations'][i]['image'] = process_image(path['observations'][i]['image'])
-                    path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
-                    arg[0].add_sample(data[j]['env_infos'][0]['task_idx'],
-                                      path['observations'][i], path['actions'][i], path['rewards'][i],
-                                      path['terminals'][i], path['next_observations'][i]
-                                      )
-
-def add_reward_filtered_data_to_buffers_multitask(
-        data, observation_keys,
-        *args):
-    for arg in args:
-        assert len(arg) == 2
-    for j in range(len(data)):
-        path_len = len(data[j]['actions'])
-        path = data[j]
-        task_idx = path['env_infos'][0]['task_idx']
-        for i in range(path_len):
-            for arg in args:
-                path['observations'][i]['image'] = process_image(path['observations'][i]['image'])
-                path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
-                if arg[1](path['rewards'][i]):
-                    arg[0].add_sample(data[j]['env_infos'][0]['task_idx'],
-                                      path['observations'][i], path['actions'][i], path['rewards'][i],
-                                      path['terminals'][i], path['next_observations'][i]
-                                      )
-
-def process_image(image):
-    if len(image.shape) == 3:
-        image = np.transpose(image, [2, 0, 1])
-        image = (image.flatten())
-
-    if np.mean(image) > 5:
-        image = image / 255.0
-    return image
-
+from rlkit.misc.roboverse_utils import (add_reward_filtered_trajectories_to_buffers_multitask,
+    add_reward_filtered_data_to_buffers_multitask)
 
 def enable_gpus(gpu_str):
     if gpu_str != "":
@@ -110,7 +62,6 @@ def main(args):
     image_size = 48
     expl_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=variant['num_tasks'])
     train_task_indices = list(range(variant['num_tasks']))
-    print(train_task_indices)
     observation_keys = ['image',]
 
     buffer_kwargs = {
@@ -145,7 +96,7 @@ def main(args):
 
     # train_task_indices = list(range(32))
 
-    add_reward_filtered_trajectories_to_buffers_multitask(data, observation_keys,
+    add_reward_filtered_trajectories_to_buffers_multitask(data, ['image', 'state'],
                                                   (traj_buffer_positive, lambda r: np.sum(r) > 0),
                                                   (replay_buffer_full, lambda r: True))
     add_reward_filtered_data_to_buffers_multitask(data, observation_keys,
@@ -185,7 +136,7 @@ def main(args):
         path_len=variant['path_len'],
         **buffer_kwargs
     )
-    add_reward_filtered_trajectories_to_buffers_multitask(data, observation_keys,
+    add_reward_filtered_trajectories_to_buffers_multitask(data, ['image', 'state'],
                                                   (traj_buffer_positive_val, lambda r: np.sum(r) > 0),
                                                   (replay_buffer_full_val, lambda r: True))
     add_reward_filtered_data_to_buffers_multitask(data, observation_keys,
@@ -197,7 +148,7 @@ def main(args):
                             encoder_keys=variant['encoder_keys'])
     net.to(ptu.device)
     exp_prefix = '{}-task-encoder-decoder-transformer'.format(time.strftime("%y-%m-%d"))
-    save_freq = 100
+    save_freq = 20
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=save_freq, )
 

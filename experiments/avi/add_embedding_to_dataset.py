@@ -36,6 +36,7 @@ def main(args):
         int(max_replay_buffer_size/2),
         expl_env,
         train_task_indices,
+        path_len=args.path_len,
         use_next_obs_in_context=False,
         sparse_rewards=False,
         observation_keys=observation_keys
