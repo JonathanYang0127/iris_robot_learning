@@ -12,27 +12,29 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" #"/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/" 
+#VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" 
+VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/" 
+#VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/" 
 
-demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
+demo_paths=[#dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
 
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+            #dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
@@ -44,7 +46,11 @@ pnp_goals = VAL_DATA_PATH + 'pnp_goals.pkl'
 top_drawer_goals = VAL_DATA_PATH + 'top_drawer_goals.pkl'
 bottom_drawer_goals = VAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 
-vqvae =  "/2tb/home/patrickhaoy/data/train-vqvae/run20/id0/best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run24/id0/best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run22/id0/best_vqvae.pt" #"/home/patrickhaoy/logs/full1/run4/id0/best_vqvae.pt"
+vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/best_vqvae.pt"
+#vqvae = "/2tb/home/patrickhaoy/data/train-vqvae/run20/id0/best_vqvae.pt" 
+# vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run24/id0/best_vqvae.pt" 
+# vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run22/id0/best_vqvae.pt" 
+# vqvae = "/home/patrickhaoy/logs/full1/run4/id0/best_vqvae.pt"
 
 if __name__ == "__main__":
     variant = dict(
@@ -227,10 +233,10 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(2),
+        "seed": range(1),
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
-        'reward_kwargs.epsilon': [3.5, 4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'env_type': ['tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
@@ -243,6 +249,8 @@ if __name__ == "__main__":
         'trainer_kwargs.reward_transform_kwargs': [None, ],
         'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
+        'env_kwargs.reset_interval' : [1, 2, 4, 5, 10, 15, 20, 25],
+        'replay_buffer_kwargs.max_size' : [250000], 
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

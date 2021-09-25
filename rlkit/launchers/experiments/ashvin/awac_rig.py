@@ -379,12 +379,19 @@ def awac_rig_experiment(
         exploration_goal_sampling_mode = "conditional_vae_prior"
 
     #Environment Definitions
+    expl_env_kwargs = env_kwargs.copy()
+    expl_env_kwargs['expl'] = True
+
+    eval_env_kwargs = env_kwargs.copy()
+    eval_env_kwargs['expl'] = False
+
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
+        env_id, env_class, expl_env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
         presampled_goal_kwargs['expl_goals'], num_presample
     )
+
     eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, encoder_wrapper, evaluation_goal_sampling_mode,
+        env_id, env_class, eval_env_kwargs, encoder_wrapper, evaluation_goal_sampling_mode,
         presampled_goal_kwargs['eval_goals'], num_presample
     )
     path_loader_kwargs['env'] = eval_env
