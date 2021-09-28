@@ -18,6 +18,14 @@ class Clamp(nn.Module):
     def forward(self, x):
         return torch.clamp(x, **self.kwargs)
 
+class SigmoidClamp(nn.Module):
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.kwargs = kwargs
+        self.__name__ = "SigmoidClamp"
+    
+    def forward(self, x):
+        return torch.clamp(torch.sigmoid(x), **self.kwargs)
 
 class Split(nn.Module):
     """

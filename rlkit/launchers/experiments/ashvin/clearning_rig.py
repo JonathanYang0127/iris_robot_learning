@@ -75,6 +75,7 @@ from rlkit.envs.contextual.latent_distributions import (
     AmortizedConditionalPriorDistribution,
     PresampledPriorDistribution,
     ConditionalPriorDistribution,
+    CLearningConditionalPriorDistribution,
     AmortizedPriorDistribution,
     AddLatentDistribution,
     AddConditionalLatentDistribution,
@@ -211,6 +212,8 @@ def clearning_rig_experiment(
         exploration_policy_kwargs=None,
         evaluation_goal_sampling_mode=None,
         exploration_goal_sampling_mode=None,
+        training_goal_sampling_mode=None,
+        save_goals=False,
 
         add_env_demos=False,
         add_env_offpolicy_data=False,
@@ -248,7 +251,7 @@ def clearning_rig_experiment(
         demo_replay_buffer_kwargs = {}
     if presampled_goal_kwargs is None:
         presampled_goal_kwargs = \
-            {'eval_goals': '','expl_goals': ''}
+            {'eval_goals': '','expl_goals': '','training_goals': ''}
     if path_loader_kwargs is None:
         path_loader_kwargs = {}
     if not save_video_kwargs:
@@ -292,6 +295,12 @@ def clearning_rig_experiment(
                 desired_goal_key
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
+        elif goal_sampling_mode == 'clearning_conditional_vae_prior':
+            latent_goal_distribution = CLearningConditionalPriorDistribution(
+                model,
+                desired_goal_key
+            )
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
         elif goal_sampling_mode == "amortized_conditional_vae_prior":
             latent_goal_distribution = AmortizedConditionalPriorDistribution(
                 model,
@@ -327,6 +336,7 @@ def clearning_rig_experiment(
                 desired_goal_key,
                 state_env,
                 num_presample=num_presample,
+                save_goals=save_goals,
             )
         elif goal_sampling_mode == "presampled_latents":
             diagnostics = state_env.get_contextual_diagnostics
@@ -384,12 +394,22 @@ def clearning_rig_experiment(
         exploration_goal_sampling_mode = "conditional_vae_prior"
 
     #Environment Definitions
+    expl_env_kwargs = env_kwargs.copy()
+    expl_env_kwargs['expl'] = True
+
+    eval_env_kwargs = env_kwargs.copy()
+    eval_env_kwargs['expl'] = False
+
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
+        env_id, env_class, expl_env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
         presampled_goal_kwargs['expl_goals'], num_presample
     )
+    training_env, training_context_distrib, training_reward = contextual_env_distrib_and_reward(
+        env_id, env_class, expl_env_kwargs, encoder_wrapper, training_goal_sampling_mode,
+        presampled_goal_kwargs['training_goals'], num_presample
+    )
     eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, encoder_wrapper, evaluation_goal_sampling_mode,
+        env_id, env_class, eval_env_kwargs, encoder_wrapper, evaluation_goal_sampling_mode,
         presampled_goal_kwargs['eval_goals'], num_presample
     )
     path_loader_kwargs['env'] = eval_env
@@ -431,9 +451,10 @@ def clearning_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
-        context_distribution=expl_context_distrib,
+        context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
+        desired_goal_key=desired_goal_key,
         # post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
@@ -443,9 +464,10 @@ def clearning_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
-        context_distribution=expl_context_distrib,
+        context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
+        desired_goal_key=desired_goal_key,
         # post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
@@ -454,9 +476,10 @@ def clearning_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
-        context_distribution=expl_context_distrib,
+        context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
+        desired_goal_key=desired_goal_key,
         # post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
@@ -481,6 +504,19 @@ def clearning_rig_experiment(
         action_dim=action_dim,
         **policy_kwargs,
     )
+
+    if exploration_goal_sampling_mode == "clearning_conditional_vae_prior":
+        expl_env.context_distribution.policy = policy
+        expl_env.context_distribution.qf1 = qf1
+        expl_env.context_distribution.qf2 = qf2
+    if training_goal_sampling_mode == "clearning_conditional_vae_prior":
+        training_env.context_distribution.policy = policy
+        training_env.context_distribution.qf1 = qf1
+        training_env.context_distribution.qf2 = qf2
+    if evaluation_goal_sampling_mode == "clearning_conditional_vae_prior":
+        eval_env.context_distribution.policy = policy
+        eval_env.context_distribution.qf1 = qf1
+        eval_env.context_distribution.qf2 = qf2
 
     #Path Collectors
     eval_path_collector = ContextualPathCollector(
@@ -562,7 +598,6 @@ def clearning_rig_experiment(
     if save_paths:
         algorithm.post_train_funcs.append(save_paths)
 
-    #import pdb; pdb.set_trace()
     if load_demos:
         path_loader = path_loader_class(trainer,
             replay_buffer=replay_buffer,

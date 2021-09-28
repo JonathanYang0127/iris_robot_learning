@@ -8,7 +8,7 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
-from rlkit.torch.networks import Clamp, Sigmoid
+from rlkit.torch.networks import Clamp, Sigmoid, SigmoidClamp
 from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
@@ -19,23 +19,23 @@ VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined
 
 demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
             dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
             dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
             dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
             dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
             dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
 
             dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
             dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
-            # dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+            dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
             ]
 
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
@@ -159,7 +159,9 @@ if __name__ == "__main__":
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-        exploration_goal_sampling_mode="presample_latents",
+        exploration_goal_sampling_mode="clearning_conditional_vae_prior", #"conditional_vae_prior",#"presample_latents",#
+        training_goal_sampling_mode="presample_latents",
+        save_goals=True,
 
         train_vae_kwargs=dict(
             imsize=48,
@@ -226,6 +228,7 @@ if __name__ == "__main__":
         presampled_goal_kwargs=dict(
             eval_goals='', #HERE
             expl_goals='',
+            training_goals='',
         ),
         launcher_config=dict(
             unpack_variant=True,
@@ -234,9 +237,9 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(2),
+        "seed": range(1),
 
-        'env_type': ['top_drawer'], #['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
@@ -249,8 +252,11 @@ if __name__ == "__main__":
         'trainer_kwargs.awr_min_q': [True, ],
         'trainer_kwargs.reward_transform_kwargs': [None, ],
         'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
-        'qf_kwargs.output_activation': [Sigmoid()], #[Clamp(max=0)],
-        'replay_buffer_kwargs.max_size' : [250000], 
+        'qf_kwargs.output_activation': [SigmoidClamp(min=1E-4, max=1-1E-4)], #[Clamp(max=0)],
+        'replay_buffer_kwargs.max_size' : [450000], #[450000], 
+        "exploration_goal_sampling_mode" : ["conditional_vae_prior"], #["clearning_conditional_vae_prior", "conditional_vae_prior", "presample_latents"]
+        'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
+        "pretrain_rl" : [True, False],
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

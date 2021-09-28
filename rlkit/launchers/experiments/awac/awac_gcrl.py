@@ -78,6 +78,7 @@ def process_args(variant):
         variant['trainer_kwargs']['q_num_pretrain2_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain2_steps', 0))
 
 def experiment(variant):
+    import pdb; pdb.set_trace()
     render = variant.get("render", False)
     debug = variant.get("debug", False)
 
