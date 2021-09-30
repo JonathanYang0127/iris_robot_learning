@@ -133,6 +133,8 @@ def rollout(
 
         next_o, r, d, env_info = env.step(a.copy())
 
+        env_info['reward'] = r
+
         if full_o_postprocess_func:
             full_o_postprocess_func(env, agent, o)
         if full_next_o_postprocess_func:

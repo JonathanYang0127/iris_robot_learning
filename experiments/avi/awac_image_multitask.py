@@ -188,11 +188,6 @@ def experiment(variant):
         observation_keys=observation_keys,
     )
 
-    if args.reset_free:
-        eval_tasks = np.arange(num_tasks // 2)
-    else:
-        eval_tasks = np.arange(num_tasks)
-
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
@@ -210,7 +205,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         train_tasks=np.arange(num_tasks),
-        eval_tasks=eval_tasks,
+        eval_tasks=np.arange(num_tasks),
     )
 
     video_func = VideoSaveFunctionBullet(variant)
