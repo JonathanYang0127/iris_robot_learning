@@ -195,12 +195,12 @@ def add_reward_filtered_trajectories_to_buffers_multitask(
         
         for arg in args:
             if arg[1](path['rewards']):
-                path['observations'] = process_keys(path['observations'], observation_keys)
-                path['next_observations'] = process_keys(path['next_observations'], observation_keys)
+                path_obs = process_keys(path['observations'], observation_keys)
+                path_next_obs = process_keys(path['next_observations'], observation_keys)
                 for i in range(path_len):
-                    arg[0].add_sample(data[j]['env_infos'][0]['task_idx'], path['observations'][i], 
-                        path['actions'][i], path['rewards'][i], 
-                        path['terminals'][i], path['next_observations'][i]) 
+                    arg[0].add_sample(data[j]['env_infos'][0]['task_idx'], path_obs[i],
+                        path['actions'][i], path['rewards'][i],
+                        path['terminals'][i], path_next_obs[i])
 
 def add_reward_filtered_data_to_buffers_multitask(
         data, observation_keys,
