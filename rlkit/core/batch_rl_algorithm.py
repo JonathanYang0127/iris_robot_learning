@@ -18,6 +18,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
             offline_rl=False,
+            start_epoch=0,
             *args,
             **kwargs
     ):
@@ -31,6 +32,31 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
         self.offline_rl = offline_rl
+        self.epoch = start_epoch
+
+    def train(self):
+        timer.return_global_times = True
+        self.offline_rl = True
+        for _ in range(self.epoch, 0):
+            self._begin_epoch()
+            timer.start_timer('saving')
+            logger.save_itr_params(self.epoch, self._get_snapshot())
+            timer.stop_timer('saving')
+            log_dict, _ = self._train()
+            logger.record_dict(log_dict)
+            logger.dump_tabular(with_prefix=True, with_timestamp=False)
+            self._end_epoch()
+        self.offline_rl = False
+        for _ in range(0, self.num_epochs):
+            self._begin_epoch()
+            timer.start_timer('saving')
+            logger.save_itr_params(self.epoch, self._get_snapshot())
+            timer.stop_timer('saving')
+            log_dict, _ = self._train()
+            logger.record_dict(log_dict)
+            logger.dump_tabular(with_prefix=True, with_timestamp=False)
+            self._end_epoch()
+        logger.save_itr_params(self.epoch, self._get_snapshot())
 
     def _train(self):
         done = (self.epoch == self.num_epochs)

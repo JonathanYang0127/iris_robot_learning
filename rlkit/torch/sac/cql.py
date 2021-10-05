@@ -9,6 +9,7 @@ import rlkit.torch.pytorch_util as ptu
 from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.torch.torch_rl_algorithm import TorchTrainer
 from torch import autograd
+from rlkit.torch.networks import LinearTransform
 
 class CQLTrainer(TorchTrainer):
     def __init__(
@@ -47,6 +48,8 @@ class CQLTrainer(TorchTrainer):
             num_random=10,
             with_lagrange=False,
             lagrange_thresh=0.0,
+            reward_transform_class=None,
+            reward_transform_kwargs=None,
     ):
         super().__init__()
         self.env = env
@@ -56,6 +59,12 @@ class CQLTrainer(TorchTrainer):
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
         self.soft_target_tau = soft_target_tau
+        self.reward_transform_class = reward_transform_class or LinearTransform
+        self.reward_transform_kwargs = reward_transform_kwargs or dict(m=1, b=0)
+        # self.terminal_transform_class = terminal_transform_class or LinearTransform
+        # self.terminal_transform_kwargs = terminal_transform_kwargs or dict(m=1, b=0)
+        self.reward_transform = self.reward_transform_class(**self.reward_transform_kwargs)
+        # self.terminal_transform = self.terminal_transform_class(**self.terminal_transform_kwargs)
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
@@ -155,6 +164,9 @@ class CQLTrainer(TorchTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
+
+        if self.reward_transform:
+            rewards = self.reward_transform(rewards)
 
         """
         Policy and Alpha Loss

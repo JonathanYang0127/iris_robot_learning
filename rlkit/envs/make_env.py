@@ -23,7 +23,19 @@ D4RL_ENVS = [
     "door-human-v0", "door-cloned-v0", "door-expert-v0", "relocate-human-v0", "relocate-cloned-v0", "relocate-expert-v0",
     "halfcheetah-random-v0", "halfcheetah-medium-v0", "halfcheetah-expert-v0", "halfcheetah-mixed-v0", "halfcheetah-medium-expert-v0",
     "walker2d-random-v0", "walker2d-medium-v0", "walker2d-expert-v0", "walker2d-mixed-v0", "walker2d-medium-expert-v0",
-    "hopper-random-v0", "hopper-medium-v0", "hopper-expert-v0", "hopper-mixed-v0", "hopper-medium-expert-v0"
+    "hopper-random-v0", "hopper-medium-v0", "hopper-expert-v0", "hopper-mixed-v0", "hopper-medium-expert-v0",
+    # 'halfcheetah-expert-v2',
+    'halfcheetah-medium-v2',
+    'halfcheetah-medium-replay-v2',
+    'halfcheetah-medium-expert-v2',
+    # 'hopper-expert-v2',
+    'hopper-medium-v2',
+    'hopper-medium-replay-v2',
+    'hopper-medium-expert-v2',
+    # 'walker2d-expert-v2',
+    'walker2d-medium-v2',
+    'walker2d-medium-replay-v2',
+    'walker2d-medium-expert-v2',
 ]
 
 def make(env_id=None, env_class=None, env_kwargs=None, normalize_env=True):

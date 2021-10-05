@@ -89,11 +89,11 @@ def get_generic_path_information(paths, stat_prefix=''):
                 for p in paths
             ]
             for k in all_env_infos[0].keys():
-                if not (
-                        isinstance(all_env_infos[0][k], Number)
-                    or isinstance(all_env_infos[0][k], np.ndarray)
-                ):
-                    continue
+                # if not (
+                #         isinstance(all_env_infos[0][k], Number)
+                #     or isinstance(all_env_infos[0][k], np.ndarray)
+                # ):
+                #     continue
                 final_ks = np.array([info[k][-1] for info in all_env_infos])
                 first_ks = np.array([info[k][0] for info in all_env_infos])
                 all_ks = np.concatenate([info[k] for info in all_env_infos])
