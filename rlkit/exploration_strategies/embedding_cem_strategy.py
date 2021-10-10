@@ -25,8 +25,6 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
     def sample_embedding(self, **kwargs):
         assert 'reverse' in kwargs
         gm_key = 'reverse' if kwargs['reverse'] else 'forward'
-        if kwargs['reverse']:
-            return [-0.6, -1.8]
         z, _ = self.gms[gm_key].sample()
         self._current_embedding = z.flatten()
         return self._current_embedding
@@ -44,7 +42,7 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
             self._update_counter[gm_key] = 0
             self.gms[gm_key] = self.fit_gaussian(np.array(self._positive_embeddings[gm_key][-self.update_window:]),
                 n_components=self.n_components, plot=plot)
-  
+
     def fit_gaussian(self, batch, n_components=1, plot=False):
         gm = GaussianMixture(n_components=n_components)
         gm = gm.fit(batch)
@@ -57,4 +55,3 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
             plt.savefig('plot_embeddings.png')
 
         return gm
-

@@ -61,7 +61,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                     self.num_eval_steps_per_epoch,
                     discard_incomplete_paths=True,
                     multi_task=True,
-                    task_index=1
+                    task_index=self.exploration_task
                 )
                 self.replay_buffer.add_paths(self.exploration_task, init_expl_paths)
             else:

@@ -54,6 +54,7 @@ class MdpPathCollector(PathCollector):
             object_detector=None,
             multi_task=False,
             task_index=0,
+            expl_reset_free=False
     ):
         paths = []
         num_steps_collected = 0
@@ -76,7 +77,16 @@ class MdpPathCollector(PathCollector):
                 self._policy,
                 max_path_length=max_path_length_this_loop,
             )
-            self._env.reset()
+            if not expl_reset_free:
+                self._env.reset()
+            else:
+                # if success, reset task so that rewards are for the opposite task
+                if path['rewards'][-1] > 0:
+                    if self._env.env.task_idx >= self._env.num_tasks:
+                        opp_task = self._env.env.task_idx - self._env.num_tasks
+                    else:
+                        opp_task = self._env.env.task_idx + self._env.num_tasks
+                    self._env.reset_task(opp_task)
 
             if object_detector is not None:
                 from widowx_envs.scripts.label_pickplace_rewards import (
@@ -191,6 +201,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             exploration_strategy,
             *args,
             observation_keys=['observation',],
+            expl_reset_free=False,
             **kwargs
     ):
         '''
@@ -199,6 +210,9 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         super().__init__(*args, **kwargs)
         self._exploration_strategy = exploration_strategy
         self._observation_keys = observation_keys
+        self._expl_reset_free = expl_reset_free
+        self._prev_success = False
+        self._reverse = False
 
     def collect_new_paths(
             self,
@@ -206,20 +220,28 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             **kwargs
     ):
         def exploration_rollout(*args, **kwargs):
-            embedding_kwargs = {'reverse': False}
-            embedding = self._exploration_strategy.sample_embedding(**embedding_kwargs)
-            rollout = fixed_contextual_rollout(*args, 
+            # switch models if prev traj was successful
+            if self._prev_success:
+                self._reverse = not self._reverse
+            # if episodic exploration always fit the forward model
+            if not self._expl_reset_free:
+                self._reverse = False
+            embedding = self._exploration_strategy.sample_embedding(reverse=self._reverse)
+            rollout = fixed_contextual_rollout(*args,
                 observation_keys=self._observation_keys,
-                context=embedding, 
+                context=embedding,
+                expl_reset_free=self._expl_reset_free,
                 **kwargs)
-            post_trajectory_kwargs = {'reverse': False,
+            success = rollout['rewards'][-1] > 0
+            post_trajectory_kwargs = {'reverse': self._reverse,
                 'embedding': embedding,
-                'success': np.sum(rollout['rewards']) > 0}
+                'success': success}
             print(post_trajectory_kwargs)
+            self._prev_success = success
             self._exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
             return rollout
         self._rollout_fn = exploration_rollout
-        return super().collect_new_paths(*args, **kwargs)
+        return super().collect_new_paths(expl_reset_free=self._expl_reset_free, *args, **kwargs)
 
     def get_snapshot(self):
         snapshot = super().get_snapshot()
