@@ -49,7 +49,7 @@ class TransformerTaskEncoderTrainer:
 
         for i in range(total_steps):
             self.optimizer.zero_grad()
-            tasks_to_sample = np.random.choice(tasks, meta_batch_size)
+            tasks_to_sample = np.random.choice(tasks, meta_batch_size, replace=False)
             encoder_batch = traj_buffer_positive.sample_batch_of_trajectories(tasks_to_sample, batch_size)
             # positives
             decoder_batch_1 = replay_buffer_positive.sample_batch(tasks_to_sample, batch_size // 2)
@@ -144,8 +144,8 @@ class TransformerTaskEncoderTrainer:
                 running_loss_entropy = 0.
                 running_loss_kl = 0.
 
-                encoder_batch_val = traj_buffer_positive_val.sample_batch_of_trajectories(tasks, val_batch_size)
-                decoder_batch_val = replay_buffer_full_val.sample_batch(tasks, val_batch_size)
+                encoder_batch_val = traj_buffer_positive_val.sample_batch_of_trajectories(tasks_to_sample, val_batch_size)
+                decoder_batch_val = replay_buffer_full_val.sample_batch(tasks_to_sample, val_batch_size)
                 encoder_batch_val_traj = [ptu.from_numpy(encoder_batch_val[k]) for k in self.encoder_keys]
                 decoder_batch_val_obs = ptu.from_numpy(decoder_batch_val['observations']) 
                 with torch.no_grad():
@@ -197,8 +197,8 @@ class TransformerTaskEncoderTrainer:
                 if i % (self.print_freq*self.save_freq) == 0:
                     plt.clf()
                     mu_np = ptu.get_numpy(mu)
-                    mu_np = np.reshape(mu_np, (num_tasks, val_batch_size, self.net.latent_dim))
-                    for j in range(num_tasks):
+                    mu_np = np.reshape(mu_np, (meta_batch_size, val_batch_size, self.net.latent_dim))
+                    for j in range(meta_batch_size):
                         plt.scatter(mu_np[j, :, 0], mu_np[j, :, 1], label=j, s=3)
                     save_path = osp.join(logger._snapshot_dir, 'plot_{}.pdf'.format(i//self.print_freq))
                     plt.legend()

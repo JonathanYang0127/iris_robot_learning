@@ -57,7 +57,7 @@ def experiment(variant):
     env_num_tasks = num_tasks
     if args.reset_free:
         #hacky change because the num_tasks passed into roboverse doesn't count exploration
-        env_num_tasks -= 1
+        env_num_tasks //= 2
     eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
 
     with open(variant['buffer'], 'rb') as fl:
@@ -67,6 +67,13 @@ def experiment(variant):
 
     if variant['use_task_embedding']:
         num_traj_total = len(data)
+        if not 'task_embedding' in data[0]['observations'][0].keys():
+            for j in range(num_traj_total):
+                for k in range(len(data[j]['observations'])):
+                    data[j]['observations'][k]['task_embedding'] = \
+                        data[j]['observations'][k]['one_hot_task_id']
+                    data[j]['next_observations'][k]['task_embedding'] = \
+                        data[j]['next_observations'][k]['one_hot_task_id']
         latent_dim = data[0]['observations'][0]['task_embedding'].shape[0]
         task_embeddings = dict()
         for i in range(variant['num_tasks']):
@@ -243,7 +250,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-        train_tasks=np.arange(num_tasks), #[variant['exploration_task']],
+        train_tasks=[variant['exploration_task']],#np.arange(num_tasks), #[variant['exploration_task']],
         eval_tasks=[variant['exploration_task']],
     )
 
