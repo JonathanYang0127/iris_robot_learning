@@ -257,7 +257,6 @@ def experiment(variant):
         multi_task=True,
         exploration_task=variant['exploration_task'],
         train_tasks=[variant['exploration_task']],#np.arange(num_tasks), #[variant['exploration_task']],
-        train_tasks=np.arange(num_tasks),
         eval_tasks=[variant['exploration_task']],
     )
 
