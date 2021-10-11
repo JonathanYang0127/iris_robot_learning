@@ -230,7 +230,8 @@ def experiment(variant):
         expl_env,
         policy,
         observation_keys=observation_keys,
-        expl_reset_free=args.expl_reset_free
+        expl_reset_free=args.expl_reset_free,
+        epochs_per_reset=variant['epochs_per_reset']
     )
     eval_path_collector = ObsDictPathCollector(
         eval_env,
@@ -321,6 +322,7 @@ if __name__ == '__main__':
         exploration_strategy = args.exploration_strategy,
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
+        epochs_per_reset = 1,
 
         trainer_kwargs=dict(
             discount=0.99,

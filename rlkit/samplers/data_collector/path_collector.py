@@ -199,20 +199,24 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
     def __init__(
             self,
             exploration_strategy,
-            *args,
+            env,
+            policy,
             observation_keys=['observation',],
             expl_reset_free=False,
+            epochs_per_reset=1,
             **kwargs
     ):
         '''
         Replaces context given by observation with context given by exploration strategy
         '''
-        super().__init__(*args, **kwargs)
+        super().__init__(env, policy, **kwargs)
         self._exploration_strategy = exploration_strategy
         self._observation_keys = observation_keys
         self._expl_reset_free = expl_reset_free
         self._prev_success = False
         self._reverse = False
+        self._env = env
+        self._epochs_per_reset = epochs_per_reset
 
     def collect_new_paths(
             self,
@@ -250,6 +254,10 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         )
         return snapshot
 
+    def end_epoch(self, epoch):
+        if epoch % self._epochs_per_reset == 0:
+            self._env.reset()
+        super().end_epoch(epoch)
 
 '''
 class VAEWrappedEnvPathCollector(GoalConditionedPathCollector):
