@@ -28,7 +28,7 @@ def main(args):
     save_path = os.path.join(os.path.dirname(args.buffer), output_filename)
     num_transitions = get_buffer_size_multitask(data)
     max_replay_buffer_size = num_transitions + 10
-    expl_env = roboverse.make(ENV, transpose_image=True)
+    expl_env = roboverse.make(args.env, transpose_image=True)
     observation_keys = ['image']
     train_task_indices = list(range(args.num_tasks))
 
@@ -98,6 +98,7 @@ if __name__ == "__main__":
     parser.add_argument("--image-dim", default=48, type=int)
     parser.add_argument("--latent-dim", default=2, type=int)
     parser.add_argument("--path-len", default=30, type=int)
+    parser.add_argument("--env", default=ENV, type=str)
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu

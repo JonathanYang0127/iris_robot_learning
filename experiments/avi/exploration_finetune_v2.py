@@ -37,6 +37,7 @@ class EmbeddingWrapper(gym.Env, Serializable):
         self.action_space = env.action_space
         self.observation_space = env.observation_space
         self.embeddings = embeddings
+        self.num_tasks = env.num_tasks
 
     def step(self, action):
         obs, rew, done, info = self.env.step(action)
@@ -50,6 +51,10 @@ class EmbeddingWrapper(gym.Env, Serializable):
 
     def reset_task(self, task_idx):
         self.env.reset_task(task_idx)
+    def get_observation(self):
+        return self.env.get_observation()
+    def reset_robot_only(self):
+        return self.env.reset_robot_only()
 
 
 def experiment(variant):
@@ -181,7 +186,7 @@ def experiment(variant):
                                            observation_keys, num_tasks)
     replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
     replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
-    
+
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)
     # else:
@@ -211,10 +216,10 @@ def experiment(variant):
         exploration_strategy = GaussianExplorationStrategy(task_embeddings_batch, policy=eval_policy,
             q_function=qf1, n_components=10)
     elif variant['exploration_strategy'] == 'cem':
-        exploration_strategy = CEMExplorationStrategy(task_embeddings_batch, 
+        exploration_strategy = CEMExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=10)
     elif variant['exploration_strategy'] == 'fast':
-        exploration_strategy = FastExplorationStrategy(task_embeddings_batch, 
+        exploration_strategy = FastExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=10)
     else:
         raise NotImplementedError
@@ -225,13 +230,14 @@ def experiment(variant):
         expl_env,
         policy,
         observation_keys=observation_keys,
+        expl_reset_free=args.expl_reset_free
     )
     eval_path_collector = ObsDictPathCollector(
         eval_env,
         eval_policy,
         observation_keys=observation_keys,
     )
-    
+
 
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
@@ -250,7 +256,11 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
+<<<<<<< HEAD
         train_tasks=[variant['exploration_task']],#np.arange(num_tasks), #[variant['exploration_task']],
+=======
+        train_tasks=np.arange(num_tasks),
+>>>>>>> 3f3ccb6d0b034fe5d4e67e5bacbeb2a7708c6082
         eval_tasks=[variant['exploration_task']],
     )
 
@@ -279,6 +289,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
     parser.add_argument('--reset-free', action='store_true', default=False)
+    parser.add_argument('--expl-reset-free', action='store_true', default=False)
     parser.add_argument('-e', '--exploration-strategy', type=str,
         choices=('gaussian', 'gaussian_filtered', 'cem', 'fast'))
     parser.add_argument("--gpu", default='0', type=str)
@@ -312,7 +323,8 @@ if __name__ == '__main__':
 
         exploration_task = args.exploration_task,
         exploration_strategy = args.exploration_strategy,
-        exploration_update_frequency=10,        
+        exploration_update_frequency=10,
+        expl_reset_free = args.expl_reset_free,
 
         trainer_kwargs=dict(
             discount=0.99,
