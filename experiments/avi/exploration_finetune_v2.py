@@ -256,11 +256,8 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-<<<<<<< HEAD
         train_tasks=[variant['exploration_task']],#np.arange(num_tasks), #[variant['exploration_task']],
-=======
         train_tasks=np.arange(num_tasks),
->>>>>>> 3f3ccb6d0b034fe5d4e67e5bacbeb2a7708c6082
         eval_tasks=[variant['exploration_task']],
     )
 
