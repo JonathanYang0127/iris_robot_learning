@@ -37,16 +37,23 @@ class EmbeddingWrapper(gym.Env, Serializable):
         self.action_space = env.action_space
         self.observation_space = env.observation_space
         self.embeddings = embeddings
+        self.latent_dim = len(self.embeddings[0])
         self.num_tasks = env.num_tasks
+
+    def get_task_embedding(self, task_idx):
+        if task_idx >= 2 * self.num_tasks:
+            return [0] * self.latent_dim
+        else:
+            return self.embeddings[task_idx]
 
     def step(self, action):
         obs, rew, done, info = self.env.step(action)
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
+        obs.update({'task_embedding': self.get_task_embedding(self.env.task_idx)})
         return obs, rew, done, info
 
     def reset(self):
         obs = self.env.reset()
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
+        obs.update({'task_embedding': self.get_task_embedding(self.env.task_idx)})
         return obs
 
     def reset_task(self, task_idx):
@@ -173,10 +180,13 @@ def experiment(variant):
             policy = pickle.load(handle)
             eval_policy = MakeDeterministic(policy)
 
+
+    # we need to add room for an exploration tasks
+    num_buffer_tasks = num_tasks * 2
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
         expl_env,
-        np.arange(num_tasks),
+        np.arange(num_buffer_tasks),
         use_next_obs_in_context=False,
         sparse_rewards=False,
         observation_keys=observation_keys
@@ -184,8 +194,9 @@ def experiment(variant):
 
     add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
                                            observation_keys, num_tasks)
-    replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
-    replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
+    if variant['exploration_task'] < 2 * num_tasks:
+        replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
+        replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)
