@@ -194,7 +194,7 @@ def experiment(variant):
 
     add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
                                            observation_keys, num_tasks)
-    if variant['exploration_task'] < 2 * num_tasks:
+    if variant['exploration_task'] < num_tasks:
         replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
         replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
 
