@@ -44,12 +44,6 @@ from tf_agents.train.utils import strategy_utils
 from tf_agents.train.utils import train_utils
 from tf_agents.trajectories import trajectory
 
-from tf_agents.drivers import dynamic_step_driver
-from tf_agents.metrics import tf_metrics
-from tf_agents.trajectories import time_step as ts
-from tf_agents.trajectories import trajectory
-from tf_agents.trajectories import policy_step
-from tf_agents.replay_buffers import tf_uniform_replay_buffer
 
 FLAGS = flags.FLAGS
 
@@ -61,9 +55,9 @@ flags.DEFINE_string('dataset_path', None, 'TFRecord dataset path.')
 flags.DEFINE_integer('learner_iterations_per_call', 500,
                      'Iterations per learner run call.')
 flags.DEFINE_integer('policy_save_interval', 10000, 'Policy save interval.')
-flags.DEFINE_integer('eval_interval', 10000, 'Evaluation interval.')
+flags.DEFINE_integer('eval_interval', 100000, 'Evaluation interval.')
 flags.DEFINE_integer('summary_interval', 1000, 'Summary interval.')
-flags.DEFINE_integer('num_gradient_updates', 2000000,
+flags.DEFINE_integer('num_gradient_updates', 1000000,
                      'Total number of train iterations to perform.')
 flags.DEFINE_integer('seed', 0,
                      'Seed.')
@@ -92,7 +86,7 @@ def train_eval(
     dataset_path,
     env_name,
     # Training params
-    exp_name = "cqltrainonline1",
+    exp_name = "cqltrainoffline2_v1",
     tpu=False,
     use_gpu=False,
     num_gradient_updates=1000000,
@@ -131,7 +125,7 @@ def train_eval(
     eval_interval=10000,
     summary_interval=1000,
     learner_iterations_per_call=1,
-    eval_episodes=10,
+    eval_episodes=100,
     debug_summaries=False,
     summarize_grads_and_vars=False,
     seed=None):
@@ -143,8 +137,6 @@ def train_eval(
   # Load environment.
   env = load_d4rl(env_name)
   tf_env = tf_py_environment.TFPyEnvironment(env)
-  expl_env = load_d4rl(env_name)
-  tf_expl_env = tf_py_environment.TFPyEnvironment(expl_env)
   strategy = strategy_utils.get_strategy(tpu, use_gpu)
 
   root_dir = os.getenv('TFAGENTS_ROOT_DIR') # export TFAGENTS_ROOT_DIR=/home/ashvin/tmp/cql_sac
@@ -251,39 +243,6 @@ def train_eval(
       summary_interval=summary_interval,
       strategy=strategy)
 
-  max_length = 1000000
-  replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
-      agent.collect_data_spec,
-      batch_size=1,
-      max_length=max_length)
-  rb_dataset = replay_buffer.as_dataset(
-    sample_batch_size=1,
-    num_steps=2)
-  rb_iterator = iter(rb_dataset)
-  replay_observers = [replay_buffer.add_batch, ]
-
-  def rb_to_transition(x1, x2):
-    next_time_step = ts.TimeStep(
-        step_type=x1.step_type[:, 1],
-        reward=x1.reward[:, 1] + reward_shift,
-        discount=x1.discount[:, 1],
-        observation=x1.observation[:, 1, :])
-    action_step = policy_step.PolicyStep(
-      action=x1.action[:, 0, :], state=(), info=x1.policy_info)
-    time_step = ts.TimeStep(
-        step_type=x1.step_type[:, 0],
-        reward=x1.reward[:, 0] + reward_shift,
-        discount=x1.discount[:, 0],
-        observation=x1.observation[:, 0, :])
-    dummy_info = ()
-    return trajectory.Transition(
-        time_step=time_step,
-        action_step=action_step,
-        next_time_step=next_time_step), dummy_info
-  rb_dataset = rb_dataset.map(rb_to_transition)
-
-  new_dataset = dataset.concatenate(rb_dataset)
-
   # Create actor for evaluation.
   eval_greedy_policy = py_tf_eager_policy.PyTFEagerPolicy(
       agent.policy, use_tf_function=True)
@@ -295,28 +254,14 @@ def train_eval(
       summary_dir=os.path.join(root_dir, 'eval'),
       episodes_per_run=eval_episodes)
 
-  train_metrics = [
-            tf_metrics.NumberOfEpisodes(),
-            tf_metrics.EnvironmentSteps(),
-            tf_metrics.AverageReturnMetric(),
-            tf_metrics.AverageEpisodeLengthMetric(),
-  ]
-
   # Run.
   dummy_trajectory = trajectory.mid((), (), (), 0., 1.)
   num_learner_iterations = int(num_gradient_updates /
                                learner_iterations_per_call)
-  for itr in range(num_learner_iterations):
+  for _ in range(num_learner_iterations):
     # Mimic collecting environment steps since we loaded a static dataset.
-    # for _ in range(learner_iterations_per_call):
-      # collect_env_step_metric(dummy_trajectory)
-    if itr > 2000:
-      collect_steps_per_iteration = learner_iterations_per_call
-      collect_op = dynamic_step_driver.DynamicStepDriver(
-        tf_expl_env,
-        agent.collect_policy,
-        observers=replay_observers + train_metrics,
-        num_steps=collect_steps_per_iteration).run()
+    for _ in range(learner_iterations_per_call):
+      collect_env_step_metric(dummy_trajectory)
 
     cql_learner.run(iterations=learner_iterations_per_call)
     if eval_interval and train_step.numpy() % eval_interval == 0:

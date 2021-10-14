@@ -86,7 +86,7 @@ def train_eval(
     dataset_path,
     env_name,
     # Training params
-    exp_name = "cqltrainoffline2",
+    exp_name = "cqltrainoffline3",
     tpu=False,
     use_gpu=False,
     num_gradient_updates=1000000,
