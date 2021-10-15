@@ -196,6 +196,7 @@ def clearning_rig_experiment(
         encoder_wrapper=EncoderWrappedEnv,
         observation_key='latent_observation',
         desired_goal_key='latent_desired_goal',
+        pixelcnn_sample_k=10,
         state_observation_key='state_observation',
         state_goal_key='state_desired_goal',
         image_goal_key='image_desired_goal',
@@ -298,7 +299,8 @@ def clearning_rig_experiment(
         elif goal_sampling_mode == 'clearning_conditional_vae_prior':
             latent_goal_distribution = CLearningConditionalPriorDistribution(
                 model,
-                desired_goal_key
+                desired_goal_key,
+                pixelcnn_sample_k=pixelcnn_sample_k,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
         elif goal_sampling_mode == "amortized_conditional_vae_prior":

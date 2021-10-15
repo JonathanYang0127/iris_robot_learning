@@ -206,6 +206,7 @@ def awac_rig_experiment(
         exploration_policy_kwargs=None,
         evaluation_goal_sampling_mode=None,
         exploration_goal_sampling_mode=None,
+        training_goal_sampling_mode=None,
 
         add_env_demos=False,
         add_env_offpolicy_data=False,
@@ -243,7 +244,7 @@ def awac_rig_experiment(
         demo_replay_buffer_kwargs = {}
     if presampled_goal_kwargs is None:
         presampled_goal_kwargs = \
-            {'eval_goals': '','expl_goals': ''}
+            {'eval_goals': '','expl_goals': '','training_goals': ''}
     if path_loader_kwargs is None:
         path_loader_kwargs = {}
     if not save_video_kwargs:
@@ -385,11 +386,15 @@ def awac_rig_experiment(
     eval_env_kwargs = env_kwargs.copy()
     eval_env_kwargs['expl'] = False
 
+
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
         env_id, env_class, expl_env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
         presampled_goal_kwargs['expl_goals'], num_presample
     )
-
+    training_env, training_context_distrib, training_reward = contextual_env_distrib_and_reward(
+        env_id, env_class, expl_env_kwargs, encoder_wrapper, training_goal_sampling_mode,
+        presampled_goal_kwargs['training_goals'], num_presample
+    )
     eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
         env_id, env_class, eval_env_kwargs, encoder_wrapper, evaluation_goal_sampling_mode,
         presampled_goal_kwargs['eval_goals'], num_presample
@@ -433,7 +438,7 @@ def awac_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
-        context_distribution=expl_context_distrib,
+        context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
         post_process_batch_fn=concat_context_to_obs,
@@ -445,7 +450,7 @@ def awac_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
-        context_distribution=expl_context_distrib,
+        context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
         post_process_batch_fn=concat_context_to_obs,
@@ -456,7 +461,7 @@ def awac_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
-        context_distribution=expl_context_distrib,
+        context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
         post_process_batch_fn=concat_context_to_obs,
@@ -483,6 +488,19 @@ def awac_rig_experiment(
         action_dim=action_dim,
         **policy_kwargs,
     )
+
+    if exploration_goal_sampling_mode == "clearning_conditional_vae_prior":
+        expl_env.context_distribution.policy = policy
+        expl_env.context_distribution.qf1 = qf1
+        expl_env.context_distribution.qf2 = qf2
+    if training_goal_sampling_mode == "clearning_conditional_vae_prior":
+        training_env.context_distribution.policy = policy
+        training_env.context_distribution.qf1 = qf1
+        training_env.context_distribution.qf2 = qf2
+    if evaluation_goal_sampling_mode == "clearning_conditional_vae_prior":
+        eval_env.context_distribution.policy = policy
+        eval_env.context_distribution.qf1 = qf1
+        eval_env.context_distribution.qf2 = qf2
 
     #Path Collectors
     eval_path_collector = ContextualPathCollector(

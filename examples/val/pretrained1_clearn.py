@@ -47,7 +47,8 @@ pnp_goals = VAL_DATA_PATH + 'pnp_goals.pkl'
 top_drawer_goals = VAL_DATA_PATH + 'top_drawer_goals.pkl'
 bottom_drawer_goals = VAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 
-vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run22/id0/best_vqvae.pt" ## example data
+#vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run22/id0/best_vqvae.pt" 
+vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/best_vqvae.pt" ## example data
 #vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/full1/run24/id0/best_vqvae.pt" ## new data
 #vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt"
 #vqvae = "/home/patrickhaoy/logs/full1/run4/id0/best_vqvae.pt" 
@@ -103,7 +104,7 @@ if __name__ == "__main__":
         max_path_length=65, #50
         algo_kwargs=dict(
             batch_size=1024, #1024
-            num_epochs=250, #1001
+            num_epochs=1001, #250, #1001
             num_eval_steps_per_epoch=1000, #1000
             num_expl_steps_per_train_loop=1000, #1000
             num_trains_per_train_loop=1000, #1000
@@ -125,6 +126,7 @@ if __name__ == "__main__":
 
         observation_key='latent_observation',
         desired_goal_key='latent_desired_goal',
+        pixelcnn_sample_k=10,
         save_video=True,
         save_video_kwargs=dict(
             save_video_period=25,
@@ -237,9 +239,9 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(1),
+        "seed": [7],
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'env_type': ['top_drawer', 'bottom_drawer'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
@@ -254,9 +256,11 @@ if __name__ == "__main__":
         'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [SigmoidClamp(min=1E-4, max=1-1E-4)], #[Clamp(max=0)],
         'replay_buffer_kwargs.max_size' : [450000], #[450000], 
-        "exploration_goal_sampling_mode" : ["conditional_vae_prior"], #["clearning_conditional_vae_prior", "conditional_vae_prior", "presample_latents"]
-        'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
-        "pretrain_rl" : [True, False],
+        "exploration_goal_sampling_mode" : ["clearning_conditional_vae_prior"], #["clearning_conditional_vae_prior", "conditional_vae_prior", "presample_latents"]
+        'env_kwargs.reset_interval' : [10, 25], #[1, 5, 10, 15, 20, 25],#[1, 2, 4, 5, 10, 15, 20, 25],
+        "pretrain_rl" : [True], #[False, True],
+        "max_path_length" : [65], #[65, 150],
+        "pixelcnn_sample_k" : [15, 10, 5]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

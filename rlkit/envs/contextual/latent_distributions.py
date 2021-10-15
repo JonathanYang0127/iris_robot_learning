@@ -225,6 +225,7 @@ class CLearningConditionalPriorDistribution(DictDistributionGenerator):
             policy=None,
             qf1=None,
             qf2=None,
+            pixelcnn_sample_k=10,
     ):
         self.representation_size = model.representation_size
         self._spaces = dist.spaces if dist else {}
@@ -241,7 +242,7 @@ class CLearningConditionalPriorDistribution(DictDistributionGenerator):
         self.policy = policy
         self.qf1 = qf1
         self.qf2 = qf2
-        self.k = 10
+        self.k = pixelcnn_sample_k
 
     def sample(self, batch_size):
         s = self.dist.sample(batch_size) if self.dist else {}
