@@ -1,3 +1,7 @@
+"""Torch implementation of Implicit Q-Learning (IQL)
+https://github.com/ikostrikov/implicit_q_learning
+"""
+
 import pickle
 from collections import OrderedDict
 import numpy as np
@@ -17,7 +21,7 @@ from rlkit.torch.networks import LinearTransform
 import time
 
 
-class PRTrainer(TorchTrainer):
+class IQLTrainer(TorchTrainer):
     def __init__(
             self,
             env,
@@ -526,62 +530,10 @@ class PRTrainer(TorchTrainer):
         """
         Policy Loss
         """
-        qf1_new_actions = self.qf1(obs, new_obs_actions)
-        qf2_new_actions = self.qf2(obs, new_obs_actions)
-        q_new_actions = torch.min(
-            qf1_new_actions,
-            qf2_new_actions,
-        )
-
-        # Advantage-weighted regression
-        # if self.awr_use_mle_for_vf:
-        #     v1_pi = self.qf1(obs, policy_mle)
-        #     v2_pi = self.qf2(obs, policy_mle)
-        #     v_pi = torch.min(v1_pi, v2_pi)
-        # else:
-        #     if self.vf_K > 1:
-        #         vs = []
-        #         for i in range(self.vf_K):
-        #             u = dist.sample()
-        #             q1 = self.qf1(obs, u)
-        #             q2 = self.qf2(obs, u)
-        #             v = torch.min(q1, q2)
-        #             # v = q1
-        #             vs.append(v)
-        #         v_pi = torch.cat(vs, 1).mean(dim=1)
-        #     else:
-        #         # v_pi = self.qf1(obs, new_obs_actions)
-        #         v1_pi = self.qf1(obs, new_obs_actions)
-        #         v2_pi = self.qf2(obs, new_obs_actions)
-        #         v_pi = torch.min(v1_pi, v2_pi)
         v_pi = vf1_pred
+        q_adv = q_pred - vf1_pred
 
-        if self.awr_sample_actions:
-            u = new_obs_actions
-            if self.awr_min_q:
-                q_adv = q_new_actions
-            else:
-                q_adv = qf1_new_actions
-        elif self.buffer_policy_sample_actions:
-            buf_dist = self.buffer_policy(obs)
-            u, _ = buf_dist.rsample_and_logprob()
-            qf1_buffer_actions = self.qf1(obs, u)
-            qf2_buffer_actions = self.qf2(obs, u)
-            q_buffer_actions = torch.min(
-                qf1_buffer_actions,
-                qf2_buffer_actions,
-            )
-            if self.awr_min_q:
-                q_adv = q_buffer_actions
-            else:
-                q_adv = qf1_buffer_actions
-        else:
-            u = actions
-            if self.awr_min_q:
-                q_adv = torch.min(q1_pred, q2_pred)
-            else:
-                q_adv = q1_pred
-
+        u = new_obs_actions
         policy_logpp = dist.log_prob(u)
 
         if self.use_automatic_beta_tuning:
@@ -678,7 +630,7 @@ class PRTrainer(TorchTrainer):
                 error
         weights = weights[:, 0]
 
-        policy_loss = alpha * log_pi.mean()
+        policy_loss = 0 # alpha * log_pi.mean()
 
         if self.use_awr_update and self.weight_loss:
             policy_loss = policy_loss + self.awr_weight * (-policy_logpp * len(weights)*weights.detach()).mean()
@@ -693,69 +645,6 @@ class PRTrainer(TorchTrainer):
             train_policy_loss, train_logp_loss, train_mse_loss, _ = self.run_bc_batch(self.demo_train_buffer, self.policy)
             policy_loss = policy_loss + self.bc_weight * train_policy_loss
 
-
-
-        if not pretrain and self.buffer_policy_reset_period > 0 and self._n_train_steps_total % self.buffer_policy_reset_period==0:
-            del self.buffer_policy_optimizer
-            self.buffer_policy_optimizer =  self.optimizer_class(
-                self.buffer_policy.parameters(),
-                weight_decay=self.policy_weight_decay,
-                lr=self.policy_lr,
-            )
-            self.optimizers[self.buffer_policy] = self.buffer_policy_optimizer
-            for i in range(self.num_buffer_policy_train_steps_on_reset):
-                if self.train_bc_on_rl_buffer:
-                    if self.advantage_weighted_buffer_loss:
-                        buffer_dist = self.buffer_policy(obs)
-                        buffer_u = actions
-                        buffer_new_obs_actions, _ = buffer_dist.rsample_and_logprob()
-                        buffer_policy_logpp = buffer_dist.log_prob(buffer_u)
-                        buffer_policy_logpp = buffer_policy_logpp[:, None]
-
-                        buffer_q1_pred = self.qf1(obs, buffer_u)
-                        buffer_q2_pred = self.qf2(obs, buffer_u)
-                        buffer_q_adv = torch.min(buffer_q1_pred, buffer_q2_pred)
-
-                        buffer_v1_pi = self.qf1(obs, buffer_new_obs_actions)
-                        buffer_v2_pi = self.qf2(obs, buffer_new_obs_actions)
-                        buffer_v_pi = torch.min(buffer_v1_pi, buffer_v2_pi)
-
-                        buffer_score = buffer_q_adv - buffer_v_pi
-                        buffer_weights = F.softmax(buffer_score / beta, dim=0)
-                        buffer_policy_loss = self.awr_weight * (-buffer_policy_logpp * len(buffer_weights)*buffer_weights.detach()).mean()
-                    else:
-                        buffer_policy_loss, buffer_train_logp_loss, buffer_train_mse_loss, _ = self.run_bc_batch(
-                        self.replay_buffer.train_replay_buffer, self.buffer_policy)
-
-                    self.buffer_policy_optimizer.zero_grad()
-                    buffer_policy_loss.backward(retain_graph=True)
-                    self.buffer_policy_optimizer.step()
-
-        if self.train_bc_on_rl_buffer:
-            if self.advantage_weighted_buffer_loss:
-                buffer_dist = self.buffer_policy(obs)
-                buffer_u = actions
-                buffer_new_obs_actions, _ = buffer_dist.rsample_and_logprob()
-                buffer_policy_logpp = buffer_dist.log_prob(buffer_u)
-                buffer_policy_logpp = buffer_policy_logpp[:, None]
-
-                buffer_q1_pred = self.qf1(obs, buffer_u)
-                buffer_q2_pred = self.qf2(obs, buffer_u)
-                buffer_q_adv = torch.min(buffer_q1_pred, buffer_q2_pred)
-
-                buffer_v1_pi = self.qf1(obs, buffer_new_obs_actions)
-                buffer_v2_pi = self.qf2(obs, buffer_new_obs_actions)
-                buffer_v_pi = torch.min(buffer_v1_pi, buffer_v2_pi)
-
-                buffer_score = buffer_q_adv - buffer_v_pi
-                buffer_weights = F.softmax(buffer_score / beta, dim=0)
-                buffer_policy_loss = self.awr_weight * (-buffer_policy_logpp * len(buffer_weights)*buffer_weights.detach()).mean()
-            else:
-                buffer_policy_loss, buffer_train_logp_loss, buffer_train_mse_loss, _ = self.run_bc_batch(
-                    self.replay_buffer.train_replay_buffer, self.buffer_policy)
-
-
-
         """
         Update networks
         """
@@ -768,11 +657,6 @@ class PRTrainer(TorchTrainer):
             qf2_loss.backward()
             self.qf2_optimizer.step()
 
-            if self.z:
-                self.z_optimizer.zero_grad()
-                z_loss.backward()
-                self.z_optimizer.step()
-
             self.vf1_optimizer.zero_grad()
             vf1_loss.backward()
             self.vf1_optimizer.step()
@@ -781,13 +665,6 @@ class PRTrainer(TorchTrainer):
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
-
-        if self.train_bc_on_rl_buffer and self._n_train_steps_total % self.policy_update_period == 0 :
-            self.buffer_policy_optimizer.zero_grad()
-            buffer_policy_loss.backward()
-            self.buffer_policy_optimizer.step()
-
-
 
         """
         Soft Updates
@@ -809,7 +686,7 @@ class PRTrainer(TorchTrainer):
             Eval should set this to None.
             This way, these statistics are only computed for one batch.
             """
-            policy_loss = (log_pi - q_new_actions).mean()
+            # policy_loss = (log_pi - q_new_actions).mean()
 
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))

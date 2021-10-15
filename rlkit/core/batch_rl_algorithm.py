@@ -17,12 +17,10 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             num_trains_per_train_loop,
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
-            offline_rl=False,
-            start_epoch=0,
+            start_epoch=0, # negative epochs are offline, positive epochs are online
             *args,
             **kwargs
     ):
-
         super().__init__(*args, **kwargs)
         self.batch_size = batch_size
         self.max_path_length = max_path_length
@@ -31,10 +29,10 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
-        self.offline_rl = offline_rl
         self.epoch = start_epoch
 
     def train(self):
+        """Negative epochs are offline, positive epochs are online"""
         timer.return_global_times = True
         self.offline_rl = True
         for _ in range(self.epoch, 0):
