@@ -119,6 +119,7 @@ def experiment(variant):
     task_embeddings_batch = np.array(task_embeddings_batch)
 
     expl_env = eval_env
+    expl_env.reset_task(variant['exploration_task'])
 
     action_dim = eval_env.action_space.low.size
     observation_keys = ['image',]

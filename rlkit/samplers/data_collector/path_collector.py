@@ -58,7 +58,7 @@ class MdpPathCollector(PathCollector):
     ):
         paths = []
         num_steps_collected = 0
-        if multi_task:
+        if multi_task and not expl_reset_free:
             self._env.reset_task(task_index)
         # print("num_steps", num_steps)
 
