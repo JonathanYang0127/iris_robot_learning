@@ -6,7 +6,7 @@ Algorithm-specific networks should go else-where.
 from rlkit.torch.networks.basic import (
     Sigmoid, Clamp, SigmoidClamp, ConcatTuple, Detach, Flatten, FlattenEach, Split, Reshape,
 )
-from rlkit.torch.networks.cnn import BasicCNN, CNN, MergedCNN, CNNPolicy
+from rlkit.torch.networks.cnn import BasicCNN, CNN, MergedCNN, CNNPolicy, TwoChannelCNN, ConcatTwoChannelCNN
 from rlkit.torch.networks.dcnn import DCNN, TwoHeadDCNN
 from rlkit.torch.networks.deprecated_feedforward import (
     FeedForwardPolicy, FeedForwardQFunction
@@ -32,6 +32,8 @@ __all__ = [
     'ConcatTuple',
     'BasicCNN',
     'CNN',
+    'TwoChannelCNN',
+    "ConcatTwoChannelCNN",
     'CNNPolicy',
     'DCNN',
     'Detach',

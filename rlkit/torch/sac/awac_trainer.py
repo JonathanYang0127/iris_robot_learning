@@ -493,6 +493,7 @@ class AWACTrainer(TorchTrainer):
         """
         QF Loss
         """
+        # import pdb; pdb.set_trace()
         q1_pred = self.qf1(obs, actions)
         q2_pred = self.qf2(obs, actions)
         # Make sure policy accounts for squashing functions like tanh correctly!

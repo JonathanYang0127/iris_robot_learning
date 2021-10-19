@@ -59,6 +59,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             post_process_batch_fn=None,
             observation_key=None,  # for backwards compatibility
             observation_keys=None,
+            observation_key_reward_fn=None,
             save_data_in_snapshot=False,
             internal_keys=None,
             **kwargs
@@ -71,6 +72,10 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             )
         if observation_keys is None:
             observation_keys = [observation_key]
+        if observation_key_reward_fn is None:
+            self.observation_keys_reward_fn = observation_keys
+        else:
+            self.observation_keys_reward_fn = [observation_key_reward_fn]
         ob_keys_to_save = observation_keys_to_save + context_keys
         super().__init__(
             max_size,
@@ -95,7 +100,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
                 fraction_future_context,
                 fraction_distribution_context,
             ))
-        self._context_keys = context_keys
+        self._context_keys = context_keys 
         self._context_distribution = context_distribution
         for k in context_keys:
             distribution_keys = set(self._context_distribution.spaces.keys())
@@ -113,7 +118,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         self._fraction_replay_buffer_context = fraction_replay_buffer_context
 
         def composed_post_process_batch_fn(
-                batch, replay_buffer, obs_dict, next_obs_dict, new_contexts
+                batch, replay_buffer, obs_dict, next_obs_dict, new_contexts, 
         ):
             new_batch = batch
             if post_process_batch_fn:
@@ -213,7 +218,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         new_batch = self._post_process_batch_fn(
             batch,
             self,
-            obs_dict, next_obs_dict, new_contexts
+            obs_dict, next_obs_dict, new_contexts,
         )
         return new_batch
 

@@ -6,6 +6,12 @@ from gym.spaces import Box, Dict
 
 from rlkit.envs.images.env_renderer import EnvRenderer
 
+# getting Product 
+def prod(val) : 
+    res = 1 
+    for ele in val: 
+        res *= ele 
+    return res  
 
 class InsertImagesEnv(gym.Wrapper):
     """
@@ -35,9 +41,9 @@ class InsertImagesEnv(gym.Wrapper):
         spaces = self.env.observation_space.spaces.copy()
         for image_key, renderer in renderers.items():
             if renderer.image_is_normalized:
-                img_space = Box(0, 1, renderer.image_shape, dtype=np.float32)
+                img_space = Box(0, 1, (prod(renderer.image_shape), ), dtype=np.float32)
             else:
-                img_space = Box(0, 255, renderer.image_shape, dtype=np.uint8)
+                img_space = Box(0, 255, (prod(renderer.image_shape), ), dtype=np.uint8)
             spaces[image_key] = img_space
         self.renderers = renderers
         self.observation_space = Dict(spaces)

@@ -99,7 +99,8 @@ class RewardFn:
             env,
             obs_type='latent',
             reward_type='dense',
-            epsilon=1.0
+            epsilon=1.0,
+            # cnn=None,
     ):
         if obs_type == 'latent':
             self.observation_key = 'latent_observation'
@@ -107,9 +108,13 @@ class RewardFn:
         elif obs_type == 'state':
             self.observation_key = 'state_observation'
             self.desired_goal_key = 'state_desired_goal'
+        # elif obs_type == 'image':
+        #     self.observation_key = 'image_observation'
+        #     self.desired_goal_key = 'image_desired_goal'
         self.env = env
         self.reward_type = reward_type
         self.epsilon = epsilon
+        # self.cnn = cnn
 
     def process(self, obs):
         if len(obs.shape) == 1:
@@ -119,6 +124,9 @@ class RewardFn:
     def __call__(self, states, actions, next_states, contexts):
         s = self.process(next_states[self.observation_key])
         c = self.process(contexts[self.desired_goal_key])
+        # if self.observation_key == 'image_observation':
+        #     s = ptu.get_numpy(self.cnn.apply_forward_conv(ptu.from_numpy(s).reshape(-1, 3, 48, 48))).reshape(1,-1)
+        #     c = ptu.get_numpy(self.cnn.apply_forward_conv(ptu.from_numpy(c).reshape(-1, 3, 48, 48))).reshape(1,-1)
 
         if self.reward_type == 'dense':
             reward = -np.linalg.norm(s - c, axis=1)
@@ -189,7 +197,10 @@ def awac_rig_experiment(
         reward_kwargs=None,
         encoder_wrapper=EncoderWrappedEnv,
         observation_key='latent_observation',
+        observation_keys=['latent_observation'],
+        observation_key_reward_fn=None,
         desired_goal_key='latent_desired_goal',
+        desired_goal_key_reward_fn=None,
         state_observation_key='state_observation',
         state_goal_key='state_desired_goal',
         image_goal_key='image_desired_goal',
@@ -251,7 +262,7 @@ def awac_rig_experiment(
         save_video_kwargs = {}
     if not renderer_kwargs:
         renderer_kwargs = {}
-
+    
     #Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
     def contextual_env_distrib_and_reward(
@@ -315,6 +326,13 @@ def awac_rig_experiment(
                 desired_goal_key,
                 model,
             )
+        elif goal_sampling_mode == "presampled_images_no_latent":
+            diagnostics = state_env.get_contextual_diagnostics
+            image_goal_distribution = PresampledPathDistribution(
+                presampled_goals_path,
+                model.representation_size,
+            )
+            latent_goal_distribution = image_goal_distribution
         elif goal_sampling_mode == "presample_latents":
             diagnostics = StateImageGoalDiagnosticsFn({}, )
             #diagnostics = state_env.get_contextual_diagnostics
@@ -416,14 +434,24 @@ def awac_rig_experiment(
     action_dim = expl_env.action_space.low.size
 
     state_rewards = reward_kwargs.get('reward_type', 'dense') == 'wrapped_env'
-    if state_rewards:
-        mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key})
-        obs_keys = [state_observation_key, observation_key]
-        cont_keys = [state_goal_key, context_key]
+    if desired_goal_key_reward_fn: 
+        if state_rewards:
+            mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key, desired_goal_key_reward_fn: observation_key_reward_fn})
+            obs_keys = [state_observation_key, observation_key, observation_key_reward_fn]
+            cont_keys = [state_goal_key, context_key, desired_goal_key_reward_fn]
+        else:
+            mapper = RemapKeyFn({context_key: observation_key, desired_goal_key_reward_fn: observation_key_reward_fn})
+            obs_keys = [observation_key, observation_key_reward_fn] + list(reset_keys_map.values())
+            cont_keys = [context_key, desired_goal_key_reward_fn]
     else:
-        mapper = RemapKeyFn({context_key: observation_key})
-        obs_keys = [observation_key] + list(reset_keys_map.values())
-        cont_keys = [context_key]
+        if state_rewards:
+            mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key})
+            obs_keys = [state_observation_key, observation_key]
+            cont_keys = [state_goal_key, context_key]
+        else:
+            mapper = RemapKeyFn({context_key: observation_key})
+            obs_keys = [observation_key] + list(reset_keys_map.values())
+            cont_keys = [context_key]
 
     #Replay Buffer
     def concat_context_to_obs(batch, replay_buffer, obs_dict, next_obs_dict, new_contexts):
@@ -438,6 +466,8 @@ def awac_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
+        observation_key_reward_fn=observation_key_reward_fn,
+        #observation_keys=observation_keys,
         context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
@@ -450,6 +480,8 @@ def awac_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
+        observation_key_reward_fn=observation_key_reward_fn,
+        #observation_keys=observation_keys,
         context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
@@ -461,6 +493,8 @@ def awac_rig_experiment(
         context_keys=cont_keys,
         observation_keys_to_save=obs_keys,
         observation_key=observation_key,
+        observation_key_reward_fn=observation_key_reward_fn,
+        #observation_keys=observation_keys,
         context_distribution=training_context_distrib,#expl_context_distrib,
         sample_context_from_obs_dict_fn=mapper,
         reward_fn=eval_reward,
@@ -488,6 +522,8 @@ def awac_rig_experiment(
         action_dim=action_dim,
         **policy_kwargs,
     )
+
+    #eval_reward.cnn = qf1
 
     if exploration_goal_sampling_mode == "clearning_conditional_vae_prior":
         expl_env.context_distribution.policy = policy
