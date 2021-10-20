@@ -73,7 +73,7 @@ def main():
             reward_transform_kwargs=None, # r' = r + 1
             terminal_transform_kwargs=None, # t = 0
             validation_qlearning=False, # changed this line, added
-            quantile=0.9,
+            quantile=0.7,
         ),
         launcher_config=dict(
             num_exps_per_instance=1,
@@ -102,11 +102,11 @@ def main():
         'use_validation_buffer': [False], # changed this line, added
         'policy_kwargs.std': [None, ],
         'env_id': [
-            "antmaze-umaze-v0", "antmaze-umaze-diverse-v0", "antmaze-medium-play-v0",
-            "antmaze-medium-diverse-v0", "antmaze-large-diverse-v0", "antmaze-large-play-v0",
+            'halfcheetah-expert-v0', 'halfcheetah-medium-v0', 'halfcheetah-medium-expert-v0',
+            'halfcheetah-medium-replay-v0', 'hopper-medium-replay-v0', 'walker2d-medium-replay-v0',
         ],
         'seedid': range(3),
-        'trainer_kwargs.beta': [0.1, 1, 10],
+        'trainer_kwargs.beta': [0.3, 1, 3.0],
 
         'policy_kwargs.std_architecture': ["values", ],
         'trainer_kwargs.awr_use_mle_for_vf': [True, ],
@@ -115,7 +115,7 @@ def main():
 
         'trainer_kwargs.q_weight_decay': [0, ],
 
-        'trainer_kwargs.reward_transform_kwargs': [dict(m=1, b=-1), ],
+        # 'trainer_kwargs.reward_transform_kwargs': [dict(m=1, b=-1), ],
         # 'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0), ],
         # 'qf_kwargs.output_activation': [Clamp(max=0)],
         # 'trainer_kwargs.train_bc_on_rl_buffer':[True],

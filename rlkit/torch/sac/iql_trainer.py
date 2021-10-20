@@ -28,17 +28,15 @@ class IQLTrainer(TorchTrainer):
             policy,
             qf1,
             qf2,
-            target_qf1,
-            target_qf2,
-            vf1=None,
+            vf,
             quantile=0.5,
+            target_qf1=None,
+            target_qf2=None,
             buffer_policy=None,
             z=None,
 
             discount=0.99,
             reward_scale=1.0,
-            beta=1.0,
-            beta_schedule_kwargs=None,
 
             policy_lr=1e-3,
             qf_lr=1e-3,
@@ -46,63 +44,18 @@ class IQLTrainer(TorchTrainer):
             q_weight_decay=0,
             optimizer_class=optim.Adam,
 
-            soft_target_tau=1e-2,
-            target_update_period=1,
-            plotter=None,
-            render_eval_paths=False,
-
-            use_automatic_entropy_tuning=True,
-            target_entropy=None,
-
-            bc_num_pretrain_steps=0,
-            q_num_pretrain1_steps=0,
-            q_num_pretrain2_steps=0,
-            bc_batch_size=128,
-            alpha=1.0,
-
             policy_update_period=1,
             q_update_period=1,
-
-            weight_loss=True,
-            compute_bc=True,
-            use_awr_update=True,
-            use_reparam_update=False,
-
-            bc_weight=0.0,
-            rl_weight=1.0,
-            reparam_weight=1.0,
-            awr_weight=1.0,
-
-            post_pretrain_hyperparams=None,
-            post_bc_pretrain_hyperparams=None,
-
-            awr_use_mle_for_vf=False,
-            vf_K=1,
-            awr_sample_actions=False,
-            buffer_policy_sample_actions=False,
-            awr_min_q=False,
-            brac=False,
 
             reward_transform_class=None,
             reward_transform_kwargs=None,
             terminal_transform_class=None,
             terminal_transform_kwargs=None,
 
-            pretraining_logging_period=1000,
-
-            train_bc_on_rl_buffer=False,
-            use_automatic_beta_tuning=False,
-            beta_epsilon=1e-10,
-            normalize_over_batch=True,
-            normalize_over_state="advantage",
-            Z_K=10,
             clip_score=None,
-            validation_qlearning=False,
-
-            mask_positive_advantage=False,
-            buffer_policy_reset_period=-1,
-            num_buffer_policy_train_steps_on_reset=100,
-            advantage_weighted_buffer_loss=True,
+            soft_target_tau=1e-2,
+            target_update_period=1,
+            beta=1.0,
     ):
         super().__init__()
         self.env = env
@@ -111,32 +64,11 @@ class IQLTrainer(TorchTrainer):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
-        self.vf1 = vf1
-        self.z = z
-        self.buffer_policy = buffer_policy
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
-
-        self.use_awr_update = use_awr_update
-        self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
-        if self.use_automatic_entropy_tuning:
-            if target_entropy:
-                self.target_entropy = target_entropy
-            else:
-                self.target_entropy = -np.prod(self.env.action_space.shape).item()  # heuristic value from Tuomas
-            self.log_alpha = ptu.zeros(1, requires_grad=True)
-            self.alpha_optimizer = optimizer_class(
-                [self.log_alpha],
-                lr=policy_lr,
-            )
-
-        self.awr_use_mle_for_vf = awr_use_mle_for_vf
-        self.vf_K = vf_K
-        self.awr_sample_actions = awr_sample_actions
-        self.awr_min_q = awr_min_q
-
-        self.plotter = plotter
-        self.render_eval_paths = render_eval_paths
+        self.vf = vf
+        self.z = z
+        self.buffer_policy = buffer_policy
 
         self.qf_criterion = nn.MSELoss()
         self.vf_criterion = nn.MSELoss()
@@ -159,8 +91,8 @@ class IQLTrainer(TorchTrainer):
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
-        self.vf1_optimizer = optimizer_class(
-            self.vf1.parameters(),
+        self.vf_optimizer = optimizer_class(
+            self.vf.parameters(),
             weight_decay=q_weight_decay,
             lr=qf_lr,
         )
@@ -172,63 +104,14 @@ class IQLTrainer(TorchTrainer):
                 lr=qf_lr,
             )
 
-        if buffer_policy and train_bc_on_rl_buffer:
-            self.buffer_policy_optimizer =  optimizer_class(
-                self.buffer_policy.parameters(),
-                weight_decay=policy_weight_decay,
-                lr=policy_lr,
-            )
-            self.optimizers[self.buffer_policy] = self.buffer_policy_optimizer
-            self.optimizer_class=optimizer_class
-            self.policy_weight_decay=policy_weight_decay
-            self.policy_lr = policy_lr
-
-        self.use_automatic_beta_tuning = use_automatic_beta_tuning and buffer_policy and train_bc_on_rl_buffer
-        self.beta_epsilon=beta_epsilon
-        if self.use_automatic_beta_tuning:
-            self.log_beta = ptu.zeros(1, requires_grad=True)
-            self.beta_optimizer = optimizer_class(
-                [self.log_beta],
-                lr=policy_lr,
-            )
-        else:
-            self.beta = beta
-            self.beta_schedule_kwargs = beta_schedule_kwargs
-            if beta_schedule_kwargs is None:
-                self.beta_schedule = ConstantSchedule(beta)
-            else:
-                schedule_class = beta_schedule_kwargs.pop("schedule_class", PiecewiseLinearSchedule)
-                self.beta_schedule = schedule_class(**beta_schedule_kwargs)
-
         self.discount = discount
         self.reward_scale = reward_scale
         self.eval_statistics = OrderedDict()
         self._n_train_steps_total = 0
         self._need_to_update_eval_statistics = True
 
-        self.bc_num_pretrain_steps = bc_num_pretrain_steps
-        self.q_num_pretrain1_steps = q_num_pretrain1_steps
-        self.q_num_pretrain2_steps = q_num_pretrain2_steps
-        self.bc_batch_size = bc_batch_size
-        self.rl_weight = rl_weight
-        self.bc_weight = bc_weight
-        self.eval_policy = MakeDeterministic(self.policy)
-        self.compute_bc = compute_bc
-        self.alpha = alpha
         self.q_update_period = q_update_period
         self.policy_update_period = policy_update_period
-        self.weight_loss = weight_loss
-
-        self.reparam_weight = reparam_weight
-        self.awr_weight = awr_weight
-        self.post_pretrain_hyperparams = post_pretrain_hyperparams
-        self.post_bc_pretrain_hyperparams = post_bc_pretrain_hyperparams
-        self.update_policy = True
-        self.pretraining_logging_period = pretraining_logging_period
-        self.normalize_over_batch = normalize_over_batch
-        self.normalize_over_state = normalize_over_state
-        self.Z_K = Z_K
-        self.quantile = quantile
 
         self.reward_transform_class = reward_transform_class or LinearTransform
         self.reward_transform_kwargs = reward_transform_kwargs or dict(m=1, b=0)
@@ -236,237 +119,10 @@ class IQLTrainer(TorchTrainer):
         self.terminal_transform_kwargs = terminal_transform_kwargs or dict(m=1, b=0)
         self.reward_transform = self.reward_transform_class(**self.reward_transform_kwargs)
         self.terminal_transform = self.terminal_transform_class(**self.terminal_transform_kwargs)
-        self.use_reparam_update = use_reparam_update
+
         self.clip_score = clip_score
-        self.buffer_policy_sample_actions = buffer_policy_sample_actions
-
-        self.train_bc_on_rl_buffer = train_bc_on_rl_buffer and buffer_policy
-        self.validation_qlearning = validation_qlearning
-        self.brac = brac
-        self.mask_positive_advantage = mask_positive_advantage
-        self.buffer_policy_reset_period = buffer_policy_reset_period
-        self.num_buffer_policy_train_steps_on_reset=num_buffer_policy_train_steps_on_reset
-        self.advantage_weighted_buffer_loss=advantage_weighted_buffer_loss
-
-    def get_batch_from_buffer(self, replay_buffer, batch_size):
-        batch = replay_buffer.random_batch(batch_size)
-        batch = np_to_pytorch_batch(batch)
-        return batch
-
-    def run_bc_batch(self, replay_buffer, policy):
-        batch = self.get_batch_from_buffer(replay_buffer, self.bc_batch_size)
-        o = batch["observations"]
-        u = batch["actions"]
-        # g = batch["resampled_goals"]
-        # og = torch.cat((o, g), dim=1)
-        og = o
-        # pred_u, *_ = self.policy(og)
-        dist = policy(og)
-        pred_u, log_pi = dist.rsample_and_logprob()
-        stats = dist.get_diagnostics()
-
-        mse = (pred_u - u) ** 2
-        mse_loss = mse.mean()
-
-        policy_logpp = dist.log_prob(u, )
-        logp_loss = -policy_logpp.mean()
-        policy_loss = logp_loss
-
-        return policy_loss, logp_loss, mse_loss, stats
-
-    def pretrain_policy_with_bc(self, policy, train_buffer, test_buffer, steps, label="policy", ):
-        logger.remove_tabular_output(
-            'progress.csv', relative_to_snapshot_dir=True,
-        )
-        logger.add_tabular_output(
-            'pretrain_%s.csv' % label, relative_to_snapshot_dir=True,
-        )
-
-        optimizer = self.optimizers[policy]
-        prev_time = time.time()
-        for i in range(steps):
-            train_policy_loss, train_logp_loss, train_mse_loss, train_stats = self.run_bc_batch(train_buffer, policy)
-            train_policy_loss = train_policy_loss * self.bc_weight
-
-            optimizer.zero_grad()
-            train_policy_loss.backward()
-            optimizer.step()
-
-            test_policy_loss, test_logp_loss, test_mse_loss, test_stats = self.run_bc_batch(test_buffer, policy)
-            test_policy_loss = test_policy_loss * self.bc_weight
-
-            if i % self.pretraining_logging_period==0:
-                stats = {
-                "pretrain_bc/batch": i,
-                "pretrain_bc/Train Logprob Loss": ptu.get_numpy(train_logp_loss),
-                "pretrain_bc/Test Logprob Loss": ptu.get_numpy(test_logp_loss),
-                "pretrain_bc/Train MSE": ptu.get_numpy(train_mse_loss),
-                "pretrain_bc/Test MSE": ptu.get_numpy(test_mse_loss),
-                "pretrain_bc/train_policy_loss": ptu.get_numpy(train_policy_loss),
-                "pretrain_bc/test_policy_loss": ptu.get_numpy(test_policy_loss),
-                "pretrain_bc/epoch_time":time.time()-prev_time,
-                }
-
-                logger.record_dict(stats)
-                logger.dump_tabular(with_prefix=True, with_timestamp=False)
-                pickle.dump(self.policy, open(logger.get_snapshot_dir() + '/bc_%s.pkl' % label, "wb"))
-                prev_time = time.time()
-
-        logger.remove_tabular_output(
-            'pretrain_%s.csv' % label, relative_to_snapshot_dir=True,
-        )
-        logger.add_tabular_output(
-            'progress.csv', relative_to_snapshot_dir=True,
-        )
-
-        if self.post_bc_pretrain_hyperparams:
-            self.set_algorithm_weights(**self.post_bc_pretrain_hyperparams)
-
-    def pretrain_q_with_bc_data(self):
-        logger.remove_tabular_output(
-            'progress.csv', relative_to_snapshot_dir=True
-        )
-        logger.add_tabular_output(
-            'pretrain_q.csv', relative_to_snapshot_dir=True
-        )
-
-        self.update_policy = False
-        # first train only the Q function
-        for i in range(self.q_num_pretrain1_steps):
-            self.eval_statistics = dict()
-
-            train_data = self.replay_buffer.random_batch(self.bc_batch_size)
-            train_data = np_to_pytorch_batch(train_data)
-            obs = train_data['observations']
-            next_obs = train_data['next_observations']
-            # goals = train_data['resampled_goals']
-            train_data['observations'] = obs # torch.cat((obs, goals), dim=1)
-            train_data['next_observations'] = next_obs # torch.cat((next_obs, goals), dim=1)
-            self.train_from_torch(train_data, pretrain=True)
-            if i%self.pretraining_logging_period == 0:
-                stats_with_prefix = add_prefix(self.eval_statistics, prefix="trainer/")
-                logger.record_dict(stats_with_prefix)
-                logger.dump_tabular(with_prefix=True, with_timestamp=False)
-
-        self.update_policy = True
-        # then train policy and Q function together
-        prev_time = time.time()
-        for i in range(self.q_num_pretrain2_steps):
-            self.eval_statistics = dict()
-            if i % self.pretraining_logging_period == 0:
-                self._need_to_update_eval_statistics=True
-            train_data = self.replay_buffer.random_batch(self.bc_batch_size)
-            train_data = np_to_pytorch_batch(train_data)
-            obs = train_data['observations']
-            next_obs = train_data['next_observations']
-            # goals = train_data['resampled_goals']
-            train_data['observations'] = obs # torch.cat((obs, goals), dim=1)
-            train_data['next_observations'] = next_obs # torch.cat((next_obs, goals), dim=1)
-            self.train_from_torch(train_data, pretrain=True)
-
-            if i%self.pretraining_logging_period==0:
-                self.eval_statistics["batch"] = i
-                self.eval_statistics["epoch_time"] = time.time()-prev_time
-                stats_with_prefix = add_prefix(self.eval_statistics, prefix="trainer/")
-                logger.record_dict(stats_with_prefix)
-                logger.dump_tabular(with_prefix=True, with_timestamp=False)
-                prev_time = time.time()
-
-        logger.remove_tabular_output(
-            'pretrain_q.csv',
-            relative_to_snapshot_dir=True,
-        )
-        logger.add_tabular_output(
-            'progress.csv',
-            relative_to_snapshot_dir=True,
-        )
-
-        self._need_to_update_eval_statistics = True
-        self.eval_statistics = dict()
-
-        if self.post_pretrain_hyperparams:
-            self.set_algorithm_weights(**self.post_pretrain_hyperparams)
-
-    def set_algorithm_weights(
-        self,
-        **kwargs
-    ):
-        for key in kwargs:
-            self.__dict__[key] = kwargs[key]
-
-    def test_from_torch(self, batch):
-        rewards = batch['rewards']
-        terminals = batch['terminals']
-        obs = batch['observations']
-        actions = batch['actions']
-        next_obs = batch['next_observations']
-        weights = batch.get('weights', None)
-        if self.reward_transform:
-            rewards = self.reward_transform(rewards)
-
-        if self.terminal_transform:
-            terminals = self.terminal_transform(terminals)
-
-        """
-        Policy and Alpha Loss
-        """
-        dist = self.policy(obs)
-        new_obs_actions, log_pi = dist.rsample_and_logprob()
-        policy_mle = dist.mle_estimate()
-
-        if self.use_automatic_entropy_tuning:
-            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
-            alpha = self.log_alpha.exp()
-        else:
-            alpha_loss = 0
-            alpha = self.alpha
-
-        q1_pred = self.qf1(obs, actions)
-        q2_pred = self.qf2(obs, actions)
-        # Make sure policy accounts for squashing functions like tanh correctly!
-        next_dist = self.policy(next_obs)
-        new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
-        target_q_values = torch.min(
-            self.target_qf1(next_obs, new_next_actions),
-            self.target_qf2(next_obs, new_next_actions),
-        ) - alpha * new_log_pi
-
-        q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
-        qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
-        qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
-
-        qf1_new_actions = self.qf1(obs, new_obs_actions)
-        qf2_new_actions = self.qf2(obs, new_obs_actions)
-        q_new_actions = torch.min(
-            qf1_new_actions,
-            qf2_new_actions,
-        )
-
-        policy_loss = (log_pi - q_new_actions).mean()
-
-        self.eval_statistics['validation/QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
-        self.eval_statistics['validation/QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
-        self.eval_statistics['validation/Policy Loss'] = np.mean(ptu.get_numpy(
-            policy_loss
-        ))
-        self.eval_statistics.update(create_stats_ordered_dict(
-            'validation/Q1 Predictions',
-            ptu.get_numpy(q1_pred),
-        ))
-        self.eval_statistics.update(create_stats_ordered_dict(
-            'validation/Q2 Predictions',
-            ptu.get_numpy(q2_pred),
-        ))
-        self.eval_statistics.update(create_stats_ordered_dict(
-            'validation/Q Targets',
-            ptu.get_numpy(q_target),
-        ))
-        self.eval_statistics.update(create_stats_ordered_dict(
-            'validation/Log Pis',
-            ptu.get_numpy(log_pi),
-        ))
-        policy_statistics = add_prefix(dist.get_diagnostics(), "validation/policy/")
-        self.eval_statistics.update(policy_statistics)
+        self.beta = beta
+        self.quantile = quantile
 
     def train_from_torch(self, batch, train=True, pretrain=False,):
         rewards = batch['rewards']
@@ -474,7 +130,6 @@ class IQLTrainer(TorchTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-        weights = batch.get('weights', None)
         if self.reward_transform:
             rewards = self.reward_transform(rewards)
 
@@ -485,165 +140,44 @@ class IQLTrainer(TorchTrainer):
         """
         dist = self.policy(obs)
         new_obs_actions, log_pi = dist.rsample_and_logprob()
-        policy_mle = dist.mle_estimate()
-
-        if self.brac:
-            buf_dist = self.buffer_policy(obs)
-            buf_log_pi = buf_dist.log_prob(actions)
-            rewards = rewards + buf_log_pi
-
-        if self.use_automatic_entropy_tuning:
-            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
-            self.alpha_optimizer.zero_grad()
-            alpha_loss.backward()
-            self.alpha_optimizer.step()
-            alpha = self.log_alpha.exp()
-        else:
-            alpha_loss = 0
-            alpha = self.alpha
 
         """
         QF Loss
         """
         q1_pred = self.qf1(obs, actions)
         q2_pred = self.qf2(obs, actions)
-        # Make sure policy accounts for squashing functions like tanh correctly!
-        next_dist = self.policy(next_obs)
-        new_next_actions, new_log_pi = next_dist.rsample_and_logprob()
-        # target_q_values = torch.min(
-        #     self.target_qf1(next_obs, new_next_actions),
-        #     self.target_qf2(next_obs, new_next_actions),
-        # ) - alpha * new_log_pi
-        target_q_values = self.vf1(next_obs)
+        target_vf_pred = self.vf(next_obs).detach()
 
-        q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_q_values
-        qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
-        qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
+        q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_vf_pred
+        q_target = q_target.detach()
+        qf1_loss = self.qf_criterion(q1_pred, q_target)
+        qf2_loss = self.qf_criterion(q2_pred, q_target)
 
-        q_pred = ((q1_pred + q2_pred) / 2).detach()
-        vf1_pred = self.vf1(obs)
-        vf1_err = vf1_pred - q_pred
-        vf1_sign = (vf1_err > 0).float()
-        vf1_weight = (1 - vf1_sign) * self.quantile + vf1_sign * (1 - self.quantile)
-        vf1_loss = (vf1_weight * (vf1_err ** 2)).mean()
+        """
+        VF Loss
+        """
+        q_pred = torch.min(
+            self.target_qf1(obs, actions),
+            self.target_qf2(obs, actions),
+        ).detach()
+        vf_pred = self.vf(obs)
+        vf_err = vf_pred - q_pred
+        vf_sign = (vf_err > 0).float()
+        vf_weight = (1 - vf_sign) * self.quantile + vf_sign * (1 - self.quantile)
+        vf_loss = (vf_weight * (vf_err ** 2)).mean()
 
         """
         Policy Loss
         """
-        v_pi = vf1_pred
-        q_adv = q_pred - vf1_pred
+        policy_logpp = dist.log_prob(actions)
 
-        u = new_obs_actions
-        policy_logpp = dist.log_prob(u)
-
-        if self.use_automatic_beta_tuning:
-            buffer_dist = self.buffer_policy(obs)
-            beta = self.log_beta.exp()
-            kldiv = torch.distributions.kl.kl_divergence(dist, buffer_dist)
-            beta_loss = -1*(beta*(kldiv-self.beta_epsilon).detach()).mean()
-
-            self.beta_optimizer.zero_grad()
-            beta_loss.backward()
-            self.beta_optimizer.step()
-        else:
-            beta = self.beta_schedule.get_value(self._n_train_steps_total)
-
-        if self.z: # partition function
-            # z_pred = torch.exp(self.z(obs) / beta)
-            # exp_score = torch.exp(q_adv - v_pi / beta)
-            # z_loss = self.qf_criterion(z_pred, exp_score.detach())
-            # z_pred = z_pred.detach()
-
-            log_z_pred = self.z(obs)
-            adv = q_adv - v_pi
-            z_loss = self.qf_criterion(log_z_pred, adv.detach())
-            log_z_pred = log_z_pred.detach()
-
-        if self.normalize_over_state == "advantage":
-            score = q_adv - v_pi
-            if self.mask_positive_advantage:
-                score = torch.sign(score)
-        elif self.normalize_over_state == "Z":
-            buffer_dist = self.buffer_policy(obs)
-            K = self.Z_K
-            buffer_obs = []
-            buffer_actions = []
-            log_bs = []
-            log_pis = []
-            for i in range(K):
-                u = buffer_dist.sample()
-                log_b = buffer_dist.log_prob(u)
-                log_pi = dist.log_prob(u)
-                buffer_obs.append(obs)
-                buffer_actions.append(u)
-                log_bs.append(log_b)
-                log_pis.append(log_pi)
-            buffer_obs = torch.cat(buffer_obs, 0)
-            buffer_actions = torch.cat(buffer_actions, 0)
-            p_buffer = torch.exp(torch.cat(log_bs, 0).sum(dim=1, ))
-            log_pi = torch.cat(log_pis, 0)
-            log_pi = log_pi.sum(dim=1, )
-            q1_b = self.qf1(buffer_obs, buffer_actions)
-            q2_b = self.qf2(buffer_obs, buffer_actions)
-            q_b = torch.min(q1_b, q2_b)
-            q_b = torch.reshape(q_b, (-1, K))
-            adv_b = q_b - v_pi
-            # if self._n_train_steps_total % 100 == 0:
-            #     import ipdb; ipdb.set_trace()
-            # Z = torch.exp(adv_b / beta).mean(dim=1, keepdim=True)
-            # score = torch.exp((q_adv - v_pi) / beta) / Z
-            # score = score / sum(score)
-            logK = torch.log(ptu.tensor(float(K)))
-            logZ = torch.logsumexp(adv_b/beta - logK, dim=1, keepdim=True)
-            logS = (q_adv - v_pi)/beta - logZ
-            # logZ = torch.logsumexp(q_b/beta - logK, dim=1, keepdim=True)
-            # logS = q_adv/beta - logZ
-            score = F.softmax(logS, dim=0) # score / sum(score)
-        elif self.normalize_over_state == "Zreg":
-            score = q_adv - v_pi
-            scaled_score = score / beta
-            scaled_score = scaled_score - max(scaled_score)
-            score = torch.exp(scaled_score) # / z_pred
-        else:
-            error
-
+        adv = q_pred - vf_pred
+        exp_adv = torch.exp(adv / self.beta)
         if self.clip_score is not None:
-            score = torch.clamp(score, max=self.clip_score)
+            exp_adv = torch.clamp(exp_adv, max=self.clip_score)
 
-        if self.weight_loss and weights is None:
-            if self.normalize_over_batch == True:
-                weights = F.softmax(score / beta, dim=0)
-            elif self.normalize_over_batch == "whiten":
-                adv_mean = torch.mean(score)
-                adv_std = torch.std(score) + 1e-5
-                normalized_score = (score - adv_mean) / adv_std
-                weights = torch.exp(normalized_score / beta)
-            elif self.normalize_over_batch == "exp":
-                weights = torch.exp(score / beta)
-            elif self.normalize_over_batch == "step_fn":
-                weights = (score > 0).float()
-            elif self.normalize_over_batch == "simplex":
-                weights = F.normalize(score, dim=0, p=1)
-            elif self.normalize_over_batch == False:
-                weights = score
-            else:
-                error
-        weights = weights[:, 0]
-
-        policy_loss = 0 # alpha * log_pi.mean()
-
-        if self.use_awr_update and self.weight_loss:
-            policy_loss = policy_loss + self.awr_weight * (-policy_logpp * len(weights)*weights.detach()).mean()
-        elif self.use_awr_update:
-            policy_loss = policy_loss + self.awr_weight * (-policy_logpp).mean()
-
-        if self.use_reparam_update:
-            policy_loss = policy_loss + self.reparam_weight * (-q_new_actions).mean()
-
-        policy_loss = self.rl_weight * policy_loss
-        if self.compute_bc:
-            train_policy_loss, train_logp_loss, train_mse_loss, _ = self.run_bc_batch(self.demo_train_buffer, self.policy)
-            policy_loss = policy_loss + self.bc_weight * train_policy_loss
+        weights = exp_adv[:, 0].detach()
+        policy_loss = (-policy_logpp * weights).mean()
 
         """
         Update networks
@@ -657,11 +191,11 @@ class IQLTrainer(TorchTrainer):
             qf2_loss.backward()
             self.qf2_optimizer.step()
 
-            self.vf1_optimizer.zero_grad()
-            vf1_loss.backward()
-            self.vf1_optimizer.step()
+            self.vf_optimizer.zero_grad()
+            vf_loss.backward()
+            self.vf_optimizer.step()
 
-        if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
+        if self._n_train_steps_total % self.policy_update_period == 0:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
@@ -686,8 +220,6 @@ class IQLTrainer(TorchTrainer):
             Eval should set this to None.
             This way, these statistics are only computed for one batch.
             """
-            # policy_loss = (log_pi - q_new_actions).mean()
-
             self.eval_statistics['QF1 Loss'] = np.mean(ptu.get_numpy(qf1_loss))
             self.eval_statistics['QF2 Loss'] = np.mean(ptu.get_numpy(qf2_loss))
             self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
@@ -726,91 +258,14 @@ class IQLTrainer(TorchTrainer):
             ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Advantage Score',
-                ptu.get_numpy(score),
+                ptu.get_numpy(adv),
             ))
 
             self.eval_statistics.update(create_stats_ordered_dict(
                 'V1 Predictions',
-                ptu.get_numpy(vf1_pred),
+                ptu.get_numpy(vf_pred),
             ))
-            self.eval_statistics['VF1 Loss'] = np.mean(ptu.get_numpy(vf1_loss))
-
-            # self.eval_statistics.update(create_stats_ordered_dict(
-            #     'z_pred',
-            #     ptu.get_numpy(z_pred),
-            # ))
-            if self.z:
-                self.eval_statistics.update(create_stats_ordered_dict(
-                    'log_z_pred',
-                    ptu.get_numpy(log_z_pred),
-                ))
-                self.eval_statistics['z_loss'] = ptu.get_numpy(z_loss)
-            if self.normalize_over_state == "Z":
-                self.eval_statistics.update(create_stats_ordered_dict(
-                    'logZ',
-                    ptu.get_numpy(logZ),
-                ))
-
-            if self.use_automatic_entropy_tuning:
-                self.eval_statistics['Alpha'] = alpha.item()
-                self.eval_statistics['Alpha Loss'] = alpha_loss.item()
-
-            if self.compute_bc:
-                test_policy_loss, test_logp_loss, test_mse_loss, _ = self.run_bc_batch(self.demo_test_buffer, self.policy)
-                self.eval_statistics.update({
-                    "bc/Train Logprob Loss": ptu.get_numpy(train_logp_loss),
-                    "bc/Test Logprob Loss": ptu.get_numpy(test_logp_loss),
-                    "bc/Train MSE": ptu.get_numpy(train_mse_loss),
-                    "bc/Test MSE": ptu.get_numpy(test_mse_loss),
-                    "bc/train_policy_loss": ptu.get_numpy(train_policy_loss),
-                    "bc/test_policy_loss": ptu.get_numpy(test_policy_loss),
-                })
-            if self.train_bc_on_rl_buffer:
-                _, buffer_train_logp_loss, _, _ = self.run_bc_batch(
-                    self.replay_buffer.train_replay_buffer,
-                    self.buffer_policy)
-
-                _, buffer_test_logp_loss, _, _ = self.run_bc_batch(
-                    self.replay_buffer.validation_replay_buffer,
-                    self.buffer_policy)
-                buffer_dist = self.buffer_policy(obs)
-                kldiv = torch.distributions.kl.kl_divergence(dist, buffer_dist)
-
-                _, train_offline_logp_loss, _, _ = self.run_bc_batch(
-                    self.demo_train_buffer,
-                    self.buffer_policy)
-
-                _, test_offline_logp_loss, _, _ = self.run_bc_batch(
-                    self.demo_test_buffer,
-                    self.buffer_policy)
-
-                self.eval_statistics.update({
-
-                    "buffer_policy/Train Online Logprob": -1 * ptu.get_numpy(buffer_train_logp_loss),
-                    "buffer_policy/Test Online Logprob": -1 * ptu.get_numpy(buffer_test_logp_loss),
-
-                    "buffer_policy/Train Offline Logprob": -1 * ptu.get_numpy(train_offline_logp_loss),
-                    "buffer_policy/Test Offline Logprob": -1 * ptu.get_numpy(test_offline_logp_loss),
-
-                    "buffer_policy/train_policy_loss": ptu.get_numpy(buffer_policy_loss),
-                    # "buffer_policy/test_policy_loss": ptu.get_numpy(buffer_test_policy_loss),
-                    "buffer_policy/kl_div": ptu.get_numpy(kldiv.mean()),
-                })
-            if self.use_automatic_beta_tuning:
-                self.eval_statistics.update({
-                    "adaptive_beta/beta":ptu.get_numpy(beta.mean()),
-                    "adaptive_beta/beta loss": ptu.get_numpy(beta_loss.mean()),
-                })
-
-            if self.validation_qlearning:
-                train_data = self.replay_buffer.validation_replay_buffer.random_batch(self.bc_batch_size)
-                train_data = np_to_pytorch_batch(train_data)
-                obs = train_data['observations']
-                next_obs = train_data['next_observations']
-                # goals = train_data['resampled_goals']
-                train_data['observations'] = obs # torch.cat((obs, goals), dim=1)
-                train_data['next_observations'] = next_obs # torch.cat((next_obs, goals), dim=1)
-                self.test_from_torch(train_data)
+            self.eval_statistics['VF Loss'] = np.mean(ptu.get_numpy(vf_loss))
 
         self._n_train_steps_total += 1
 
@@ -830,12 +285,8 @@ class IQLTrainer(TorchTrainer):
             self.qf2,
             self.target_qf1,
             self.target_qf2,
-            self.vf1,
+            self.vf,
         ]
-        if self.z:
-            nets.append(self.z)
-        if self.buffer_policy:
-            nets.append(self.buffer_policy)
         return nets
 
     def get_snapshot(self):
@@ -843,7 +294,7 @@ class IQLTrainer(TorchTrainer):
             policy=self.policy,
             qf1=self.qf1,
             qf2=self.qf2,
-            target_qf1=self.qf1,
-            target_qf2=self.qf2,
-            buffer_policy=self.buffer_policy,
+            target_qf1=self.target_qf1,
+            target_qf2=self.target_qf2,
+            vf=self.vf,
         )
