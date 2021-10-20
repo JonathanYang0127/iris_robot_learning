@@ -255,33 +255,13 @@ def experiment(variant):
         **vf_kwargs
     )
 
-    z = ConcatMlp(
-        input_size=obs_dim,
-        output_size=1,
-        **qf_kwargs
-    )
-
     policy_class = variant.get("policy_class", TanhGaussianPolicy)
     policy_kwargs = variant['policy_kwargs']
-    policy_path = variant.get("policy_path", False)
-    if policy_path:
-        policy = load_local_or_remote_file(policy_path)
-    else:
-        policy = policy_class(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            **policy_kwargs,
-        )
-    buffer_policy_path = variant.get("buffer_policy_path", False)
-    if buffer_policy_path:
-        buffer_policy = load_local_or_remote_file(buffer_policy_path)
-    else:
-        buffer_policy_class = variant.get("buffer_policy_class", policy_class)
-        buffer_policy = buffer_policy_class(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            **variant.get("buffer_policy_kwargs", policy_kwargs),
-        )
+    policy = policy_class(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        **policy_kwargs,
+    )
 
     eval_policy = MakeDeterministic(policy)
     eval_path_collector = MdpPathCollector(
@@ -322,31 +302,19 @@ def experiment(variant):
         else:
             error
 
-    if variant.get('replay_buffer_class', EnvReplayBuffer) == AWREnvReplayBuffer:
-        main_replay_buffer_kwargs = variant['replay_buffer_kwargs']
-        main_replay_buffer_kwargs['env'] = expl_env
-        main_replay_buffer_kwargs['qf1'] = qf1
-        main_replay_buffer_kwargs['qf2'] = qf2
-        main_replay_buffer_kwargs['policy'] = policy
-    else:
-        main_replay_buffer_kwargs=dict(
-            max_replay_buffer_size=variant['replay_buffer_size'],
-            env=expl_env,
-        )
     replay_buffer_kwargs = dict(
         max_replay_buffer_size=variant['replay_buffer_size'],
         env=expl_env,
     )
-
     replay_buffer = variant.get('replay_buffer_class', EnvReplayBuffer)(
-        **main_replay_buffer_kwargs,
+        **replay_buffer_kwargs,
     )
-    if variant.get('use_validation_buffer', False):
-        train_replay_buffer = replay_buffer
-        validation_replay_buffer = variant.get('replay_buffer_class', EnvReplayBuffer)(
-            **main_replay_buffer_kwargs,
-        )
-        replay_buffer = SplitReplayBuffer(train_replay_buffer, validation_replay_buffer, 0.9)
+    demo_train_buffer = EnvReplayBuffer(
+        **replay_buffer_kwargs,
+    )
+    demo_test_buffer = EnvReplayBuffer(
+        **replay_buffer_kwargs,
+    )
 
     trainer_class = variant.get("trainer_class", AWACTrainer)
     trainer = trainer_class(
@@ -356,8 +324,6 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        buffer_policy=buffer_policy,
-        z=z,
         vf=vf,
         **variant['trainer_kwargs']
     )
@@ -377,13 +343,6 @@ def experiment(variant):
         **variant['algo_kwargs']
     )
     algorithm.to(ptu.device)
-
-    demo_train_buffer = EnvReplayBuffer(
-        **replay_buffer_kwargs,
-    )
-    demo_test_buffer = EnvReplayBuffer(
-        **replay_buffer_kwargs,
-    )
 
     if variant.get("save_video", False):
         def get_img_env(env):
