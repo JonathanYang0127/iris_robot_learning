@@ -42,6 +42,8 @@ import pickle
 from rlkit.envs.images import Renderer, InsertImageEnv, EnvRenderer
 from rlkit.envs.make_env import make
 
+from rlkit.torch.networks import LinearTransform
+
 ENV_PARAMS = {
     'HalfCheetah-v2': {
         'num_expl_steps_per_train_loop': 1000,
@@ -219,23 +221,21 @@ def split_into_trajectories(replay_buffer):
     return trajs
 
 
-def get_normalization(dataset):
-    trajs = split_into_trajectories(dataset.observations, dataset.actions,
-                                    dataset.rewards, dataset.masks,
-                                    dataset.dones_float,
-                                    dataset.next_observations)
+def get_normalization(replay_buffer):
+    trajs = split_into_trajectories(replay_buffer)
 
     def compute_returns(traj):
         episode_return = 0
-        for _, _, rew, _, _, _ in traj:
+        for _, _, rew, _, _ in traj:
             episode_return += rew
 
         return episode_return
 
     trajs.sort(key=compute_returns)
 
-    dataset.rewards /= compute_returns(trajs[-1]) - compute_returns(trajs[0])
-    dataset.rewards *= 1000.0
+    reward_range = compute_returns(trajs[-1]) - compute_returns(trajs[0])
+    m = 1000.0 / reward_range
+    return LinearTransform(m=float(m), b=0)
 
 def experiment(variant):
     if variant.get("pretrained_algorithm_path", False):
@@ -436,7 +436,9 @@ def experiment(variant):
         dataset = d4rl.qlearning_dataset(expl_env)
         # dataset = expl_env.get_dataset()
         path_loader.load_demos(dataset)
-        split_into_trajectories(replay_buffer)
+        if variant.get('normalize_rewards_by_return_range'):
+            normalizer = get_normalization(replay_buffer)
+            trainer.reward_transform = normalizer
     if variant.get('save_initial_buffers', False):
         buffers = dict(
             replay_buffer=replay_buffer,

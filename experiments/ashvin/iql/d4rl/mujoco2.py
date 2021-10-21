@@ -90,11 +90,12 @@ def main():
             'halfcheetah-expert-v0', 'halfcheetah-medium-v0', 'halfcheetah-medium-expert-v0',
             'halfcheetah-medium-replay-v0', 'hopper-medium-replay-v0', 'walker2d-medium-replay-v0',
         ],
-        'trainer_kwargs.beta': [0.1, 0.3, 1.0, ],
+        'trainer_kwargs.beta': [1.0/3, ],
         'policy_kwargs.std_architecture': ["values", ],
         'trainer_kwargs.q_weight_decay': [0, ],
-        'trainer_kwargs.reward_transform_kwargs': [dict(m=1, b=-1), ],
+        # 'trainer_kwargs.reward_transform_kwargs': [dict(m=1, b=-1), ],
         'seedid': range(3),
+        'normalize_rewards_by_return_range': [True],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

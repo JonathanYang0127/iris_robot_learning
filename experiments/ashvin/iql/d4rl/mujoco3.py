@@ -49,6 +49,7 @@ def main():
             policy_lr=3E-4,
             qf_lr=3E-4,
             reward_scale=1,
+            soft_target_tau=0.005,
 
             policy_weight_decay=1e-4,
             q_weight_decay=0,
@@ -57,7 +58,7 @@ def main():
             terminal_transform_kwargs=None,
 
             beta=1,
-            quantile=0.9,
+            quantile=0.7,
             clip_score=100,
         ),
         launcher_config=dict(
@@ -86,14 +87,25 @@ def main():
         'use_validation_buffer': [False], # changed this line, added
         'policy_kwargs.std': [None, ],
         'env_id': [
-            "antmaze-umaze-v0", "antmaze-umaze-diverse-v0", "antmaze-medium-play-v0",
-            "antmaze-medium-diverse-v0", "antmaze-large-diverse-v0", "antmaze-large-play-v0",
+            # 'halfcheetah-expert-v2',
+            'halfcheetah-medium-v2',
+            'halfcheetah-medium-replay-v2',
+            'halfcheetah-medium-expert-v2',
+            # 'hopper-expert-v2',
+            'hopper-medium-v2',
+            'hopper-medium-replay-v2',
+            'hopper-medium-expert-v2',
+            # 'walker2d-expert-v2',
+            'walker2d-medium-v2',
+            'walker2d-medium-replay-v2',
+            'walker2d-medium-expert-v2',
         ],
-        'trainer_kwargs.beta': [0.1, ],
+        'trainer_kwargs.beta': [1.0/3, ],
         'policy_kwargs.std_architecture': ["values", ],
         'trainer_kwargs.q_weight_decay': [0, ],
-        'trainer_kwargs.reward_transform_kwargs': [dict(m=1, b=-1), ],
+        # 'trainer_kwargs.reward_transform_kwargs': [dict(m=1, b=-1), ],
         'seedid': range(3),
+        'normalize_rewards_by_return_range': [True],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
