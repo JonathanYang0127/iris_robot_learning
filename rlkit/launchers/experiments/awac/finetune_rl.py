@@ -194,6 +194,49 @@ def process_args(variant):
         env_params = ENV_PARAMS.get(env_id, {})
         recursive_dictionary_update(variant, env_params)
 
+def split_into_trajectories(replay_buffer):
+    dones_float = np.zeros_like(replay_buffer._rewards)
+
+    for i in range(replay_buffer._size):
+        delta = replay_buffer._observations[i + 1, :] - replay_buffer._next_obs[i, :]
+        norm = np.linalg.norm(delta)
+        if norm > 1e-6 or replay_buffer._terminals[i]:
+            dones_float[i] = 1
+        else:
+            dones_float[i] = 0
+
+    trajs = [[]]
+
+    for i in range(replay_buffer._size):
+        trajs[-1].append((replay_buffer._observations[i],
+            replay_buffer._actions[i],
+            replay_buffer._rewards[i],
+            replay_buffer._terminals[i],
+            replay_buffer._next_obs[i]))
+        if dones_float[i] == 1.0 and i + 1 < replay_buffer._size:
+            trajs.append([])
+
+    return trajs
+
+
+def get_normalization(dataset):
+    trajs = split_into_trajectories(dataset.observations, dataset.actions,
+                                    dataset.rewards, dataset.masks,
+                                    dataset.dones_float,
+                                    dataset.next_observations)
+
+    def compute_returns(traj):
+        episode_return = 0
+        for _, _, rew, _, _, _ in traj:
+            episode_return += rew
+
+        return episode_return
+
+    trajs.sort(key=compute_returns)
+
+    dataset.rewards /= compute_returns(trajs[-1]) - compute_returns(trajs[0])
+    dataset.rewards *= 1000.0
+
 def experiment(variant):
     if variant.get("pretrained_algorithm_path", False):
         resume(variant)
@@ -389,7 +432,11 @@ def experiment(variant):
             demo_test_buffer=demo_test_buffer,
             **path_loader_kwargs
         )
-        path_loader.load_demos(expl_env.get_dataset())
+        import d4rl
+        dataset = d4rl.qlearning_dataset(expl_env)
+        # dataset = expl_env.get_dataset()
+        path_loader.load_demos(dataset)
+        split_into_trajectories(replay_buffer)
     if variant.get('save_initial_buffers', False):
         buffers = dict(
             replay_buffer=replay_buffer,
