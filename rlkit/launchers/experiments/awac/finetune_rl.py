@@ -181,15 +181,13 @@ def process_args(variant):
         variant['max_path_length'] = 50
         variant.get('algo_kwargs', {}).update(dict(
             batch_size=5,
-            num_epochs=5,
+            start_epoch=-2, # offline epochs
+            num_epochs=2, # online epochs
             num_eval_steps_per_epoch=100,
             num_expl_steps_per_train_loop=100,
             num_trains_per_train_loop=10,
             min_num_steps_before_training=10,
         ))
-        variant['trainer_kwargs']['bc_num_pretrain_steps'] = min(10, variant['trainer_kwargs'].get('bc_num_pretrain_steps', 0))
-        variant['trainer_kwargs']['q_num_pretrain1_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain1_steps', 0))
-        variant['trainer_kwargs']['q_num_pretrain2_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain2_steps', 0))
 
     env_id = variant.get("env_id", None)
     if env_id:
