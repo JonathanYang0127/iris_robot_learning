@@ -50,7 +50,7 @@ def main():
             qf_lr=3E-4,
             reward_scale=1,
 
-            policy_weight_decay=1e-4,
+            policy_weight_decay=0,
             q_weight_decay=0,
 
             reward_transform_kwargs=None,

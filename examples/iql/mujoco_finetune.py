@@ -51,7 +51,7 @@ def main():
             reward_scale=1,
             soft_target_tau=0.005,
 
-            policy_weight_decay=1e-4,
+            policy_weight_decay=0,
             q_weight_decay=0,
 
             reward_transform_kwargs=None,
