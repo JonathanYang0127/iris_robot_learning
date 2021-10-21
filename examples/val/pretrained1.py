@@ -17,8 +17,11 @@ from rlkit.torch.networks.cnn import CNN, TwoChannelCNN, ConcatTwoChannelCNN
 import argparse
 
 brc = False # BRC or Euler1 Paths
-image = True # Latent-space or image-space
-val_data = True # VAL data or new data
+image = False # Latent-space or image-space
+small_cnn = False # For debugging, use smaller cnn
+if small_cnn:
+    assert image
+val_data = True # VAL data or new reset-free data
 
 if brc:
     if val_data:
@@ -39,24 +42,24 @@ else:
 
 if val_data:
     demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'pnp_demos_0.pk l', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'pnp_demos_0.pk l', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
-                dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl', obs_dict=True, is_demo=True),
 
-                dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl', obs_dict=True, is_demo=True),
 
-                dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
+                # dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
                 ]
 
     image_train_data = VAL_DATA_PATH + 'combined_images.npy'
@@ -151,7 +154,7 @@ if __name__ == "__main__":
         observation_key='latent_observation',
         observation_keys=['latent_observation'],
         desired_goal_key='latent_desired_goal',
-        save_video=False,
+        save_video=True,
         save_video_kwargs=dict(
             save_video_period=25,
             pad_color=0,
@@ -263,51 +266,93 @@ if __name__ == "__main__":
 
     if image:
         variant['policy_class'] = GaussianTwoChannelCNNPolicy
-        variant['policy_kwargs'] = dict(
-            # CNN params
-            input_width=48,
-            input_height=48,
-            input_channels=3,
-            kernel_sizes=[3, 3, 3],
-            n_channels=[16, 16, 16],
-            strides=[1, 1, 1],
-            hidden_sizes=[1024, 512, 256],
-            paddings=[1, 1, 1],
-            pool_type='max2d',
-            pool_sizes=[2, 2, 1],  # the one at the end means no pool
-            pool_strides=[2, 2, 1],
-            pool_paddings=[0, 0, 0],
-            # Gaussian params
-            max_log_std=0,
-            min_log_std=-6,
-            std_architecture="values",
-        )
         variant['qf_class'] = ConcatTwoChannelCNN
-        variant['qf_kwargs']=dict(
-            input_width=48,
-            input_height=48,
-            input_channels=3,
-            kernel_sizes=[3, 3, 3],
-            n_channels=[16, 16, 16],
-            strides=[1, 1, 1],
-            hidden_sizes=[1024, 512, 256],
-            paddings=[1, 1, 1],
-            pool_type='max2d',
-            pool_sizes=[2, 2, 1],  # the one at the end means no pool
-            pool_strides=[2, 2, 1],
-            pool_paddings=[0, 0, 0],
-        )
+
+        if small_cnn:
+            variant['policy_kwargs'] = dict(
+                # CNN params
+                input_width=48,
+                input_height=48,
+                input_channels=3,
+                kernel_sizes=[3, 3],
+                n_channels=[4, 4],
+                strides=[1, 1],
+                hidden_sizes=[512, 256],
+                paddings=[1, 1],
+                pool_type='max2d',
+                pool_sizes=[2, 2],
+                pool_strides=[2, 2],
+                pool_paddings=[0, 0],
+                # Gaussian params
+                max_log_std=0,
+                min_log_std=-6,
+                std_architecture="values",
+            )
+            
+            variant['qf_kwargs']=dict(
+                input_width=48,
+                input_height=48,
+                input_channels=3,
+                kernel_sizes=[3, 3],
+                n_channels=[4, 4],
+                strides=[1, 1],
+                hidden_sizes=[512, 256],
+                paddings=[1, 1],
+                pool_type='max2d',
+                pool_sizes=[2, 2],
+                pool_strides=[2, 2],
+                pool_paddings=[0, 0]
+            )            
+        else:
+            variant['policy_kwargs'] = dict(
+                # CNN params
+                input_width=48,
+                input_height=48,
+                input_channels=3,
+                kernel_sizes=[3, 3, 3],
+                n_channels=[16, 16, 16],
+                strides=[1, 1, 1],
+                hidden_sizes=[1024, 512, 256],
+                paddings=[1, 1, 1],
+                pool_type='max2d',
+                pool_sizes=[2, 2, 1],  # the one at the end means no pool
+                pool_strides=[2, 2, 1],
+                pool_paddings=[0, 0, 0],
+                # Gaussian params
+                max_log_std=0,
+                min_log_std=-6,
+                std_architecture="values",
+            )
+            
+            variant['qf_kwargs']=dict(
+                input_width=48,
+                input_height=48,
+                input_channels=3,
+                kernel_sizes=[3, 3, 3],
+                n_channels=[16, 16, 16],
+                strides=[1, 1, 1],
+                hidden_sizes=[1024, 512, 256],
+                paddings=[1, 1, 1],
+                pool_type='max2d',
+                pool_sizes=[2, 2, 1],  # the one at the end means no pool
+                pool_strides=[2, 2, 1],
+                pool_paddings=[0, 0, 0],
+            )
 
         # variant['reward_kwargs']['obs_type'] = 'image'
-        variant['observation_key'] = 'image_observation'
-        variant['desired_goal_key'] = 'image_desired_goal'
         variant['reset_keys_map']['image_observation'] = 'initial_image_observation'
-        variant['evaluation_goal_sampling_mode'] = 'presampled_images_no_latent'
-        variant['exploration_goal_sampling_mode'] = 'presampled_images_no_latent'
-        variant['training_goal_sampling_mode'] = 'presampled_images_no_latent'
-        variant['replay_buffer_kwargs']['max_size'] = 50000
+        variant['evaluation_goal_sampling_mode'] = 'presampled_images'
+        variant['exploration_goal_sampling_mode'] = 'presampled_images'
+        variant['training_goal_sampling_mode'] = 'presampled_images'
+        variant['replay_buffer_kwargs']['max_size'] = 80000
+
+        ## Keys used by reward function for reward calculation
         variant['observation_key_reward_fn'] = 'latent_observation'
         variant['desired_goal_key_reward_fn'] = 'latent_desired_goal'
+
+        ## Keys used by policy/q-networks
+        variant['observation_key'] = 'image_observation'
+        variant['desired_goal_key'] = 'image_desired_goal'
 
         for demo_path in demo_paths:
             demo_path['use_latents'] = False
@@ -315,7 +360,7 @@ if __name__ == "__main__":
     search_space = {
         "seed": range(3),
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray'],#['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [3.5, 4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
@@ -345,23 +390,27 @@ if __name__ == "__main__":
                 env_type = 'obj'
         eval_goals = EVAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
+
+        ## Hardcoded: setting exploration goals as evaluation goals for now instead of pixelCNN
         variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
         variant['presampled_goal_kwargs']['training_goals'] = eval_goals
 
-        variant['env_class'] = SawyerRigAffordancesV0
-        variant['env_kwargs']['env_type'] = env_type
-        # if env_type in ['top_drawer', 'bottom_drawer']:
-        #     variant['env_class'] = SawyerRigAffordancesV0
-        #     variant['env_kwargs']['env_type'] = env_type
-        # if env_type == 'tray':
-        #     variant['env_class'] = SawyerRigMultiobjTrayV0
-        # if env_type == 'pnp':
-        #     variant['env_class'] = SawyerRigMultiobjV0
+        if val_data:
+            if env_type in ['top_drawer', 'bottom_drawer']:
+                variant['env_class'] = SawyerRigAffordancesV0
+                variant['env_kwargs']['env_type'] = env_type
+            if env_type == 'tray':
+                variant['env_class'] = SawyerRigMultiobjTrayV0
+            if env_type == 'pnp':
+                variant['env_class'] = SawyerRigMultiobjV0
+        else:
+            variant['env_class'] = SawyerRigAffordancesV0
+            variant['env_kwargs']['env_type'] = env_type
 
         variants.append(variant)
 
-    #run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args)
-    from memory_profiler import memory_usage
-    mem_usage = memory_usage((run_variants, (awac_rig_experiment, variants), {"run_id":0, "process_args_fn":process_args})) #HERE
-    #print('Memory usage (in chunks of .1 seconds): %s' % mem_usage)
-    print('Maximum memory usage: %s' % max(mem_usage))
+    run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args)
+    # from memory_profiler import memory_usage
+    # mem_usage = memory_usage((run_variants, (awac_rig_experiment, variants), {"run_id":0, "process_args_fn":process_args})) #HERE
+    # #print('Memory usage (in chunks of .1 seconds): %s' % mem_usage)
+    # print('Maximum memory usage: %s' % max(mem_usage))

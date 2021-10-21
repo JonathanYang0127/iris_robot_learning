@@ -198,9 +198,9 @@ def awac_rig_experiment(
         encoder_wrapper=EncoderWrappedEnv,
         observation_key='latent_observation',
         observation_keys=['latent_observation'],
-        observation_key_reward_fn=None,
+        observation_key_reward_fn='latent_observation',
         desired_goal_key='latent_desired_goal',
-        desired_goal_key_reward_fn=None,
+        desired_goal_key_reward_fn='latent_desired_goal',
         state_observation_key='state_observation',
         state_goal_key='state_desired_goal',
         image_goal_key='image_desired_goal',
@@ -281,14 +281,14 @@ def awac_rig_experiment(
         if goal_sampling_mode == "vae_prior":
             latent_goal_distribution = PriorDistribution(
                 model.representation_size,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
 
         elif goal_sampling_mode == "amortized_vae_prior":
             latent_goal_distribution = AmortizedPriorDistribution(
                 model,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
                 num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
@@ -296,13 +296,13 @@ def awac_rig_experiment(
         elif goal_sampling_mode == 'conditional_vae_prior':
             latent_goal_distribution = ConditionalPriorDistribution(
                 model,
-                desired_goal_key
+                desired_goal_key_reward_fn
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
         elif goal_sampling_mode == "amortized_conditional_vae_prior":
             latent_goal_distribution = AmortizedConditionalPriorDistribution(
                 model,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
                 num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
@@ -323,7 +323,7 @@ def awac_rig_experiment(
             latent_goal_distribution = add_distrib(
                 image_goal_distribution,
                 image_goal_key,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
                 model,
             )
         elif goal_sampling_mode == "presampled_images_no_latent":
@@ -338,7 +338,7 @@ def awac_rig_experiment(
             #diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
                 state_env,
                 num_presample=num_presample,
             )
@@ -346,7 +346,7 @@ def awac_rig_experiment(
             diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresampledPriorDistribution(
                 presampled_goals_path,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
             )
         elif goal_sampling_mode == "reset_of_env":
             state_goal_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
@@ -363,7 +363,7 @@ def awac_rig_experiment(
             latent_goal_distribution = AddLatentDistribution(
                 image_goal_distribution,
                 image_goal_key,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
                 model,
             )
             diagnostics = state_goal_env.get_contextual_diagnostics
