@@ -28,6 +28,7 @@ class AWACTrainer(TorchTrainer):
             target_qf2,
             buffer_policy=None,
             z=None,
+            vf1=None,
 
             discount=0.99,
             reward_scale=1.0,

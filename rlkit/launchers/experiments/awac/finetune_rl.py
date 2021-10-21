@@ -42,6 +42,8 @@ import pickle
 from rlkit.envs.images import Renderer, InsertImageEnv, EnvRenderer
 from rlkit.envs.make_env import make
 
+from rlkit.torch.networks import LinearTransform
+
 ENV_PARAMS = {
     'HalfCheetah-v2': {
         'num_expl_steps_per_train_loop': 1000,
@@ -179,20 +181,59 @@ def process_args(variant):
         variant['max_path_length'] = 50
         variant.get('algo_kwargs', {}).update(dict(
             batch_size=5,
-            num_epochs=5,
+            start_epoch=-2, # offline epochs
+            num_epochs=2, # online epochs
             num_eval_steps_per_epoch=100,
             num_expl_steps_per_train_loop=100,
             num_trains_per_train_loop=10,
             min_num_steps_before_training=10,
         ))
-        variant['trainer_kwargs']['bc_num_pretrain_steps'] = min(10, variant['trainer_kwargs'].get('bc_num_pretrain_steps', 0))
-        variant['trainer_kwargs']['q_num_pretrain1_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain1_steps', 0))
-        variant['trainer_kwargs']['q_num_pretrain2_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain2_steps', 0))
 
     env_id = variant.get("env_id", None)
     if env_id:
         env_params = ENV_PARAMS.get(env_id, {})
         recursive_dictionary_update(variant, env_params)
+
+def split_into_trajectories(replay_buffer):
+    dones_float = np.zeros_like(replay_buffer._rewards)
+
+    for i in range(replay_buffer._size):
+        delta = replay_buffer._observations[i + 1, :] - replay_buffer._next_obs[i, :]
+        norm = np.linalg.norm(delta)
+        if norm > 1e-6 or replay_buffer._terminals[i]:
+            dones_float[i] = 1
+        else:
+            dones_float[i] = 0
+
+    trajs = [[]]
+
+    for i in range(replay_buffer._size):
+        trajs[-1].append((replay_buffer._observations[i],
+            replay_buffer._actions[i],
+            replay_buffer._rewards[i],
+            replay_buffer._terminals[i],
+            replay_buffer._next_obs[i]))
+        if dones_float[i] == 1.0 and i + 1 < replay_buffer._size:
+            trajs.append([])
+
+    return trajs
+
+
+def get_normalization(replay_buffer):
+    trajs = split_into_trajectories(replay_buffer)
+
+    def compute_returns(traj):
+        episode_return = 0
+        for _, _, rew, _, _ in traj:
+            episode_return += rew
+
+        return episode_return
+
+    trajs.sort(key=compute_returns)
+
+    reward_range = compute_returns(trajs[-1]) - compute_returns(trajs[0])
+    m = 1000.0 / reward_range
+    return LinearTransform(m=float(m), b=0)
 
 def experiment(variant):
     if variant.get("pretrained_algorithm_path", False):
@@ -249,39 +290,19 @@ def experiment(variant):
     )
 
     vf_kwargs = variant.get("vf_kwargs", dict(hidden_sizes=[256, 256, ],))
-    vf1 = ConcatMlp(
+    vf = ConcatMlp(
         input_size=obs_dim,
         output_size=1,
         **vf_kwargs
     )
 
-    z = ConcatMlp(
-        input_size=obs_dim,
-        output_size=1,
-        **qf_kwargs
-    )
-
     policy_class = variant.get("policy_class", TanhGaussianPolicy)
     policy_kwargs = variant['policy_kwargs']
-    policy_path = variant.get("policy_path", False)
-    if policy_path:
-        policy = load_local_or_remote_file(policy_path)
-    else:
-        policy = policy_class(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            **policy_kwargs,
-        )
-    buffer_policy_path = variant.get("buffer_policy_path", False)
-    if buffer_policy_path:
-        buffer_policy = load_local_or_remote_file(buffer_policy_path)
-    else:
-        buffer_policy_class = variant.get("buffer_policy_class", policy_class)
-        buffer_policy = buffer_policy_class(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            **variant.get("buffer_policy_kwargs", policy_kwargs),
-        )
+    policy = policy_class(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        **policy_kwargs,
+    )
 
     eval_policy = MakeDeterministic(policy)
     eval_path_collector = MdpPathCollector(
@@ -322,31 +343,19 @@ def experiment(variant):
         else:
             error
 
-    if variant.get('replay_buffer_class', EnvReplayBuffer) == AWREnvReplayBuffer:
-        main_replay_buffer_kwargs = variant['replay_buffer_kwargs']
-        main_replay_buffer_kwargs['env'] = expl_env
-        main_replay_buffer_kwargs['qf1'] = qf1
-        main_replay_buffer_kwargs['qf2'] = qf2
-        main_replay_buffer_kwargs['policy'] = policy
-    else:
-        main_replay_buffer_kwargs=dict(
-            max_replay_buffer_size=variant['replay_buffer_size'],
-            env=expl_env,
-        )
     replay_buffer_kwargs = dict(
         max_replay_buffer_size=variant['replay_buffer_size'],
         env=expl_env,
     )
-
     replay_buffer = variant.get('replay_buffer_class', EnvReplayBuffer)(
-        **main_replay_buffer_kwargs,
+        **replay_buffer_kwargs,
     )
-    if variant.get('use_validation_buffer', False):
-        train_replay_buffer = replay_buffer
-        validation_replay_buffer = variant.get('replay_buffer_class', EnvReplayBuffer)(
-            **main_replay_buffer_kwargs,
-        )
-        replay_buffer = SplitReplayBuffer(train_replay_buffer, validation_replay_buffer, 0.9)
+    demo_train_buffer = EnvReplayBuffer(
+        **replay_buffer_kwargs,
+    )
+    demo_test_buffer = EnvReplayBuffer(
+        **replay_buffer_kwargs,
+    )
 
     trainer_class = variant.get("trainer_class", AWACTrainer)
     trainer = trainer_class(
@@ -356,54 +365,27 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        buffer_policy=buffer_policy,
-        z=z,
-        vf1=vf1,
+        vf=vf,
         **variant['trainer_kwargs']
     )
-    if variant['collection_mode'] == 'online':
-        expl_path_collector = MdpStepCollector(
-            expl_env,
-            policy,
-        )
-        algorithm = TorchOnlineRLAlgorithm(
-            trainer=trainer,
-            exploration_env=expl_env,
-            evaluation_env=eval_env,
-            exploration_data_collector=expl_path_collector,
-            evaluation_data_collector=eval_path_collector,
-            replay_buffer=replay_buffer,
-            max_path_length=variant['max_path_length'],
-            **variant['algo_kwargs']
-        )
-    else:
-        expl_path_collector = MdpPathCollector(
-            expl_env,
-            expl_policy,
-        )
-        algorithm = TorchBatchRLAlgorithm(
-            trainer=trainer,
-            exploration_env=expl_env,
-            evaluation_env=eval_env,
-            exploration_data_collector=expl_path_collector,
-            evaluation_data_collector=eval_path_collector,
-            replay_buffer=replay_buffer,
-            max_path_length=variant['max_path_length'],
-            **variant['algo_kwargs']
-        )
+
+    expl_path_collector = MdpPathCollector(
+        expl_env,
+        expl_policy,
+    )
+    algorithm = TorchBatchRLAlgorithm(
+        trainer=trainer,
+        exploration_env=expl_env,
+        evaluation_env=eval_env,
+        exploration_data_collector=expl_path_collector,
+        evaluation_data_collector=eval_path_collector,
+        replay_buffer=replay_buffer,
+        max_path_length=variant['max_path_length'],
+        **variant['algo_kwargs']
+    )
     algorithm.to(ptu.device)
 
-    demo_train_buffer = EnvReplayBuffer(
-        **replay_buffer_kwargs,
-    )
-    demo_test_buffer = EnvReplayBuffer(
-        **replay_buffer_kwargs,
-    )
-
     if variant.get("save_video", False):
-        if variant.get("presampled_goals", None):
-            variant['image_env_kwargs']['presampled_goals'] = load_local_or_remote_file(variant['presampled_goals']).item()
-
         def get_img_env(env):
             renderer = EnvRenderer(**variant["renderer_kwargs"])
             img_env = InsertImageEnv(GymToMultiEnv(env), renderer=renderer)
@@ -448,7 +430,13 @@ def experiment(variant):
             demo_test_buffer=demo_test_buffer,
             **path_loader_kwargs
         )
-        path_loader.load_demos(expl_env.get_dataset())
+        import d4rl
+        dataset = d4rl.qlearning_dataset(expl_env)
+        # dataset = expl_env.get_dataset()
+        path_loader.load_demos(dataset)
+        if variant.get('normalize_rewards_by_return_range'):
+            normalizer = get_normalization(replay_buffer)
+            trainer.reward_transform = normalizer
     if variant.get('save_initial_buffers', False):
         buffers = dict(
             replay_buffer=replay_buffer,
@@ -457,29 +445,5 @@ def experiment(variant):
         )
         buffer_path = osp.join(logger.get_snapshot_dir(), 'buffers.p')
         pickle.dump(buffers, open(buffer_path, "wb"))
-    if variant.get('pretrain_buffer_policy', False):
-        trainer.pretrain_policy_with_bc(
-            buffer_policy,
-            replay_buffer.train_replay_buffer,
-            replay_buffer.validation_replay_buffer,
-            10000,
-            label="buffer",
-        )
-    if variant.get('pretrain_policy', False):
-        trainer.pretrain_policy_with_bc(
-            policy,
-            demo_train_buffer,
-            demo_test_buffer,
-            trainer.bc_num_pretrain_steps,
-        )
-    if variant.get('pretrain_rl', False):
-        trainer.pretrain_q_with_bc_data()
-    if variant.get('save_pretrained_algorithm', False):
-        p_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.p')
-        pt_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.pt')
-        data = algorithm._get_snapshot()
-        data['algorithm'] = algorithm
-        torch.save(data, open(pt_path, "wb"))
-        torch.save(data, open(p_path, "wb"))
-    if variant.get('train_rl', True):
-        algorithm.train()
+
+    algorithm.train()

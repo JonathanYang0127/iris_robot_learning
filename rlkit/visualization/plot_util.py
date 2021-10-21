@@ -193,7 +193,7 @@ def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
         label_include_key=True,
         plot_error_bars=True, plot_seeds=False, overlay=False,
         formatting_func=None, ax=None,
-        print_on_missing_key=True,
+        print_on_missing_key=True, print_zero=False,
     ):
     """exps is result of core.load_exps_data
     key is (what we might think is) the effect variable
@@ -303,9 +303,13 @@ def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
                     ax.plot(x, ys[i, :], color=color, alpha=0.25)
 
         if print_start:
-            print(label, y[0])
+            print("start", label, y[0])
         if print_final:
-            print(label, y[-1])
+            print("final", label, y[-1])
+        if print_zero:
+            if 0 in x:
+                i = list(x).index(0)
+                print("zero", label, y[i])
         snapshot = 1
         if len(y) >= snapshot:
             if print_max:
