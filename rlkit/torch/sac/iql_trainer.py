@@ -130,16 +130,13 @@ class IQLTrainer(TorchTrainer):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
+
         if self.reward_transform:
             rewards = self.reward_transform(rewards)
-
         if self.terminal_transform:
             terminals = self.terminal_transform(terminals)
-        """
-        Policy and Alpha Loss
-        """
+
         dist = self.policy(obs)
-        new_obs_actions, log_pi = dist.rsample_and_logprob()
 
         """
         QF Loss
@@ -236,10 +233,6 @@ class IQLTrainer(TorchTrainer):
             self.eval_statistics.update(create_stats_ordered_dict(
                 'Q Targets',
                 ptu.get_numpy(q_target),
-            ))
-            self.eval_statistics.update(create_stats_ordered_dict(
-                'Log Pis',
-                ptu.get_numpy(log_pi),
             ))
             self.eval_statistics.update(create_stats_ordered_dict(
                 'rewards',

@@ -29,23 +29,15 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
-        self.epoch = start_epoch
+        self.start_epoch = start_epoch
+        self.epoch = self.start_epoch
 
     def train(self):
         """Negative epochs are offline, positive epochs are online"""
         timer.return_global_times = True
         self.offline_rl = True
-        for _ in range(self.epoch, 0):
-            self._begin_epoch()
-            timer.start_timer('saving')
-            logger.save_itr_params(self.epoch, self._get_snapshot())
-            timer.stop_timer('saving')
-            log_dict, _ = self._train()
-            logger.record_dict(log_dict)
-            logger.dump_tabular(with_prefix=True, with_timestamp=False)
-            self._end_epoch()
-        self.offline_rl = False
-        for _ in range(0, self.num_epochs):
+        for epoch in range(self.start_epoch, self.num_epochs):
+            self.offline_rl = epoch < 0
             self._begin_epoch()
             timer.start_timer('saving')
             logger.save_itr_params(self.epoch, self._get_snapshot())
