@@ -473,33 +473,38 @@ def awac_rig_experiment(
         post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs
     )
-    replay_buffer_kwargs.update(demo_replay_buffer_kwargs)
-    demo_train_buffer = ContextualRelabelingReplayBuffer(
-        env=eval_env,
-        context_keys=cont_keys,
-        observation_keys_to_save=obs_keys,
-        observation_key=observation_key,
-        observation_key_reward_fn=observation_key_reward_fn,
-        #observation_keys=observation_keys,
-        context_distribution=training_context_distrib,#expl_context_distrib,
-        sample_context_from_obs_dict_fn=mapper,
-        reward_fn=eval_reward,
-        post_process_batch_fn=concat_context_to_obs,
-        **replay_buffer_kwargs
-    )
-    demo_test_buffer = ContextualRelabelingReplayBuffer(
-        env=eval_env,
-        context_keys=cont_keys,
-        observation_keys_to_save=obs_keys,
-        observation_key=observation_key,
-        observation_key_reward_fn=observation_key_reward_fn,
-        #observation_keys=observation_keys,
-        context_distribution=training_context_distrib,#expl_context_distrib,
-        sample_context_from_obs_dict_fn=mapper,
-        reward_fn=eval_reward,
-        post_process_batch_fn=concat_context_to_obs,
-        **replay_buffer_kwargs
-    )
+    if trainer_kwargs['compute_bc']:
+        replay_buffer_kwargs.update(demo_replay_buffer_kwargs)
+        demo_train_buffer = ContextualRelabelingReplayBuffer(
+            env=eval_env,
+            context_keys=cont_keys,
+            observation_keys_to_save=obs_keys,
+            observation_key=observation_key,
+            observation_key_reward_fn=observation_key_reward_fn,
+            #observation_keys=observation_keys,
+            context_distribution=training_context_distrib,#expl_context_distrib,
+            sample_context_from_obs_dict_fn=mapper,
+            reward_fn=eval_reward,
+            post_process_batch_fn=concat_context_to_obs,
+            **replay_buffer_kwargs
+        )
+        demo_test_buffer = ContextualRelabelingReplayBuffer(
+            env=eval_env,
+            context_keys=cont_keys,
+            observation_keys_to_save=obs_keys,
+            observation_key=observation_key,
+            observation_key_reward_fn=observation_key_reward_fn,
+            #observation_keys=observation_keys,
+            context_distribution=training_context_distrib,#expl_context_distrib,
+            sample_context_from_obs_dict_fn=mapper,
+            reward_fn=eval_reward,
+            post_process_batch_fn=concat_context_to_obs,
+
+            **replay_buffer_kwargs
+        )
+    else:
+        demo_train_buffer = None 
+        demo_test_buffer = None
 
     #Neural Network Architecture
     def create_qf():

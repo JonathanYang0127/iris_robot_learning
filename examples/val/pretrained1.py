@@ -12,7 +12,7 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-from rlkit.torch.networks.cnn import CNN, TwoChannelCNN, ConcatTwoChannelCNN
+from rlkit.torch.networks.cnn import CNN, TwoChannelCNN, ConcatTwoChannelCNN, ConcatCNN
 
 import argparse
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
             rl_weight=1.0,
             use_awr_update=True,
             use_reparam_update=False,
-            compute_bc=True,
+            compute_bc=False,
             reparam_weight=0.0,
             awr_weight=1.0,
             bc_weight=0.0,
@@ -160,9 +160,9 @@ if __name__ == "__main__":
             pad_color=0,
         ),
 
-        reset_keys_map=dict(
-            image_observation="initial_latent_state"
-        ),
+        # reset_keys_map=dict(
+        #     image_observation="initial_latent_state"
+        # ),
         pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         add_env_offpolicy_data=False,
 
         load_demos=True,
-        pretrain_policy=True,
+        pretrain_policy=False,
         pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
@@ -265,15 +265,15 @@ if __name__ == "__main__":
     )
 
     if image:
-        variant['policy_class'] = GaussianTwoChannelCNNPolicy
-        variant['qf_class'] = ConcatTwoChannelCNN
+        variant['policy_class'] = GaussianCNNPolicy
+        variant['qf_class'] = ConcatCNN
 
         if small_cnn:
             variant['policy_kwargs'] = dict(
                 # CNN params
                 input_width=48,
                 input_height=48,
-                input_channels=3,
+                input_channels=6,
                 kernel_sizes=[3, 3],
                 n_channels=[4, 4],
                 strides=[1, 1],
@@ -292,7 +292,7 @@ if __name__ == "__main__":
             variant['qf_kwargs']=dict(
                 input_width=48,
                 input_height=48,
-                input_channels=3,
+                input_channels=6,
                 kernel_sizes=[3, 3],
                 n_channels=[4, 4],
                 strides=[1, 1],
@@ -308,7 +308,7 @@ if __name__ == "__main__":
                 # CNN params
                 input_width=48,
                 input_height=48,
-                input_channels=3,
+                input_channels=6,
                 kernel_sizes=[3, 3, 3],
                 n_channels=[16, 16, 16],
                 strides=[1, 1, 1],
@@ -327,7 +327,7 @@ if __name__ == "__main__":
             variant['qf_kwargs']=dict(
                 input_width=48,
                 input_height=48,
-                input_channels=3,
+                input_channels=6,
                 kernel_sizes=[3, 3, 3],
                 n_channels=[16, 16, 16],
                 strides=[1, 1, 1],
@@ -340,11 +340,11 @@ if __name__ == "__main__":
             )
 
         # variant['reward_kwargs']['obs_type'] = 'image'
-        variant['reset_keys_map']['image_observation'] = 'initial_image_observation'
+        # variant['reset_keys_map']['image_observation'] = 'initial_image_observation'
         variant['evaluation_goal_sampling_mode'] = 'presampled_images'
         variant['exploration_goal_sampling_mode'] = 'presampled_images'
         variant['training_goal_sampling_mode'] = 'presampled_images'
-        variant['replay_buffer_kwargs']['max_size'] = 80000
+        variant['replay_buffer_kwargs']['max_size'] = int(1E6)
 
         ## Keys used by reward function for reward calculation
         variant['observation_key_reward_fn'] = 'latent_observation'
@@ -358,10 +358,10 @@ if __name__ == "__main__":
             demo_path['use_latents'] = False
 
     search_space = {
-        "seed": range(3),
+        "seed": range(1),
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
-        'reward_kwargs.epsilon': [3.5, 4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
@@ -375,7 +375,7 @@ if __name__ == "__main__":
         'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
         'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
-        #'replay_buffer_kwargs.max_size' : [500000], #[250000], 
+        'replay_buffer_kwargs.max_size' : [int(8E5)], #[250000], 
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

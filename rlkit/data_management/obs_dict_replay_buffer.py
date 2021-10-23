@@ -5,6 +5,7 @@ from gym.spaces import Dict, Discrete
 from rlkit.data_management.replay_buffer import ReplayBuffer
 import rlkit.data_management.images as image_np
 
+from rlkit.data_management.images import _ImageNumpyArr, unnormalize_image
 
 class ObsDictReplayBuffer(ReplayBuffer):
     """

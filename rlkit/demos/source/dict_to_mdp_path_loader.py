@@ -24,7 +24,6 @@ from rlkit.core import logger
 
 import glob
 
-
 class DictToMDPPathLoader:
     """
     Path loader for that loads obs-dict demonstrations
@@ -148,7 +147,6 @@ class DictToMDPPathLoader:
             paths = glob.glob(get_absolute_path(path))
 
         data = []
-
         for filename in paths:
             data.extend(list(load_local_or_remote_file(filename, delete_after_loading=self.delete_after_loading)))
 
@@ -171,10 +169,12 @@ class DictToMDPPathLoader:
                 self.load_path(path, self.replay_buffer, obs_dict=obs_dict, use_latents=use_latents)
 
         if is_demo:
-            for path in data[:M]:
-                self.load_path(path, self.demo_train_buffer, obs_dict=obs_dict, use_latents=use_latents)
-            for path in data[M:N]:
-                self.load_path(path, self.demo_test_buffer, obs_dict=obs_dict, use_latents=use_latents)
+            if self.demo_train_buffer:
+                for path in data[:M]:
+                    self.load_path(path, self.demo_train_buffer, obs_dict=obs_dict, use_latents=use_latents)
+            if self.demo_test_buffer:
+                for path in data[M:N]:
+                    self.load_path(path, self.demo_test_buffer, obs_dict=obs_dict, use_latents=use_latents)
 
     def get_batch_from_buffer(self, replay_buffer):
         batch = replay_buffer.random_batch(self.bc_batch_size)

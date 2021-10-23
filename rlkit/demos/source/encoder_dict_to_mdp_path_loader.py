@@ -21,7 +21,6 @@ from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
 from rlkit.core import logger
 import glob
 
-
 class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
     def __init__(
@@ -127,7 +126,6 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
         return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs)))
 
-
     def load_path(self, path, replay_buffer, obs_dict=None, use_latents=True):
         # Filter data #
         if not self.data_filter_fn(path): return
@@ -175,7 +173,6 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
         print("loading path, length", len(path["observations"]), len(path["actions"]))
         print("actions", np.min(path["actions"]), np.max(path["actions"]))
         print("path sum rewards", sum(rewards), len(rewards))
-
 
 class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
@@ -286,7 +283,6 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
         if self.normalize:
             return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
         return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs)))
-
 
     def load_path(self, path, replay_buffer, obs_dict=None):
         # Filter data #
