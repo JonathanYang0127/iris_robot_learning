@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(3),
-        "image": [False, True], # Latent-space or image-space
+        "image": [True], # Latent-space or image-space
 
         'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
