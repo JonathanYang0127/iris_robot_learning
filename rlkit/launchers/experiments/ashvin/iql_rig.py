@@ -9,6 +9,7 @@ from rlkit.envs.images import EnvRenderer, InsertImageEnv
 from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.sac.iql_trainer import IQLTrainer
+from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy, GaussianTwoChannelCNNPolicy
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
     TorchOnlineRLAlgorithm,
@@ -192,6 +193,7 @@ def iql_rig_experiment(
         policy_kwargs,
         algo_kwargs,
         train_vae_kwargs,
+        image=False,
         policy_class=TanhGaussianPolicy,
         env_id=None,
         env_class=None,
@@ -248,6 +250,69 @@ def iql_rig_experiment(
         env_type=None, # For plotting
         seed=None,
     ):
+    # Image
+    if image:
+        policy_class = GaussianCNNPolicy
+        qf_class = ConcatCNN
+        vf_class = CNN
+        policy_kwargs = dict(
+            # CNN params
+            input_width=48,
+            input_height=48,
+            input_channels=6,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            # Gaussian params
+            max_log_std=0,
+            min_log_std=-6,
+            std_architecture="values",
+        )
+        qf_kwargs = dict(
+            input_width=48,
+            input_height=48,
+            input_channels=6,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+        )
+        vf_kwargs = dict(
+            input_width=48,
+            input_height=48,
+            input_channels=6,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+        )
+        ## Keys used by reward function for reward calculation
+        observation_key_reward_fn = 'latent_observation'
+        desired_goal_key_reward_fn = 'latent_desired_goal'
+
+        ## Keys used by policy/q-networks
+        observation_key = 'image_observation'
+        desired_goal_key = 'image_desired_goal'
+
+        for demo_path in path_loader_kwargs['demo_paths']:
+            demo_path['use_latents'] = False
+
     #Kwarg Definitions
     if exploration_policy_kwargs is None:
         exploration_policy_kwargs = {}

@@ -17,7 +17,6 @@ from rlkit.torch.networks.cnn import CNN, TwoChannelCNN, ConcatTwoChannelCNN, Co
 import argparse
 
 brc = True # BRC or Euler1 Paths
-image = True # Latent-space or image-space
 val_data = True # VAL data or new reset-free data
 
 if brc:
@@ -278,78 +277,9 @@ if __name__ == "__main__":
         ),
     )
 
-    if image:
-        variant['policy_class'] = GaussianCNNPolicy
-        variant['qf_class'] = ConcatCNN
-        variant['vf_class'] = CNN
-        variant['policy_kwargs'] = dict(
-            # CNN params
-            input_width=48,
-            input_height=48,
-            input_channels=6,
-            kernel_sizes=[3, 3, 3],
-            n_channels=[16, 16, 16],
-            strides=[1, 1, 1],
-            hidden_sizes=[1024, 512, 256],
-            paddings=[1, 1, 1],
-            pool_type='max2d',
-            pool_sizes=[2, 2, 1],  # the one at the end means no pool
-            pool_strides=[2, 2, 1],
-            pool_paddings=[0, 0, 0],
-            # Gaussian params
-            max_log_std=0,
-            min_log_std=-6,
-            std_architecture="values",
-        )
-        variant['qf_kwargs']=dict(
-            input_width=48,
-            input_height=48,
-            input_channels=6,
-            kernel_sizes=[3, 3, 3],
-            n_channels=[16, 16, 16],
-            strides=[1, 1, 1],
-            hidden_sizes=[1024, 512, 256],
-            paddings=[1, 1, 1],
-            pool_type='max2d',
-            pool_sizes=[2, 2, 1],  # the one at the end means no pool
-            pool_strides=[2, 2, 1],
-            pool_paddings=[0, 0, 0],
-        )
-        variant['vf_kwargs'] = dict(
-            input_width=48,
-            input_height=48,
-            input_channels=6,
-            kernel_sizes=[3, 3, 3],
-            n_channels=[16, 16, 16],
-            strides=[1, 1, 1],
-            hidden_sizes=[1024, 512, 256],
-            paddings=[1, 1, 1],
-            pool_type='max2d',
-            pool_sizes=[2, 2, 1],  # the one at the end means no pool
-            pool_strides=[2, 2, 1],
-            pool_paddings=[0, 0, 0],
-        )
-
-        # variant['reward_kwargs']['obs_type'] = 'image'
-        # variant['reset_keys_map']['image_observation'] = 'initial_image_observation'
-        variant['evaluation_goal_sampling_mode'] = 'presampled_images'
-        variant['exploration_goal_sampling_mode'] = 'presampled_images'
-        variant['training_goal_sampling_mode'] = 'presampled_images'
-        variant['replay_buffer_kwargs']['max_size'] = int(1E6)
-
-        ## Keys used by reward function for reward calculation
-        variant['observation_key_reward_fn'] = 'latent_observation'
-        variant['desired_goal_key_reward_fn'] = 'latent_desired_goal'
-
-        ## Keys used by policy/q-networks
-        variant['observation_key'] = 'image_observation'
-        variant['desired_goal_key'] = 'image_desired_goal'
-
-        for demo_path in demo_paths:
-            demo_path['use_latents'] = False
-
     search_space = {
         "seed": range(3),
+        "image": [False, True], # Latent-space or image-space
 
         'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
