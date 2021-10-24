@@ -683,15 +683,15 @@ def awac_rig_experiment(
             **path_loader_kwargs
         )
         path_loader.load_demos()
-    if pretrain_policy:
-        trainer.pretrain_policy_with_bc(
-            policy,
-            demo_train_buffer,
-            demo_test_buffer,
-            trainer.bc_num_pretrain_steps,
-        )
-    if pretrain_rl:
-        trainer.pretrain_q_with_bc_data()
+    # if pretrain_policy:
+    #     trainer.pretrain_policy_with_bc(
+    #         policy,
+    #         demo_train_buffer,
+    #         demo_test_buffer,
+    #         trainer.bc_num_pretrain_steps,
+    #     )
+    # if pretrain_rl:
+    #     trainer.pretrain_q_with_bc_data()
 
     if save_pretrained_algorithm:
         p_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.p')

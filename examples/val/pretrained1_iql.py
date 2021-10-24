@@ -144,7 +144,8 @@ if __name__ == "__main__":
         max_path_length=65, #50
         algo_kwargs=dict(
             batch_size=1024, #1024
-            num_epochs=1001,
+            start_epoch=-25, # offline epochs
+            num_epochs=1001, # online epochs
             num_eval_steps_per_epoch=1000, #1000
             num_expl_steps_per_train_loop=1000, #1000
             num_trains_per_train_loop=1000, #1000
@@ -197,8 +198,8 @@ if __name__ == "__main__":
         add_env_offpolicy_data=False,
 
         load_demos=True,
-        pretrain_policy=False,
-        pretrain_rl=True,
+        # pretrain_policy=False,
+        # pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
         exploration_goal_sampling_mode="presampled_images",#"conditional_vae_prior",#"presample_latents",
