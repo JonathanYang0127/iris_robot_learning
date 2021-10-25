@@ -13,8 +13,8 @@ from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
 #VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/"
-#VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free/"
-VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/"
+VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/"
+#VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/"
 
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
 image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
@@ -104,7 +104,7 @@ def main():
     )
 
     search_space = {
-        "seed": range(3),
+        "seed": range(1),
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

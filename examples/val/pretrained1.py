@@ -17,7 +17,7 @@ from rlkit.torch.networks.cnn import CNN, TwoChannelCNN, ConcatTwoChannelCNN, Co
 import argparse
 
 brc = True # BRC or Euler1 Paths
-val_data = True # VAL data or new reset-free data
+val_data = False # VAL data or new reset-free data
 
 if brc:
     if val_data:
@@ -29,12 +29,16 @@ if brc:
         EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_goals/" 
         vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/train-vqvae/run4/id2/best_vqvae.pt"
 else: 
-    assert val_data
-    VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" 
-    EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/"   
+    if val_data:
+        VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" 
+        EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/"   
 
-    vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt"
-    #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
+        vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt"
+        #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
+    else:
+        VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
+        EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
+        vqvae = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/best_vqvae.pt"
 
 if val_data:
     demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
@@ -68,6 +72,8 @@ if val_data:
     bottom_drawer_goals = EVAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 else:
     demo_paths=[dict(path=VAL_DATA_PATH + 'combined_reset_free_v5_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+    #demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+    
     image_train_data = VAL_DATA_PATH + 'combined_images.npy'
     image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
@@ -265,7 +271,7 @@ if __name__ == "__main__":
         "seed": range(3),
         "image": [True], # Latent-space or image-space
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
@@ -280,7 +286,7 @@ if __name__ == "__main__":
         'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
         'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
-        'replay_buffer_kwargs.max_size' : [int(1E6)], #[250000], 
+        'replay_buffer_kwargs.max_size' : [int(8E5)], #[250000], 
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

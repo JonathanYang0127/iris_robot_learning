@@ -17,7 +17,7 @@ from rlkit.torch.networks.cnn import CNN, TwoChannelCNN, ConcatTwoChannelCNN, Co
 import argparse
 
 brc = True # BRC or Euler1 Paths
-val_data = True # VAL data or new reset-free data
+val_data = False # VAL data or new reset-free data
 
 if brc:
     if val_data:
@@ -282,7 +282,7 @@ if __name__ == "__main__":
         "seed": range(3),
         "image": [False, True], # Latent-space or image-space
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
@@ -297,7 +297,7 @@ if __name__ == "__main__":
         #'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
         'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
-        'replay_buffer_kwargs.max_size' : [int(1E6)], #[250000], 
+        'replay_buffer_kwargs.max_size' : [int(8E5)], #[250000], 
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
