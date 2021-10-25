@@ -101,7 +101,7 @@ variant = dict(
     layer_size=256,
     replay_buffer_size=int(1E6),
     algorithm_kwargs=dict(
-        num_epochs=21,
+        num_epochs=1001,
         num_eval_steps_per_epoch=1000,
         num_trains_per_train_loop=1000,
         num_expl_steps_per_train_loop=1000,
@@ -118,7 +118,7 @@ variant = dict(
         reward_scale=1,
         use_automatic_entropy_tuning=True,
     ),
-    env_name="Pendulum-v0",
+    env_name="HalfCheetah-v2",
     seed=random.randint(0, 100000),
 )
 
@@ -126,9 +126,9 @@ variant = dict(
 def main():
     run_experiment(experiment,
         variant=variant,
-        exp_name='sac-pendulum',
+        exp_name='sac-hc',
         mode="here_no_doodad",
-        # use_gpu=True,
+        use_gpu=True,
         unpack_variant=True,
     )
 
