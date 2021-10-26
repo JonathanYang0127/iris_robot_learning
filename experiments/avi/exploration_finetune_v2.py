@@ -120,6 +120,7 @@ def experiment(variant):
 
     expl_env = eval_env
     expl_env.reset_task(variant['exploration_task'])
+    expl_env.reset()
 
     action_dim = eval_env.action_space.low.size
     observation_keys = ['image',]

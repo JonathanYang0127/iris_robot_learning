@@ -80,13 +80,22 @@ class MdpPathCollector(PathCollector):
             if not expl_reset_free:
                 self._env.reset()
             else:
-                # if success, reset task so that rewards are for the opposite task
-                if path['rewards'][-1] > 0:
-                    if self._env.env.task_idx >= self._env.num_tasks:
-                        opp_task = self._env.env.task_idx - self._env.num_tasks
-                    else:
-                        opp_task = self._env.env.task_idx + self._env.num_tasks
+                # TODO (homer): temp fix to ensure embedding matches env task idx matches object positions
+                self._env.reset_robot_only()
+                info = self._env.env.get_info()
+                if info['reset_success_target']:
+                    opp_task = self._env.env.task_idx - self._env.num_tasks
                     self._env.reset_task(opp_task)
+                if info['place_success_target']:
+                    opp_task = self._env.env.task_idx + self._env.num_tasks
+                    opp_task = self._env.env.reset_task(opp_task)
+                # # if success, reset task so that rewards are for the opposite task
+                # if path['rewards'][-1] > 0:
+                #     if self._env.env.task_idx >= self._env.num_tasks:
+                #         opp_task = self._env.env.task_idx - self._env.num_tasks
+                #     else:
+                #         opp_task = self._env.env.task_idx + self._env.num_tasks
+                #     self._env.reset_task(opp_task)
 
             if object_detector is not None:
                 from widowx_envs.scripts.label_pickplace_rewards import (
@@ -225,8 +234,10 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
     ):
         def exploration_rollout(*args, **kwargs):
             # switch models if prev traj was successful
-            if self._prev_success:
-                self._reverse = not self._reverse
+            # if self._prev_success:
+            #     self._reverse = not self._reverse
+            # TODO (homer): temp fix to ensure embedding matches env task idx matches object positions
+            self._reverse = self._env.env.is_reset_task()
             # if episodic exploration always fit the forward model
             if not self._expl_reset_free:
                 self._reverse = False
