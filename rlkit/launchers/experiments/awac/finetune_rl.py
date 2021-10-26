@@ -246,8 +246,19 @@ def experiment(variant):
     env_class = variant.get('env_class', None)
     env_kwargs = variant.get('env_kwargs', {})
 
-    expl_env = make(env_id, env_class, env_kwargs, normalize_env)
-    eval_env = make(env_id, env_class, env_kwargs, normalize_env)
+    def create_env():
+        env = make(env_id, env_class, env_kwargs, normalize_env)
+        if variant.get("image_env"):
+            from multiworld.core.flat_goal_env import FlatGoalEnv
+            init_camera = variant.get("init_camera")
+            renderer_kwargs = variant.get("renderer_kwargs", {})
+            renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
+            img_env = InsertImageEnv(env, renderer=renderer)
+            env = FlatGoalEnv(img_env, obs_keys=["image_observation"])
+        return env
+
+    expl_env = create_env()
+    eval_env = create_env()
 
     seed = variant["seed"]
     random.seed(seed)
