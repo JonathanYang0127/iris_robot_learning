@@ -1,6 +1,5 @@
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
-from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.samplers.data_collector import MdpPathCollector
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
