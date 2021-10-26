@@ -7,7 +7,6 @@ from rlkit.envs.wrappers import NormalizedBoxEnv, StackObservationEnv, RewardWra
 import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.samplers.data_collector.step_collector import MdpStepCollector
-from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.torch_rl_algorithm import (
@@ -46,6 +45,10 @@ from rlkit.torch.networks import LinearTransform
 import random
 
 from multiworld.core.flat_goal_env import FlatGoalEnv
+
+from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy
+from rlkit.torch.networks.cnn import ConcatCNN, CNN
+from rlkit.torch.networks import ConcatMlp, Mlp
 
 ENV_PARAMS = {
     'HalfCheetah-v2': {
@@ -286,37 +289,36 @@ def experiment(variant):
     else:
         env_info_sizes = dict()
 
+    policy_class = variant.get("policy_class", GaussianCNNPolicy)
+    qf_class = variant.get("qf_class", ConcatCNN)
+    vf_class = variant.get("vf_class", CNN)
+    policy_kwargs = variant.get("policy_kwargs", {})
     qf_kwargs = variant.get("qf_kwargs", {})
-    qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim,
-        output_size=1,
-        **qf_kwargs
-    )
-    qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim,
-        output_size=1,
-        **qf_kwargs
-    )
-    target_qf1 = ConcatMlp(
-        input_size=obs_dim + action_dim,
-        output_size=1,
-        **qf_kwargs
-    )
-    target_qf2 = ConcatMlp(
-        input_size=obs_dim + action_dim,
-        output_size=1,
-        **qf_kwargs
-    )
+    vf_kwargs = variant.get("vf_kwargs", {})
 
-    vf_kwargs = variant.get("vf_kwargs", dict(hidden_sizes=[256, 256, ],))
-    vf = ConcatMlp(
-        input_size=obs_dim,
-        output_size=1,
-        **vf_kwargs
-    )
+    def create_qf():
+        if qf_class is ConcatMlp:
+            qf_kwargs["input_size"] = obs_dim + action_dim
+        if qf_class is ConcatCNN:
+            qf_kwargs["added_fc_input_size"] = action_dim
+        return qf_class(
+            output_size=1,
+            **qf_kwargs
+        )
+    qf1 = create_qf()
+    qf2 = create_qf()
+    target_qf1 = create_qf()
+    target_qf2 = create_qf()
 
-    policy_class = variant.get("policy_class", TanhGaussianPolicy)
-    policy_kwargs = variant['policy_kwargs']
+    def create_vf():
+        if vf_class is Mlp:
+            vf_kwargs["input_size"] = obs_dim
+        return vf_class(
+            output_size=1,
+            **vf_kwargs
+        )
+    vf = create_vf()
+
     policy = policy_class(
         obs_dim=obs_dim,
         action_dim=action_dim,

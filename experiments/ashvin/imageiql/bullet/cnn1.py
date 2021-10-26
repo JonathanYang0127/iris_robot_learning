@@ -15,6 +15,10 @@ from rlkit.torch.sac.iql_trainer import IQLTrainer
 from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
 from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
 
+from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy
+from rlkit.torch.networks.cnn import ConcatCNN, CNN
+from rlkit.torch.networks import ConcatMlp, Mlp
+
 import random
 
 # VAL_DATA_PATH = "sasha/affordances/combined/"
@@ -116,6 +120,56 @@ if __name__ == "__main__":
             flatten_image=True,
             width=48,
             height=48,
+        ),
+        policy_class = GaussianCNNPolicy,
+        qf_class = ConcatCNN,
+        vf_class = CNN,
+        policy_kwargs = dict(
+            # CNN params
+            input_width=48,
+            input_height=48,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            # Gaussian params
+            max_log_std=0,
+            min_log_std=-6,
+            std_architecture="values",
+        ),
+        qf_kwargs = dict(
+            input_width=48,
+            input_height=48,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+        ),
+        vf_kwargs = dict(
+            input_width=48,
+            input_height=48,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[16, 16, 16],
+            strides=[1, 1, 1],
+            hidden_sizes=[1024, 512, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],  # the one at the end means no pool
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
         ),
 
         seed=random.randint(0, 100000),
