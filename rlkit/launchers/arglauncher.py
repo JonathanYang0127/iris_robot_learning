@@ -217,7 +217,7 @@ def run_variants_brc(variants):
     brc_envfile =variants[0]["launcher_config"]["slurm_config_envfile"]
     cmd_template = SBATCH_CMDS[brc_config]
     args_string = " ".join(args)
-    write_script(cmd_template, brc_envfile, brc_envfile, len(variants))
+    write_script(cmd_template, brc_envfile, args_string, len(variants))
 
 def write_script(
         cmd_template,
@@ -228,7 +228,7 @@ def write_script(
 ):
     with open(path, "w") as myfile:
         for i in range(n):
-            new_cmd = cmd_template % (args_string, env_file, i)
+            new_cmd = cmd_template % (env_file, args_string, i)
             myfile.write(new_cmd)
             myfile.write("\n")
         # make file executable
