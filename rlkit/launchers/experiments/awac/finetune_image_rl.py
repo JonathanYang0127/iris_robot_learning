@@ -3,7 +3,7 @@ import gym
 from rlkit.data_management.awr_env_replay_buffer import AWREnvReplayBuffer
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.data_management.split_buffer import SplitReplayBuffer
-from rlkit.envs.wrappers import NormalizedBoxEnv, StackObservationEnv, RewardWrapperEnv
+
 import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector import MdpPathCollector, ObsDictPathCollector
 from rlkit.samplers.data_collector.step_collector import MdpStepCollector
@@ -20,7 +20,6 @@ from rlkit.visualization.video import save_paths, VideoSaveFunction
 
 from multiworld.core.flat_goal_env import FlatGoalEnv
 from multiworld.core.image_env import ImageEnv
-from multiworld.core.gym_to_multi_env import GymToMultiEnv
 from rlkit.util.hyperparameter import recursive_dictionary_update
 
 import torch
@@ -278,6 +277,7 @@ def experiment(variant):
     path_loader_kwargs = variant.get("path_loader_kwargs", {})
     stack_obs = path_loader_kwargs.get("stack_obs", 1)
     if stack_obs > 1:
+        from rlkit.envs.wrappers import StackObservationEnv
         expl_env = StackObservationEnv(expl_env, stack_obs=stack_obs)
         eval_env = StackObservationEnv(eval_env, stack_obs=stack_obs)
 
