@@ -2,8 +2,6 @@ import joblib
 import numpy as np
 import pickle
 
-import boto3
-
 from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
 import os
 
@@ -52,6 +50,7 @@ def sync_down(path, check_exists=True):
     full_s3_path = os.path.join(AWS_S3_PATH, path)
     bucket_name, bucket_relative_path = split_s3_full_path(full_s3_path)
     try:
+        import boto3
         bucket = boto3.resource('s3').Bucket(bucket_name)
         bucket.download_file(bucket_relative_path, local_path)
     except Exception as e:
@@ -124,11 +123,11 @@ def load_local_or_remote_file(filepath, file_type=None, delete_after_loading=Fal
         #object = CPU_Unpickler(f).load()
         object = pickle.load(open(local_path, "rb"))
     print("loaded", local_path)
-    
+
     if (local_path[:4] == "/tmp") and delete_after_loading:
         print("deleting tmp file after loading.")
         os.remove(local_path)
-    
+
     return object
 
 def get_absolute_path(path):

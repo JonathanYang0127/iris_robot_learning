@@ -10,15 +10,17 @@ import sys
 from multiprocessing import Process, Pool
 import pdb
 import random
+import os
+import stat
 
 def run_variants(experiment, vs, process_args_fn=None, run_id=0, ):
     # preprocess
     variants = []
     for i, v in enumerate(vs):
         v["exp_id"] = i
-        v["run_id"] = i
+        v["run_id"] = run_id
         process_run_args(v)
-        process_logger_args(v, run_id=run_id)
+        process_logger_args(v)
         process_launcher_args(v)
         if process_args_fn:
             process_args_fn(v)
@@ -42,6 +44,11 @@ def run_variants(experiment, vs, process_args_fn=None, run_id=0, ):
         variants = new_variants
     if "--1" in sys.argv: # only run the first experiment for testing
         variants = variants[:1]
+
+    # special case for BRC, TODO: abstract into own module
+    if "--script" in sys.argv:
+        run_variants_brc(variants)
+        return
 
     print("Running", len(variants), "variants")
 
@@ -127,8 +134,6 @@ def process_logger_args(variant, run_id=None):
         i = sys.argv.index("--run")
         logger_config["run_id"] = int(sys.argv[i+1])
         variant["run_id"] = int(sys.argv[i+1])
-    else:
-        logger_config["run_id"] = run_id
 
 
 def process_launcher_args(variant):
@@ -139,7 +144,7 @@ def process_launcher_args(variant):
     launcher_config.setdefault("region", "us-west-2")
     launcher_config.setdefault("time_in_mins", None)
     launcher_config.setdefault("ssh_host", None)
-    launcher_config.setdefault("slurm_config_name", None)
+    launcher_config.setdefault("slurm_config_name", "gpu")
     launcher_config.setdefault("unpack_variant", False)
     launcher_config.setdefault("s3_log_prefix", "")
 
@@ -169,8 +174,6 @@ def process_launcher_args(variant):
     if "--slurmconfig" in sys.argv:
         i = sys.argv.index("--slurmconfig")
         launcher_config["slurm_config_name"] = sys.argv[i+1]
-    if "--lowprio" in sys.argv:
-        launcher_config["slurm_config_name"] = "gpu_lowprio"
 
     if "--verbose" in sys.argv:
         launcher_config["verbose"] = True
@@ -201,3 +204,31 @@ def process_launcher_args(variant):
     if "exp_name" not in launcher_config:
         launcher_config["exp_name"] = sys.argv[0][:-3]
 
+
+SBATCH_CMDS = dict(
+    gpu="sbatch -A co_rail -p savio3_gpu -t 60 -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source /global/home/users/anair17/torch110.sh && python %s --variants %d'",
+)
+
+def run_variants_brc(variants):
+    i = sys.argv.index("--script")
+    args = sys.argv[:i] + sys.argv[i+1:]
+    brc_config = variants[0]["launcher_config"]["slurm_config_name"]
+    cmd_template = SBATCH_CMDS[brc_config]
+    args_string = " ".join(args)
+    write_script(cmd_template, args_string, len(variants))
+
+def write_script(
+        cmd_template,
+        args_string,
+        n,
+        path='/tmp/script_to_scp_over.sh',
+):
+    with open(path, "w") as myfile:
+        for i in range(n):
+            new_cmd = cmd_template % (args_string, i)
+            myfile.write(new_cmd)
+            myfile.write("\n")
+        # make file executable
+        st = os.stat(path)
+        os.chmod(path, st.st_mode | stat.S_IEXEC)
+    print("wrote", path)

@@ -21,8 +21,8 @@ from rlkit.torch.networks import ConcatMlp, Mlp
 
 import random
 
-# VAL_DATA_PATH = "sasha/affordances/combined/"
-VAL_DATA_PATH = "/media/ashvin/s3doodad/sasha/affordances/combined/"
+VAL_DATA_PATH = "sasha/affordances/combined/"
+# VAL_DATA_PATH = "/media/ashvin/s3doodad/sasha/affordances/combined/"
 
 demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
             # dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
@@ -59,16 +59,6 @@ if __name__ == "__main__":
         max_path_length=1000,
         replay_buffer_size=int(2E5),
         layer_size=256,
-        policy_class=GaussianPolicy,
-        policy_kwargs=dict(
-            hidden_sizes=[256, 256, ],
-            max_log_std=0,
-            min_log_std=-6,
-            std_architecture="values",
-        ),
-        qf_kwargs=dict(
-            hidden_sizes=[256, 256, ],
-        ),
 
         algorithm="SAC",
         version="normal",

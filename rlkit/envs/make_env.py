@@ -5,7 +5,7 @@ imports and normalization
 
 import gym
 
-from rlkit.envs.wrappers import NormalizedBoxEnv
+from rlkit.envs.wrappers.normalized_box_env import NormalizedBoxEnv
 
 DAPG_ENVS = [
     'pen-v0', 'pen-sparse-v0', 'pen-notermination-v0', 'pen-binary-v0', 'pen-binary-old-v0',
