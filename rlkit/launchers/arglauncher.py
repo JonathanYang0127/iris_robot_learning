@@ -147,6 +147,7 @@ def process_launcher_args(variant):
     launcher_config.setdefault("slurm_config_name", "gpu")
     launcher_config.setdefault("unpack_variant", False)
     launcher_config.setdefault("s3_log_prefix", "")
+    launcher_config.setdefault("slurm_config_envfile", "/global/home/users/anair17/torch110.sh")
 
     if "--ec2" in sys.argv:
         launcher_config["mode"] = "ec2"
@@ -206,26 +207,28 @@ def process_launcher_args(variant):
 
 
 SBATCH_CMDS = dict(
-    gpu="sbatch -A co_rail -p savio3_gpu -t 60 -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source /global/home/users/anair17/torch110.sh && python %s --variants %d'",
+    gpu="sbatch -A co_rail -p savio3_gpu -t 60 -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
 )
 
 def run_variants_brc(variants):
     i = sys.argv.index("--script")
     args = sys.argv[:i] + sys.argv[i+1:]
     brc_config = variants[0]["launcher_config"]["slurm_config_name"]
+    brc_envfile =variants[0]["launcher_config"]["slurm_config_envfile"]
     cmd_template = SBATCH_CMDS[brc_config]
     args_string = " ".join(args)
-    write_script(cmd_template, args_string, len(variants))
+    write_script(cmd_template, brc_envfile, brc_envfile, len(variants))
 
 def write_script(
         cmd_template,
+        env_file,
         args_string,
         n,
         path='/tmp/script_to_scp_over.sh',
 ):
     with open(path, "w") as myfile:
         for i in range(n):
-            new_cmd = cmd_template % (args_string, i)
+            new_cmd = cmd_template % (args_string, env_file, i)
             myfile.write(new_cmd)
             myfile.write("\n")
         # make file executable
