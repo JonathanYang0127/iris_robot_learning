@@ -70,6 +70,7 @@ def run_experiment(
         unpack_variant=True,
         base_log_dir=None,
         prepend_date_to_exp_name=True,
+        slurm_config=None,
         **kwargs
 ):
     if base_log_dir is None:
