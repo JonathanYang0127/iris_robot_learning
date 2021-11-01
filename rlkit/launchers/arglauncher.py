@@ -213,12 +213,12 @@ def process_launcher_args(variant):
 SBATCH_CMDS = dict(
     gpu =           "sbatch -A co_rail -p savio3_gpu -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
     # lowprio options on savio3_gpu
-    savio3_v100 =   "sbatch -A co_rail -p --qos savio_lowprio savio3_gpu -t %d -N 1 -n 1 --cpus-per-task=8 --gres=gpu:V100:1 --wrap=$'source %s && python %s --variants %d'",
-    savio3_2080 =   "sbatch -A co_rail -p --qos savio_lowprio savio3_gpu -t %d -N 8 -n 4 --cpus-per-task=4 --gres=gpu:GTX2080TI:1 --wrap=$'source %s && python %s --variants %d'",
+    gpu_v100 =   "sbatch -A co_rail -p --qos savio_lowprio savio3_gpu -t %d -N 1 -n 1 --cpus-per-task=8 --gres=gpu:V100:1 --wrap=$'source %s && python %s --variants %d'",
+    gpu_2080 =   "sbatch -A co_rail -p --qos savio_lowprio savio3_gpu -t %d -N 8 -n 4 --cpus-per-task=4 --gres=gpu:GTX2080TI:1 --wrap=$'source %s && python %s --variants %d'",
     # lowprio options on other partitions
-    gpulowprio =    "sbatch -A co_rail -p savio2_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=2 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
-    savio2_double = "sbatch -A co_rail -p savio2_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:1 --wrap=$'source %s && python %s --variants %d'",
-    gpulowprio2 =   "sbatch -A co_rail -p savio2_1080ti --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=2 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
+    gpulowprio =    "sbatch -A co_rail -p savio2_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=2 --gres=gpu:1 --wrap=$'source %s && python %s --variants %d'",
+    gpulowprio2double = "sbatch -A co_rail -p savio2_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:1 --wrap=$'source %s && python %s --variants %d'",
+    gpulowprio2 =   "sbatch -A co_rail -p savio2_1080ti --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=2 --gres=gpu:1 --wrap=$'source %s && python %s --variants %d'",
     
     cpu =           "sbatch -A fc_rail -p savio -t %d --wrap=$'source %s && python %s --variants %d'",
     cpu2 =          "sbatch -A fc_rail -p savio2 -t %d --wrap=$'source %s && python %s --variants %d'",
@@ -235,8 +235,9 @@ def run_variants_brc(variants, path="/tmp/script_to_scp_over.sh"):
 
     with open(path, "w") as myfile:
         for i in range(len(variants)):
-            slurm_config = variants[i]["launcher_config"].get("slurm_config", {})
-            new_cmd = get_line_brc_script(args_string, i, **slurm_config)
+            variant = variants[i]
+            slurm_config = variant["launcher_config"].get("slurm_config", {})
+            new_cmd = get_line_brc_script(args_string, variant, i, **slurm_config)
             print(new_cmd)
             myfile.write(new_cmd)
             myfile.write("\n")
@@ -247,10 +248,15 @@ def run_variants_brc(variants, path="/tmp/script_to_scp_over.sh"):
 
 def get_line_brc_script(
     args_string,
+    variant,
     i,
     slurm_config_name="gpu", 
     slurm_config_envfile="/global/home/users/anair17/torch110.sh",
     slurm_time=60,
 ):
+    if variant["launcher_config"].get("use_gpu"):
+        assert "gpu" in slurm_config_name, "running non-GPU experiment on GPU machine"
+    else:
+        assert "cpu" in slurm_config_name, "running GPU experiment on CPU machine"
     cmd_template = SBATCH_CMDS[slurm_config_name]
     return cmd_template % (slurm_time, slurm_config_envfile, args_string, i)

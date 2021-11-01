@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
         launcher_config=dict(
             slurm_config=dict(
-                slurm_config_name="cpu2", 
+                slurm_config_name="gpulowprio", 
                 slurm_config_envfile="/global/home/users/anair17/torch110.sh",
                 slurm_time=720,
             ),
