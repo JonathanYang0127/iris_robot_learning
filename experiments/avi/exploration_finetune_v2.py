@@ -252,6 +252,10 @@ def experiment(variant):
         observation_keys=observation_keys,
     )
 
+    if variant['expl_reset_free']:
+        train_tasks = [variant['exploration_task'], variant['exploration_task']+env_num_tasks]
+    else:
+        train_tasks = [variant['exploration_task']]
 
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
@@ -270,7 +274,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-        train_tasks=[variant['exploration_task']],#np.arange(num_tasks), #[variant['exploration_task']],
+        train_tasks=train_tasks
         eval_tasks=[variant['exploration_task']],
     )
 

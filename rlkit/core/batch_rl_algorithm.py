@@ -63,7 +63,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                     multi_task=True,
                     task_index=self.exploration_task
                 )
-                self.replay_buffer.add_paths(self.exploration_task, init_expl_paths)
+                self.replay_buffer.add_multitask_paths(init_expl_paths)
             else:
                 init_expl_paths = self.expl_data_collector.collect_new_paths(
                     self.max_path_length,
@@ -109,7 +109,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                         timer.stop_timer('exploration sampling')
 
                         timer.start_timer('replay buffer data storing', unique=False)
-                        self.replay_buffer.add_paths(self.exploration_task, new_expl_paths)
+                        self.replay_buffer.add_multitask_paths(new_expl_paths)
                         timer.stop_timer('replay buffer data storing')
                     else:
                         timer.start_timer('exploration sampling', unique=False)
