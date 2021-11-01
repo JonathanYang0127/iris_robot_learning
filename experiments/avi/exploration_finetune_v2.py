@@ -274,7 +274,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-        train_tasks=train_tasks
+        train_tasks=train_tasks,
         eval_tasks=[variant['exploration_task']],
     )
 
