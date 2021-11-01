@@ -149,7 +149,7 @@ def process_launcher_args(variant):
 
     launcher_config.setdefault("slurm_config", dict(
         slurm_config_name="gpu", 
-        slurm_config_envfile="/global/home/users/anair17/torch110.sh",
+        slurm_config_envfile="/global/home/users/patrickhaoy/torch110.sh",
     ))
 
 
