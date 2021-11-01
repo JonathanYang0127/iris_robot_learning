@@ -83,12 +83,16 @@ def train_pixelcnn(
         all_data = []
         n = min(data["observations"].shape[0], data_size)
 
+        # for i in tqdm(range(n)):
+        #     obs = ptu.from_numpy(data["observations"][i, 0, :] / 255.0)
+        #     cond = ptu.from_numpy(data["env"][i, :] / 255.0)
+        #     latent = vqvae.encode(obs, cont=False)
+        #     latent_cond = vqvae.encode(cond, cont=False)
+        #     all_data.append(torch.cat([latent_cond, latent, ], dim=0))
         for i in tqdm(range(n)):
-            obs = ptu.from_numpy(data["observations"][i, 0, :] / 255.0)
-            cond = ptu.from_numpy(data["env"][i, :] / 255.0)
+            obs = ptu.from_numpy(data["observations"][i] / 255.0)
             latent = vqvae.encode(obs, cont=False)
-            latent_cond = vqvae.encode(cond, cont=False)
-            all_data.append(torch.cat([latent_cond, latent, ], dim=0))
+            all_data.append(latent)
 
         encodings = ptu.get_numpy(torch.stack(all_data, dim=0))
         return encodings

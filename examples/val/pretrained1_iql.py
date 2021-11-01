@@ -27,19 +27,29 @@ if brc:
     else:
         VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/"
         EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_goals/" 
-        vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/train-vqvae/run4/id2/best_vqvae.pt"
+        vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/examples/val/train-vqvae/run10/id0/best_vqvae.pt" #vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/train-vqvae/run4/id2/best_vqvae.pt"
+        # VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/"
+        # EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/" 
+        # vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/best_vqvae.pt"
+        # VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/"
+        # EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/" 
+        # vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/best_vqvae.pt"
 else: 
-    assert val_data
-    VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" 
-    EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/"   
+    if val_data:
+        VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" 
+        EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/"   
 
-    vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt"
-    #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
+        vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt"
+        #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
+    else:
+        VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
+        EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
+        vqvae = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/best_vqvae.pt"
 
 if val_data:
     demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
                 dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
-                dict(path=VAL_DATA_PATH + 'pnp_demos_0.pk l', obs_dict=True, is_demo=True),
+                dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
                 dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl', obs_dict=True, is_demo=True),
 
                 dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl', obs_dict=True, is_demo=True),
@@ -61,21 +71,24 @@ if val_data:
     image_train_data = VAL_DATA_PATH + 'combined_images.npy'
     image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
-    tray_goals = EVAL_DATA_PATH + 'tray_goals.pkl'
-    pnp_goals = EVAL_DATA_PATH + 'pnp_goals.pkl'
+    # tray_goals = EVAL_DATA_PATH + 'tray_goals.pkl'
+    # pnp_goals = EVAL_DATA_PATH + 'pnp_goals.pkl'
 
-    top_drawer_goals = EVAL_DATA_PATH + 'top_drawer_goals.pkl'
-    bottom_drawer_goals = EVAL_DATA_PATH + 'bottom_drawer_goals.pkl'
+    # top_drawer_goals = EVAL_DATA_PATH + 'top_drawer_goals.pkl'
+    # bottom_drawer_goals = EVAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 else:
     demo_paths=[dict(path=VAL_DATA_PATH + 'combined_reset_free_v5_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+    #demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+    #demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+
     image_train_data = VAL_DATA_PATH + 'combined_images.npy'
     image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
-    tray_goals = EVAL_DATA_PATH + 'tray_goals.pkl'
-    pnp_goals = EVAL_DATA_PATH + 'obj_goals.pkl'
+    # tray_goals = EVAL_DATA_PATH + 'tray_goals.pkl'
+    # pnp_goals = EVAL_DATA_PATH + 'obj_goals.pkl'
 
-    top_drawer_goals = EVAL_DATA_PATH + 'top_drawer_goals.pkl'
-    bottom_drawer_goals = EVAL_DATA_PATH + 'bottom_drawer_goals.pkl'
+    # top_drawer_goals = EVAL_DATA_PATH + 'top_drawer_goals.pkl'
+    # bottom_drawer_goals = EVAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 
 
 if __name__ == "__main__":
@@ -174,9 +187,9 @@ if __name__ == "__main__":
             pad_color=0,
         ),
 
-        # reset_keys_map=dict(
-        #     image_observation="initial_latent_state"
-        # ),
+        reset_keys_map=dict(
+            image_observation="initial_latent_state"
+        ),
         pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
@@ -202,8 +215,11 @@ if __name__ == "__main__":
         # pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-        exploration_goal_sampling_mode="presampled_images",#"conditional_vae_prior",#"presample_latents",
-        training_goal_sampling_mode="presampled_images",#"presample_latents",
+
+        # exploration_goal_sampling_mode="presampled_images",#"presample_latents",
+        # training_goal_sampling_mode="presampled_images",
+        exploration_goal_sampling_mode="conditional_vae_prior",#"presampled_images",#"presample_latents",
+        training_goal_sampling_mode="presample_latents",#"presampled_images",
 
         train_vae_kwargs=dict(
             imsize=48,
@@ -280,10 +296,11 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(3),
-        "image": [False, True], # Latent-space or image-space
+        "image": [False], # Latent-space or image-space
 
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
-        'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'algo_kwargs.start_epoch': [-150],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],#['top_drawer', 'bottom_drawer'],
+        'reward_kwargs.epsilon': [4.0, 5.0, 6.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
 
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
@@ -297,7 +314,7 @@ if __name__ == "__main__":
         #'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
         'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
-        'replay_buffer_kwargs.max_size' : [int(8E5)], #[250000], 
+        'replay_buffer_kwargs.max_size' : [int(1E6)], #[250000], 
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -314,8 +331,8 @@ if __name__ == "__main__":
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         ## Hardcoded: setting exploration goals as evaluation goals for now instead of pixelCNN
-        variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
-        variant['presampled_goal_kwargs']['training_goals'] = eval_goals
+        # variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
+        # variant['presampled_goal_kwargs']['training_goals'] = eval_goals
 
         if val_data:
             if env_type in ['top_drawer', 'bottom_drawer']:
