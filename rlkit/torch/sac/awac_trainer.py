@@ -97,7 +97,8 @@ class AWACTrainer(TorchTrainer):
             buffer_policy_reset_period=-1,
             num_buffer_policy_train_steps_on_reset=100,
             advantage_weighted_buffer_loss=True,
-            multitask=False
+            multitask=False,
+            **kwargs
     ):
         super().__init__()
         self.env = env

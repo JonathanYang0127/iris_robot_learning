@@ -7,6 +7,7 @@ from roboverse.bullet.serializable import Serializable
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
+from rlkit.torch.sac.iql_trainer import IQLTrainer
 from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import ConcatCNN
 
@@ -164,7 +165,15 @@ def experiment(variant):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
 
-    trainer = AWACTrainer(
+    if 'AWAC' in variant['algorithm']:
+        trainer_class = AWACTrainer 
+    elif 'IQL' in variant['algorithm']:
+        cnn_params['added_fc_input_size'] -= action_dim
+        vf = ConcatCNN(**cnn_params)
+        variant['trainer_kwargs']['vf'] = vf 
+        trainer_class = IQLTrainer
+
+    trainer = trainer_class(
         env=eval_env,
         policy=policy,
         qf1=qf1,
@@ -234,12 +243,13 @@ if __name__ == '__main__':
     parser.add_argument("--max-path-len", type=int, default=30)
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument('--offline-alg', type=str, choices=('AWAC', 'IQL'))
     parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
 
     variant = dict(
-        algorithm="AWAC-Pixel",
+        algorithm="{}-Pixel".format(args.offline_alg),
 
         num_epochs=3000,
         batch_size=64,
@@ -270,7 +280,6 @@ if __name__ == '__main__':
             qf_lr=3E-4,
             reward_scale=1,
             beta=args.beta,
-            use_automatic_entropy_tuning=False,
             alpha=0,
             compute_bc=False,
             awr_min_q=True,
@@ -317,7 +326,7 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
+    exp_prefix = '{}-{}-image-{}'.format(time.strftime("%y-%m-%d"), args.offline_alg, args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
 
