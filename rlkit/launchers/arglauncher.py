@@ -63,7 +63,7 @@ def run_variants(experiment, vs, process_args_fn=None, run_id=0, ):
     print("Running", len(variants), "variants")
 
 def run_variant(experiment, variant):
-    launcher_config = variant.pop("launcher_config")
+    launcher_config = variant.get("launcher_config")
     lu.run_experiment(
         experiment,
         variant=variant,
@@ -144,10 +144,14 @@ def process_launcher_args(variant):
     launcher_config.setdefault("region", "us-west-2")
     launcher_config.setdefault("time_in_mins", None)
     launcher_config.setdefault("ssh_host", None)
-    launcher_config.setdefault("slurm_config_name", "gpu")
     launcher_config.setdefault("unpack_variant", False)
     launcher_config.setdefault("s3_log_prefix", "")
-    launcher_config.setdefault("slurm_config_envfile", "/global/home/users/anair17/torch110.sh")
+
+    launcher_config.setdefault("slurm_config", dict(
+        slurm_config_name="gpu", 
+        slurm_config_envfile="/global/home/users/anair17/torch110.sh",
+    ))
+
 
     if "--ec2" in sys.argv:
         launcher_config["mode"] = "ec2"
@@ -207,31 +211,52 @@ def process_launcher_args(variant):
 
 
 SBATCH_CMDS = dict(
-    gpu="sbatch -A co_rail -p savio3_gpu -t 60 -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
+    gpu =           "sbatch -A co_rail -p savio3_gpu -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
+    # lowprio options on savio3_gpu
+    gpu_v100 =   "sbatch -A co_rail -p --qos savio_lowprio savio3_gpu -t %d -N 1 -n 1 --cpus-per-task=8 --gres=gpu:V100:1 --wrap=$'source %s && python %s --variants %d'",
+    gpu_2080 =   "sbatch -A co_rail -p --qos savio_lowprio savio3_gpu -t %d -N 8 -n 4 --cpus-per-task=4 --gres=gpu:GTX2080TI:1 --wrap=$'source %s && python %s --variants %d'",
+    # lowprio options on other partitions
+    gpulowprio =    "sbatch -A co_rail -p savio2_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=2 --gres=gpu:1 --wrap=$'source %s && python %s --variants %d'",
+    gpulowprio2double = "sbatch -A co_rail -p savio2_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:1 --wrap=$'source %s && python %s --variants %d'",
+    gpulowprio2 =   "sbatch -A co_rail -p savio2_1080ti --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=2 --gres=gpu:1 --wrap=$'source %s && python %s --variants %d'",
+    
+    cpu =           "sbatch -A fc_rail -p savio -t %d --wrap=$'source %s && python %s --variants %d'",
+    cpu2 =          "sbatch -A fc_rail -p savio2 -t %d --wrap=$'source %s && python %s --variants %d'",
+    cpu3 =          "sbatch -A fc_rail -p savio3 -t %d --wrap=$'source %s && python %s --variants %d'",
+    cpulowprio =    "sbatch -A co_rail -p savio --qos savio_lowprio -t %d --wrap=$'source %s && python %s --variants %d'",
+    cpu2lowprio =   "sbatch -A co_rail -p savio2 --qos savio_lowprio -t %d --wrap=$'source %s && python %s --variants %d'",
+    cpu3lowprio =   "sbatch -A co_rail -p savio3 --qos savio_lowprio -t %d --wrap=$'source %s && python %s --variants %d'",
 )
 
-def run_variants_brc(variants):
+def run_variants_brc(variants, path="/tmp/script_to_scp_over.sh"):
     i = sys.argv.index("--script")
     args = sys.argv[:i] + sys.argv[i+1:]
-    brc_config = variants[0]["launcher_config"]["slurm_config_name"]
-    brc_envfile =variants[0]["launcher_config"]["slurm_config_envfile"]
-    cmd_template = SBATCH_CMDS[brc_config]
     args_string = " ".join(args)
-    write_script(cmd_template, brc_envfile, args_string, len(variants))
 
-def write_script(
-        cmd_template,
-        env_file,
-        args_string,
-        n,
-        path='/tmp/script_to_scp_over.sh',
-):
     with open(path, "w") as myfile:
-        for i in range(n):
-            new_cmd = cmd_template % (env_file, args_string, i)
+        for i in range(len(variants)):
+            variant = variants[i]
+            slurm_config = variant["launcher_config"].get("slurm_config", {})
+            new_cmd = get_line_brc_script(args_string, variant, i, **slurm_config)
+            print(new_cmd)
             myfile.write(new_cmd)
             myfile.write("\n")
         # make file executable
         st = os.stat(path)
         os.chmod(path, st.st_mode | stat.S_IEXEC)
     print("wrote", path)
+
+def get_line_brc_script(
+    args_string,
+    variant,
+    i,
+    slurm_config_name="gpu", 
+    slurm_config_envfile="/global/home/users/anair17/torch110.sh",
+    slurm_time=60,
+):
+    if variant["launcher_config"].get("use_gpu"):
+        assert "gpu" in slurm_config_name, "running non-GPU experiment on GPU machine"
+    else:
+        assert "cpu" in slurm_config_name, "running GPU experiment on CPU machine"
+    cmd_template = SBATCH_CMDS[slurm_config_name]
+    return cmd_template % (slurm_time, slurm_config_envfile, args_string, i)
