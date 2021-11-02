@@ -199,6 +199,9 @@ def experiment(variant):
     if variant['exploration_task'] < num_tasks:
         replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
         replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
+        opp_task = variant['exploration_task']+env_num_tasks
+        replay_buffer.task_buffers[opp_task].bias_point = replay_buffer.task_buffers[opp_task]._top
+        replay_buffer.task_buffers[opp_task].before_bias_point_probability = 0.3
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)
@@ -314,12 +317,12 @@ if __name__ == '__main__':
         algorithm="AWAC-Pixel",
 
         num_epochs=3000,
-        batch_size=64,
-        meta_batch_size=4,
+        batch_size=128,
+        meta_batch_size=2,
         max_path_length=40,
         num_trains_per_train_loop=1000,
         # num_eval_steps_per_epoch=0,
-        num_eval_steps_per_epoch=1200,
+        num_eval_steps_per_epoch=0,
         num_expl_steps_per_train_loop=40 * 40,
         min_num_steps_before_training=100 * 40,
 

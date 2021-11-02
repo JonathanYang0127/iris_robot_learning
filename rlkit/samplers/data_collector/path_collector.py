@@ -88,7 +88,7 @@ class MdpPathCollector(PathCollector):
                     self._env.reset_task(opp_task)
                 if info['place_success_target']:
                     opp_task = self._env.env.task_idx + self._env.num_tasks
-                    opp_task = self._env.env.reset_task(opp_task)
+                    self._env.reset_task(opp_task)
                 # # if success, reset task so that rewards are for the opposite task
                 # if path['rewards'][-1] > 0:
                 #     if self._env.env.task_idx >= self._env.num_tasks:
