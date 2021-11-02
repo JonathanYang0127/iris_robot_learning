@@ -299,7 +299,6 @@ if __name__ == "__main__":
         'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
         'replay_buffer_kwargs.max_size' : [int(5E5)],#[int(1E6)],  
         'algo_kwargs.batch_size' : [256],
-        'replay_buffer_kwargs.preallocate_arrays': [True],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

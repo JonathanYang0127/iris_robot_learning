@@ -61,6 +61,9 @@ from rlkit.data_management.contextual_replay_buffer import (
     ContextualRelabelingReplayBuffer,
     RemapKeyFn,
 )
+from rlkit.data_management.online_offline_split_replay_buffer import (
+    OnlineOfflineSplitReplayBuffer,
+)
 from rlkit.envs.contextual import ContextualEnv
 from rlkit.envs.contextual.goal_conditioned import (
     GoalDictDistributionFromMultitaskEnv,
@@ -190,10 +193,12 @@ def iql_rig_experiment(
         vf_kwargs,
         trainer_kwargs,
         replay_buffer_kwargs,
+        online_offline_split_replay_buffer_kwargs,
         policy_kwargs,
         algo_kwargs,
         train_vae_kwargs,
         image=False,
+        online_offline_split=False,
         policy_class=TanhGaussianPolicy,
         env_id=None,
         env_class=None,
@@ -249,6 +254,7 @@ def iql_rig_experiment(
         vf_class=Mlp,
         env_type=None, # For plotting
         seed=None,
+        **kwargs,
     ):
     # Image
     if image:
@@ -528,51 +534,53 @@ def iql_rig_experiment(
         batch['observations'] = np.concatenate([obs, context], axis=1)
         batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
         return batch
-    replay_buffer = ContextualRelabelingReplayBuffer(
-        env=eval_env,
-        context_keys=cont_keys,
-        observation_keys_to_save=obs_keys,
-        observation_key=observation_key,
-        observation_key_reward_fn=observation_key_reward_fn,
-        #observation_keys=observation_keys,
-        context_distribution=training_context_distrib,#expl_context_distrib,
-        sample_context_from_obs_dict_fn=mapper,
-        reward_fn=eval_reward,
-        post_process_batch_fn=concat_context_to_obs,
-        **replay_buffer_kwargs
-    )
-    # if trainer_kwargs['compute_bc']:
-    #     replay_buffer_kwargs.update(demo_replay_buffer_kwargs)
-    #     demo_train_buffer = ContextualRelabelingReplayBuffer(
-    #         env=eval_env,
-    #         context_keys=cont_keys,
-    #         observation_keys_to_save=obs_keys,
-    #         observation_key=observation_key,
-    #         observation_key_reward_fn=observation_key_reward_fn,
-    #         #observation_keys=observation_keys,
-    #         context_distribution=training_context_distrib,#expl_context_distrib,
-    #         sample_context_from_obs_dict_fn=mapper,
-    #         reward_fn=eval_reward,
-    #         post_process_batch_fn=concat_context_to_obs,
-    #         **replay_buffer_kwargs
-    #     )
-    #     demo_test_buffer = ContextualRelabelingReplayBuffer(
-    #         env=eval_env,
-    #         context_keys=cont_keys,
-    #         observation_keys_to_save=obs_keys,
-    #         observation_key=observation_key,
-    #         observation_key_reward_fn=observation_key_reward_fn,
-    #         #observation_keys=observation_keys,
-    #         context_distribution=training_context_distrib,#expl_context_distrib,
-    #         sample_context_from_obs_dict_fn=mapper,
-    #         reward_fn=eval_reward,
-    #         post_process_batch_fn=concat_context_to_obs,
 
-    #         **replay_buffer_kwargs
-    #     )
-    # else:
-    #     demo_train_buffer = None 
-    #     demo_test_buffer = None
+    if online_offline_split:
+        online_replay_buffer = ContextualRelabelingReplayBuffer(
+            env=eval_env,
+            context_keys=cont_keys,
+            observation_keys_to_save=obs_keys,
+            observation_key=observation_key,
+            observation_key_reward_fn=observation_key_reward_fn,
+            #observation_keys=observation_keys,
+            context_distribution=training_context_distrib,#expl_context_distrib,
+            sample_context_from_obs_dict_fn=mapper,
+            reward_fn=eval_reward,
+            post_process_batch_fn=concat_context_to_obs,
+            **online_offline_split_replay_buffer_kwargs['online_replay_buffer_kwargs']
+        )
+        offline_replay_buffer = ContextualRelabelingReplayBuffer(
+            env=eval_env,
+            context_keys=cont_keys,
+            observation_keys_to_save=obs_keys,
+            observation_key=observation_key,
+            observation_key_reward_fn=observation_key_reward_fn,
+            #observation_keys=observation_keys,
+            context_distribution=training_context_distrib,#expl_context_distrib,
+            sample_context_from_obs_dict_fn=mapper,
+            reward_fn=eval_reward,
+            post_process_batch_fn=concat_context_to_obs,
+            **online_offline_split_replay_buffer_kwargs['offline_replay_buffer_kwargs']
+        )
+        replay_buffer = OnlineOfflineSplitReplayBuffer(
+            offline_replay_buffer,
+            online_replay_buffer,
+            **online_offline_split_replay_buffer_kwargs
+        )
+    else:
+        replay_buffer = ContextualRelabelingReplayBuffer(
+            env=eval_env,
+            context_keys=cont_keys,
+            observation_keys_to_save=obs_keys,
+            observation_key=observation_key,
+            observation_key_reward_fn=observation_key_reward_fn,
+            #observation_keys=observation_keys,
+            context_distribution=training_context_distrib,#expl_context_distrib,
+            sample_context_from_obs_dict_fn=mapper,
+            reward_fn=eval_reward,
+            post_process_batch_fn=concat_context_to_obs,
+            **replay_buffer_kwargs
+        )
 
     #Neural Network Architecture
     def create_qf():
@@ -700,6 +708,8 @@ def iql_rig_experiment(
     if save_paths:
         algorithm.post_train_funcs.append(save_paths)
 
+    if online_offline_split:
+        replay_buffer.set_online_mode(False)
     if load_demos:
         demo_train_buffer = None 
         demo_test_buffer = None
@@ -711,15 +721,6 @@ def iql_rig_experiment(
             **path_loader_kwargs
         )
         path_loader.load_demos()
-    # if pretrain_policy:
-    #     trainer.pretrain_policy_with_bc(
-    #         policy,
-    #         demo_train_buffer,
-    #         demo_test_buffer,
-    #         trainer.bc_num_pretrain_steps,
-    #     )
-    # if pretrain_rl:
-    #     trainer.pretrain_q_with_bc_data()
 
     if save_pretrained_algorithm:
         p_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.p')
@@ -729,4 +730,6 @@ def iql_rig_experiment(
         torch.save(data, open(pt_path, "wb"))
         torch.save(data, open(p_path, "wb"))
 
+    if online_offline_split:
+        replay_buffer.set_online_mode(True)
     algorithm.train()

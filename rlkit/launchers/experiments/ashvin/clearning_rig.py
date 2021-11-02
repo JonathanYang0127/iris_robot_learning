@@ -241,6 +241,7 @@ def clearning_rig_experiment(
         qf_class=ConcatMlp,
         env_type=None, # For plotting
         seed=None,
+        **kwargs,
     ):
 
     #Kwarg Definitions
