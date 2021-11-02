@@ -12,8 +12,8 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-brc = False # BRC or Euler1 Paths
-val_data = True # VAL data or new reset-free data
+brc = True # BRC or Euler1 Paths
+val_data = False # VAL data or new reset-free data
 
 if brc:
     if val_data:
@@ -127,6 +127,7 @@ if __name__ == "__main__":
             num_eval_steps_per_epoch=1000,
             num_expl_steps_per_train_loop=1000,
             num_trains_per_train_loop=1000,
+            num_online_trains_per_train_loop=1000,
             min_num_steps_before_training=4000,
         ),
         replay_buffer_kwargs=dict(
@@ -269,16 +270,16 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(3),
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray'],#['top_drawer', 'bottom_drawer'],
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [5.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
-        'env_kwargs.reset_interval' : [5, 10, 15, 20],
+        'env_kwargs.reset_interval' : [1],
 
         "image": [False], # Latent-space or image-space
-        "online_offline_split": [True], # Single replay buffer vs Two replay buffers (one for online, one for offline)
+        "online_offline_split": [False], # Single replay buffer vs Two replay buffers (one for online, one for offline)
         "ground_truth_expl_goals": [False], # PixelCNN expl goals vs ground truth expl goals
 
         'algo_kwargs.start_epoch': [-150],
-        'algo_kwargs.num_trains_per_train_loop': [1000],
+        'algo_kwargs.num_online_trains_per_train_loop': [1000],
         
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
@@ -293,9 +294,8 @@ if __name__ == "__main__":
     variants = []
     for variant in sweeper.iterate_hyperparameters():
         env_type = variant['env_type']
-        if not val_data:
-            if env_type == 'pnp':
-                env_type = 'obj'
+        if not val_data and env_type == 'pnp':
+            env_type = 'obj'
         eval_goals = EVAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 

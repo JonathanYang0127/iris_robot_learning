@@ -525,14 +525,7 @@ class CLearningTrainer(TorchTrainer):
         next_s = next_states # [:, :sdim]
 
         qf1_loss, qf1_obj_a, qf1_obj_b, qf1_obj_c, qf1_objective, qf1_w_no_clamp, qf1_w = classifier_loss_td(self.qf1, s, actions, next_s, new_obs_actions, random_obs, future_obs, self.discount)
-
-        # if torch.sum(torch.isnan(qf1_loss)) > 0:
-        #     import pdb; pdb.set_trace()
-
         qf2_loss, qf2_obj_a, qf2_obj_b, qf2_obj_c, qf2_objective, qf2_w_no_clamp, qf2_w  = classifier_loss_td(self.qf2, s, actions, next_s, new_obs_actions, random_obs, future_obs, self.discount)
-
-        # if torch.sum(torch.isnan(qf2_loss)) > 0:
-        #     import pdb; pdb.set_trace()
 
         """
         Policy Loss
@@ -757,23 +750,14 @@ class CLearningTrainer(TorchTrainer):
             qf1_loss.backward()
             self.qf1_optimizer.step()
 
-            # if torch.sum(torch.isnan(self.qf1(obs, actions))) > 0:
-            #     import pdb; pdb.set_trace()
-
             self.qf2_optimizer.zero_grad()
             qf2_loss.backward()
             self.qf2_optimizer.step()
-
-            # if torch.sum(torch.isnan(self.qf2(obs, actions))) > 0:
-            #     import pdb; pdb.set_trace()
 
         if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
-
-            # if torch.sum(torch.isnan(self.policy(obs).sample())) > 0:
-            #     import pdb; pdb.set_trace()
 
         if self.train_bc_on_rl_buffer and self._n_train_steps_total % self.policy_update_period == 0 :
             self.buffer_policy_optimizer.zero_grad()

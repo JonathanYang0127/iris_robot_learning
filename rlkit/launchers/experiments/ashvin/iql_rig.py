@@ -113,13 +113,9 @@ class RewardFn:
         elif obs_type == 'state':
             self.observation_key = 'state_observation'
             self.desired_goal_key = 'state_desired_goal'
-        # elif obs_type == 'image':
-        #     self.observation_key = 'image_observation'
-        #     self.desired_goal_key = 'image_desired_goal'
         self.env = env
         self.reward_type = reward_type
         self.epsilon = epsilon
-        # self.cnn = cnn
 
     def process(self, obs):
         if len(obs.shape) == 1:
@@ -129,9 +125,6 @@ class RewardFn:
     def __call__(self, states, actions, next_states, contexts):
         s = self.process(next_states[self.observation_key])
         c = self.process(contexts[self.desired_goal_key])
-        # if self.observation_key == 'image_observation':
-        #     s = ptu.get_numpy(self.cnn.apply_forward_conv(ptu.from_numpy(s).reshape(-1, 3, 48, 48))).reshape(1,-1)
-        #     c = ptu.get_numpy(self.cnn.apply_forward_conv(ptu.from_numpy(c).reshape(-1, 3, 48, 48))).reshape(1,-1)
 
         if self.reward_type == 'dense':
             reward = -np.linalg.norm(s - c, axis=1)
@@ -173,9 +166,6 @@ def process_args(variant):
             num_trains_per_train_loop=10,
             min_num_steps_before_training=50,
         ))
-        #variant['trainer_kwargs']['bc_num_pretrain_steps'] = min(10, variant['trainer_kwargs'].get('bc_num_pretrain_steps', 0))
-        #variant['trainer_kwargs']['q_num_pretrain1_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain1_steps', 0))
-        #variant['trainer_kwargs']['q_num_pretrain2_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain2_steps', 0))
         variant.get('train_vae_kwargs', {}).update(dict(
             num_epochs=1,
             train_pixelcnn_kwargs=dict(
@@ -185,7 +175,6 @@ def process_args(variant):
                 num_test_batches_per_epoch=2,
             ),
         ))
-        # import ipdb; ipdb.set_trace()
 
 def iql_rig_experiment(
         max_path_length,
@@ -492,7 +481,7 @@ def iql_rig_experiment(
     )
     path_loader_kwargs['env'] = eval_env
 
-    #AWAC Code
+    #IQL Code
     if add_env_demos:
         path_loader_kwargs["demo_paths"].append(env_demo_path)
     if add_env_offpolicy_data:
@@ -612,21 +601,6 @@ def iql_rig_experiment(
         **policy_kwargs,
     )
 
-    #eval_reward.cnn = qf1
-
-    if exploration_goal_sampling_mode == "clearning_conditional_vae_prior":
-        expl_env.context_distribution.policy = policy
-        expl_env.context_distribution.qf1 = qf1
-        expl_env.context_distribution.qf2 = qf2
-    if training_goal_sampling_mode == "clearning_conditional_vae_prior":
-        training_env.context_distribution.policy = policy
-        training_env.context_distribution.qf1 = qf1
-        training_env.context_distribution.qf2 = qf2
-    if evaluation_goal_sampling_mode == "clearning_conditional_vae_prior":
-        eval_env.context_distribution.policy = policy
-        eval_env.context_distribution.qf1 = qf1
-        eval_env.context_distribution.qf2 = qf2
-
     #Path Collectors
     eval_path_collector = ContextualPathCollector(
         eval_env,
@@ -671,7 +645,6 @@ def iql_rig_experiment(
 
     #Video Saving
     if save_video:
-
         expl_video_func = RIGVideoSaveFunction(
             model,
             expl_path_collector,
@@ -704,7 +677,7 @@ def iql_rig_experiment(
         )
         algorithm.post_train_funcs.append(eval_video_func)
 
-    #AWAC CODE
+    #IQL CODE
     if save_paths:
         algorithm.post_train_funcs.append(save_paths)
 
@@ -732,4 +705,5 @@ def iql_rig_experiment(
 
     if online_offline_split:
         replay_buffer.set_online_mode(True)
+    
     algorithm.train()

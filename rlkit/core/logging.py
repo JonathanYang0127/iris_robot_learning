@@ -534,8 +534,7 @@ def create_log_dir(
     if trial_dir_suffix is not None:
         trial_name = "{}-{}".format(trial_name, trial_dir_suffix)
     if include_exp_name_sub_dir:
-        #log_dir = osp.join(base_log_dir, exp_name.replace("_", "-"), trial_name)
-        log_dir = osp.join(base_log_dir, exp_name.replace("/home/patrickhaoy/code/railrl-private/examples/val/", "").replace("_", "-"), trial_name)
+        log_dir = osp.join(base_log_dir, exp_name.replace("_", "-"), trial_name)
     else:
         log_dir = osp.join(base_log_dir, trial_name)
     if osp.exists(log_dir):

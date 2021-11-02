@@ -12,7 +12,7 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/"
+VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/"
 
 demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
             dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),

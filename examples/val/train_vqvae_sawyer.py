@@ -12,6 +12,9 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
+### MAKE SURE 
+# trans_i = 1 in ConditionalLatentBlockDataset.__getitem__ in rlkit/torch/vae/vq_vae_datasets.py
+# encode_dataset() is using cat([latent_cond, latent]) version of code in train_pixelcnn in rlkit/launchers/experiments/ashvin/pixelcnn_launcher.py 
 VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/"
 
 image_train_data = VAL_DATA_PATH + 'uniform_data/uniform_icra2021_train.npy'

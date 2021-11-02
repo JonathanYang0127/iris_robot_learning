@@ -12,12 +12,8 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-from rlkit.torch.networks.cnn import CNN, TwoChannelCNN, ConcatTwoChannelCNN, ConcatCNN
-
-import argparse
-
 brc = True # BRC or Euler1 Paths
-val_data = True # VAL data or new reset-free data
+val_data = False # VAL data or new reset-free data
 
 if brc:
     if val_data:
@@ -25,12 +21,17 @@ if brc:
         EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/" 
         vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/best_vqvae.pt"
     else:
+        # Reset-Free Data
         VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/"
         EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_goals/" 
-        vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/train-vqvae/run4/id2/best_vqvae.pt"
+        vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/examples/val/train-vqvae/run10/id0/best_vqvae.pt" #vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/train-vqvae/run4/id2/best_vqvae.pt"
+        
+        # Tray Reset-Free Data (with distractors)
         # VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/"
         # EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/" 
         # vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/best_vqvae.pt"
+
+        # Tray Reset-Free Data (without distractors)
         # VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/"
         # EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/" 
         # vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/best_vqvae.pt"
@@ -38,9 +39,7 @@ else:
     if val_data:
         VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" 
         EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/"   
-
-        vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt"
-        #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
+        vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt" #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
     else:
         VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
         EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
@@ -70,26 +69,18 @@ if val_data:
 
     image_train_data = VAL_DATA_PATH + 'combined_images.npy'
     image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
-
-    # tray_goals = EVAL_DATA_PATH + 'tray_goals.pkl'
-    # pnp_goals = EVAL_DATA_PATH + 'pnp_goals.pkl'
-
-    # top_drawer_goals = EVAL_DATA_PATH + 'top_drawer_goals.pkl'
-    # bottom_drawer_goals = EVAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 else:
+    # Reset-Free Data
     demo_paths=[dict(path=VAL_DATA_PATH + 'combined_reset_free_v5_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+    
+    # Tray Reset-Free Data (with distractors)
     #demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+    
+    # Tray Reset-Free Data (without distractors)
     #demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 
     image_train_data = VAL_DATA_PATH + 'combined_images.npy'
     image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
-
-    # tray_goals = EVAL_DATA_PATH + 'tray_goals.pkl'
-    # pnp_goals = EVAL_DATA_PATH + 'obj_goals.pkl'
-
-    # top_drawer_goals = EVAL_DATA_PATH + 'top_drawer_goals.pkl'
-    # bottom_drawer_goals = EVAL_DATA_PATH + 'bottom_drawer_goals.pkl'
-
 
 if __name__ == "__main__":
     variant = dict(
@@ -119,9 +110,6 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=False,
             alpha=0,
 
-            # bc_num_pretrain_steps=0,
-            # q_num_pretrain1_steps=0,
-            # q_num_pretrain2_steps=25000, #25000
             policy_weight_decay=1e-4,
             q_weight_decay=0,
 
@@ -139,18 +127,31 @@ if __name__ == "__main__":
 
         max_path_length=65, #50
         algo_kwargs=dict(
-            batch_size=256,
+            batch_size=1024,
             start_epoch=-25, # offline epochs
             num_epochs=1001, # online epochs
-            num_eval_steps_per_epoch=1000, #1000
-            num_expl_steps_per_train_loop=1000, #1000
-            num_trains_per_train_loop=1000, #1000
-            min_num_steps_before_training=4000, #4000
+            num_eval_steps_per_epoch=1000,
+            num_expl_steps_per_train_loop=1000, 
+            num_trains_per_train_loop=1000,
+            min_num_steps_before_training=4000,
         ),
         replay_buffer_kwargs=dict(
             fraction_future_context=0.6,
             fraction_distribution_context=0.1,
-            max_size=int(5E5),
+            max_size=int(1E6),
+        ),
+        online_offline_split_replay_buffer_kwargs=dict(
+            online_replay_buffer_kwargs=dict(
+                fraction_future_context=0.6,
+                fraction_distribution_context=0.1,
+                max_size=int(4E5),
+            ),
+            offline_replay_buffer_kwargs=dict(
+                fraction_future_context=0.6,
+                fraction_distribution_context=0.1,
+                max_size=int(6E5),
+            ),
+            sample_online_fraction=0.2
         ),
         demo_replay_buffer_kwargs=dict(
             fraction_future_context=0.6,
@@ -170,9 +171,9 @@ if __name__ == "__main__":
             pad_color=0,
         ),
 
-        # reset_keys_map=dict(
-        #     image_observation="initial_latent_state"
-        # ),
+        reset_keys_map=dict(
+            image_observation="initial_latent_state"
+        ),
         pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
@@ -194,15 +195,10 @@ if __name__ == "__main__":
         add_env_offpolicy_data=False,
 
         load_demos=True,
-        # pretrain_policy=False,
-        # pretrain_rl=True,
 
         evaluation_goal_sampling_mode="presampled_images",
-
-        exploration_goal_sampling_mode="presampled_images",#"presample_latents",
-        training_goal_sampling_mode="presampled_images",
-        # exploration_goal_sampling_mode="conditional_vae_prior",#"presampled_images",#"presample_latents",
-        # training_goal_sampling_mode="presample_latents",#"presampled_images",
+        exploration_goal_sampling_mode="conditional_vae_prior",#"presampled_images",#"presample_latents",
+        training_goal_sampling_mode="presample_latents",#"presampled_images",
 
         train_vae_kwargs=dict(
             imsize=48,
@@ -278,12 +274,15 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(2),
-        "image": [False], # Latent-space or image-space
-
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray'], #['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
-        #'tray_obj' : ['mug', 'long_sofa', 'camera', 'grill_trash_can', 'beer_bottle'],
+        "seed": range(3),
+        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
+        #'tray_obj' : ['mug', 'long_sofa', 'camera', 'grill_trash_can', 'beer_bottle'], # Set goal
+
+        "image": [False], # Latent-space or image-space
+        "online_offline_split": [False], # Single replay buffer vs Two replay buffers (one for online, one for offline)
+        "ground_truth_expl_goals": [False], # PixelCNN expl goals vs ground truth expl goals
 
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
@@ -296,9 +295,6 @@ if __name__ == "__main__":
         'trainer_kwargs.reward_transform_kwargs': [None, ],
         'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
-        'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
-        'replay_buffer_kwargs.max_size' : [int(5E5)],#[int(1E6)],  
-        'algo_kwargs.batch_size' : [256],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -308,9 +304,8 @@ if __name__ == "__main__":
     variants = []
     for variant in sweeper.iterate_hyperparameters():
         env_type = variant['env_type']
-        if not val_data:
-            if env_type == 'pnp':
-                env_type = 'obj'
+        if not val_data and env_type == 'pnp':
+            env_type = 'obj'
         if 'tray_obj' in variant and env_type == 'tray':
             eval_goals = EVAL_DATA_PATH + 'tray_{0}_goals.pkl'.format(variant['tray_obj'])
             variant['env_kwargs']['test_object_subset'] = [variant['tray_obj']]
@@ -318,9 +313,11 @@ if __name__ == "__main__":
             eval_goals = EVAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
-        ## Hardcoded: setting exploration goals as evaluation goals for now instead of pixelCNN
-        variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
-        variant['presampled_goal_kwargs']['training_goals'] = eval_goals
+        if variant['ground_truth_expl_goals']:
+            variant['exploration_goal_sampling_mode']="presampled_images",#"presample_latents",
+            variant['training_goal_sampling_mode']="presampled_images",
+            variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
+            variant['presampled_goal_kwargs']['training_goals'] = eval_goals
 
         if val_data:
             if env_type in ['top_drawer', 'bottom_drawer']:
@@ -337,7 +334,3 @@ if __name__ == "__main__":
         variants.append(variant)
 
     run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args)
-    # from memory_profiler import memory_usage
-    # mem_usage = memory_usage((run_variants, (awac_rig_experiment, variants), {"run_id":0, "process_args_fn":process_args})) #HERE
-    # #print('Memory usage (in chunks of .1 seconds): %s' % mem_usage)
-    # print('Maximum memory usage: %s' % max(mem_usage))

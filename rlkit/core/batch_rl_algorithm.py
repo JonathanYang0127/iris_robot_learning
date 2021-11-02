@@ -18,6 +18,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
             start_epoch=0, # negative epochs are offline, positive epochs are online
+            num_online_trains_per_train_loop=None,
             *args,
             **kwargs
     ):
@@ -26,6 +27,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.max_path_length = max_path_length
         self.num_eval_steps_per_epoch = num_eval_steps_per_epoch
         self.num_trains_per_train_loop = num_trains_per_train_loop
+        if not num_online_trains_per_train_loop:
+            self.num_online_trains_per_train_loop = num_trains_per_train_loop
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
@@ -88,7 +91,10 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                 timer.stop_timer('replay buffer data storing')
 
                 timer.start_timer('training', unique=False)
-                for _ in range(self.num_trains_per_train_loop):
+                num_trains = self.num_trains_per_train_loop
+                if self.epoch >= 0:
+                    num_trains = self.num_online_trains_per_train_loop
+                for _ in range(num_trains):
                     train_data = self.replay_buffer.random_batch(self.batch_size)
                     self.trainer.train(train_data)
                 timer.stop_timer('training')
