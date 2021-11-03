@@ -4,6 +4,7 @@ from rlkit.launchers.experiments.ashvin.iql_rig import iql_rig_experiment, proce
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy, GaussianTwoChannelCNNPolicy
+from rlkit.torch.networks.cnn import ConcatCNN, CNN
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
@@ -23,8 +24,8 @@ if brc:
     else:
         # Reset-Free Data
         VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/"
-        EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_goals/" 
-        vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/examples/val/train-vqvae/run10/id0/best_vqvae.pt" #vqvae = "/global/scratch/users/patrickhaoy/s3doodad/outputs/train-vqvae/run4/id2/best_vqvae.pt"
+        EVAL_DATA_PATH = VAL_DATA_PATH
+        vqvae = VAL_DATA_PATH +  "best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/examples/val/train-vqvae/run10/id0/best_vqvae.pt"
         
         # Tray Reset-Free Data (with distractors)
         # VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/"
@@ -37,8 +38,8 @@ if brc:
         # vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/best_vqvae.pt"
 else: 
     if val_data:
-        VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/" 
-        EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined/"   
+        VAL_DATA_PATH = "/home/patrickhaoy/data/affordances/combined/" 
+        EVAL_DATA_PATH = "/home/patrickhaoy/data/affordances/combined/"   
         vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt" #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
     else:
         VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
@@ -300,8 +301,8 @@ if __name__ == "__main__":
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         if variant['ground_truth_expl_goals']:
-            variant['exploration_goal_sampling_mode']="presampled_images",#"presample_latents",
-            variant['training_goal_sampling_mode']="presampled_images",
+            variant['exploration_goal_sampling_mode']="presampled_images" #"presample_latents"
+            variant['training_goal_sampling_mode']="presampled_images"
             variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
             variant['presampled_goal_kwargs']['training_goals'] = eval_goals
 
@@ -318,5 +319,71 @@ if __name__ == "__main__":
             variant['env_kwargs']['env_type'] = env_type
 
         variants.append(variant)
+
+        # Image
+        if variant['image']:
+            variant['policy_class'] = GaussianCNNPolicy
+            variant['qf_class'] = ConcatCNN
+            variant['vf_class'] = CNN
+            variant['policy_kwargs'] = dict(
+                # CNN params
+                input_width=48,
+                input_height=48,
+                input_channels=6,
+                kernel_sizes=[3, 3, 3],
+                n_channels=[16, 16, 16],
+                strides=[1, 1, 1],
+                hidden_sizes=[1024, 512, 256],
+                paddings=[1, 1, 1],
+                pool_type='max2d',
+                pool_sizes=[2, 2, 1],  # the one at the end means no pool
+                pool_strides=[2, 2, 1],
+                pool_paddings=[0, 0, 0],
+                # Gaussian params
+                max_log_std=0,
+                min_log_std=-6,
+                std_architecture="values",
+            )
+            variant['qf_kwargs'] = dict(
+                input_width=48,
+                input_height=48,
+                input_channels=6,
+                kernel_sizes=[3, 3, 3],
+                n_channels=[16, 16, 16],
+                strides=[1, 1, 1],
+                hidden_sizes=[1024, 512, 256],
+                paddings=[1, 1, 1],
+                pool_type='max2d',
+                pool_sizes=[2, 2, 1],  # the one at the end means no pool
+                pool_strides=[2, 2, 1],
+                pool_paddings=[0, 0, 0],
+            )
+            variant['vf_kwargs'] = dict(
+                input_width=48,
+                input_height=48,
+                input_channels=6,
+                kernel_sizes=[3, 3, 3],
+                n_channels=[16, 16, 16],
+                strides=[1, 1, 1],
+                hidden_sizes=[1024, 512, 256],
+                paddings=[1, 1, 1],
+                pool_type='max2d',
+                pool_sizes=[2, 2, 1],  # the one at the end means no pool
+                pool_strides=[2, 2, 1],
+                pool_paddings=[0, 0, 0],
+            )
+            ## Keys used by reward function for reward calculation
+            variant['observation_key_reward_fn'] = 'latent_observation'
+            variant['desired_goal_key_reward_fn'] = 'latent_desired_goal'
+
+            ## Keys used by policy/q-networks
+            variant['observation_key'] = 'image_observation'
+            variant['desired_goal_key'] = 'image_desired_goal'
+
+            for demo_path in variant['path_loader_kwargs']['demo_paths']:
+                demo_path['use_latents'] = False
+            
+            variant['algo_kwargs']['batch_size'] = 256
+            variant['replay_buffer_kwargs']['max_size'] = int(5E5)
 
     run_variants(iql_rig_experiment, variants, run_id=0, process_args_fn=process_args)

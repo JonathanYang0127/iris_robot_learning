@@ -75,6 +75,7 @@ from rlkit.envs.contextual.latent_distributions import (
     PresampledPriorDistribution,
     ConditionalPriorDistribution,
     AmortizedPriorDistribution,
+    AddDecodedImageDistribution,
     AddLatentDistribution,
     AddConditionalLatentDistribution,
     PriorDistribution,
@@ -158,6 +159,7 @@ def process_args(variant):
         variant['num_presample'] = 50
         variant.get('algo_kwargs', {}).update(dict(
             batch_size=5,
+            start_epoch=-2,
             num_epochs=5,
             num_eval_steps_per_epoch=50,
             num_expl_steps_per_train_loop=50,
@@ -244,56 +246,6 @@ def awac_rig_experiment(
         seed=None,
         **kwargs,
     ):
-    #Image
-    if image:
-        policy_class = GaussianCNNPolicy
-        qf_class = ConcatCNN
-
-        policy_kwargs = dict(
-            # CNN params
-            input_width=48,
-            input_height=48,
-            input_channels=6,
-            kernel_sizes=[3, 3, 3],
-            n_channels=[16, 16, 16],
-            strides=[1, 1, 1],
-            hidden_sizes=[1024, 512, 256],
-            paddings=[1, 1, 1],
-            pool_type='max2d',
-            pool_sizes=[2, 2, 1],  # the one at the end means no pool
-            pool_strides=[2, 2, 1],
-            pool_paddings=[0, 0, 0],
-            # Gaussian params
-            max_log_std=0,
-            min_log_std=-6,
-            std_architecture="values",
-        )
-        qf_kwargs = dict(
-            input_width=48,
-            input_height=48,
-            input_channels=6,
-            kernel_sizes=[3, 3, 3],
-            n_channels=[16, 16, 16],
-            strides=[1, 1, 1],
-            hidden_sizes=[1024, 512, 256],
-            paddings=[1, 1, 1],
-            pool_type='max2d',
-            pool_sizes=[2, 2, 1],  # the one at the end means no pool
-            pool_strides=[2, 2, 1],
-            pool_paddings=[0, 0, 0],
-        )
-
-        ## Keys used by reward function for reward calculation
-        observation_key_reward_fn = 'latent_observation'
-        desired_goal_key_reward_fn = 'latent_desired_goal'
-
-        ## Keys used by policy/q-networks
-        observation_key = 'image_observation'
-        desired_goal_key = 'image_desired_goal'
-
-        for demo_path in path_loader_kwargs['demo_paths']:
-            demo_path['use_latents'] = False
-
     #Kwarg Definitions
     if exploration_policy_kwargs is None:
         exploration_policy_kwargs = {}
@@ -346,6 +298,13 @@ def awac_rig_experiment(
                 model,
                 desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key
             )
+            if image:
+                latent_goal_distribution = AddDecodedImageDistribution(
+                    latent_goal_distribution,
+                    desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                    image_goal_key,
+                    model,
+                )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
         elif goal_sampling_mode == "amortized_conditional_vae_prior":
             latent_goal_distribution = AmortizedConditionalPriorDistribution(
@@ -383,6 +342,13 @@ def awac_rig_experiment(
                 state_env,
                 num_presample=num_presample,
             )
+            if image:
+                latent_goal_distribution = AddDecodedImageDistribution(
+                    latent_goal_distribution,
+                    desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                    image_goal_key,
+                    model,
+                )
         elif goal_sampling_mode == "presampled_latents":
             diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresampledPriorDistribution(

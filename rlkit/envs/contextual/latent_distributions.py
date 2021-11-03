@@ -7,6 +7,40 @@ from rlkit.torch import pytorch_util as ptu
 from rlkit.core import logger
 import torch
 
+class AddDecodedImageDistribution(DictDistribution):
+    def __init__(
+        self,
+        dist,
+        input_key,
+        output_key,
+        model,
+    ):
+        self.dist = dist
+        self._spaces = dist.spaces
+        self.input_key = input_key
+        self.output_key = output_key
+        self.model = model
+        self.image_size = self.model.imlength
+        image_space = Box(
+            np.zeros(self.image_size),
+            np.ones(self.image_size),
+            dtype=np.float32,
+        )
+        self._spaces[output_key] = image_space
+
+    def sample(self, batch_size: int):
+        s = self.dist.sample(batch_size)
+        s[self.output_key] = self.model.decode_np(s[self.input_key]).reshape((-1, self.image_size))
+        return s
+
+    def __call__(self, context):
+        self.dist.context = context
+        return self
+
+    @property
+    def spaces(self):
+        return self._spaces
+
 class AddLatentDistribution(DictDistribution):
     def __init__(
             self,
