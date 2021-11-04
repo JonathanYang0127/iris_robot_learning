@@ -12,7 +12,7 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-VAL_DATA_PATH = "sasha/affordances/combined/"
+VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/"
 
 demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
             dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
@@ -46,7 +46,7 @@ bottom_drawer_goals = VAL_DATA_PATH + 'bottom_drawer_goals.pkl'
 
 vqvae = VAL_DATA_PATH + "best_vqvae.pt"
 
-if __name__ == "__main__":
+def main():
     variant = dict(
         imsize=48,
         env_kwargs=dict(
@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
         observation_key='latent_observation',
         desired_goal_key='latent_desired_goal',
-        save_video=False,
+        save_video=True,
         save_video_kwargs=dict(
             save_video_period=25,
             pad_color=0,
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         reset_keys_map=dict(
             image_observation="initial_latent_state"
         ),
-        pretrained_vae_path=vqvae,
+        # pretrained_vae_path=vqvae,
 
         path_loader_class=EncoderDictToMDPPathLoader,
         path_loader_kwargs=dict(
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     variants = []
     for variant in sweeper.iterate_hyperparameters():
         env_type = variant['env_type']
-        eval_goals = 'sasha/presampled_goals/affordances/combined/{0}_goals.pkl'.format(env_type)
+        eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         if env_type in ['top_drawer', 'bottom_drawer']:
@@ -265,3 +265,6 @@ if __name__ == "__main__":
         variants.append(variant)
 
     run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args) #HERE
+
+if __name__ == "__main__":
+    main()

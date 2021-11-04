@@ -177,6 +177,9 @@ def process_args(variant):
                 num_test_batches_per_epoch=2,
             ),
         ))
+        demo_paths = variant['path_loader_kwargs'].get('demo_paths', [])
+        if len(demo_paths) > 1:
+            variant['path_loader_kwargs']['demo_paths'] = [demo_paths[0]]
 
 def iql_rig_experiment(
         max_path_length,

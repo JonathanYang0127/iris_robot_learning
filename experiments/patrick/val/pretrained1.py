@@ -1,6 +1,6 @@
 import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader
-from rlkit.launchers.experiments.ashvin.iql_rig import iql_rig_experiment, process_args
+from rlkit.launchers.experiments.ashvin.awac_rig import awac_rig_experiment, process_args
 from rlkit.launchers.launcher_util import run_experiment
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy, GaussianTwoChannelCNNPolicy
@@ -13,40 +13,10 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-brc = True # BRC or Euler1 Paths
 val_data = False # VAL data or new reset-free data
 
-if brc:
-    if val_data:
-        VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/" 
-        EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/" 
-        vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined/best_vqvae.pt"
-    else:
-        # Reset-Free Data
-        VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/"
-        EVAL_DATA_PATH = VAL_DATA_PATH
-        vqvae = VAL_DATA_PATH +  "best_vqvae.pt" #"/global/scratch/users/patrickhaoy/s3doodad/outputs/examples/val/train-vqvae/run10/id0/best_vqvae.pt"
-        
-        # Tray Reset-Free Data (with distractors)
-        # VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/"
-        # EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/" 
-        # vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_only/best_vqvae.pt"
-
-        # Tray Reset-Free Data (without distractors)
-        # VAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/"
-        # EVAL_DATA_PATH = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/" 
-        # vqvae = "/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5_tray_test_env_only/best_vqvae.pt"
-else: 
-    if val_data:
-        VAL_DATA_PATH = "/home/patrickhaoy/data/affordances/combined/" 
-        EVAL_DATA_PATH = "/home/patrickhaoy/data/affordances/combined/"   
-        vqvae = "/home/patrickhaoy/data/affordances/combined/best_vqvae.pt" #vqvae = "/2tb/home/patrickhaoy/logs/train-vqvae/run4/id0/best_vqvae.pt"
-    else:
-        VAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
-        EVAL_DATA_PATH = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/" 
-        vqvae = "/2tb/home/patrickhaoy/data/affordances/combined_reset_free_v5_tray_only/best_vqvae.pt"
-
 if val_data:
+    VAL_DATA_PATH = "data/combined/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
                 dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
                 dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl', obs_dict=True, is_demo=True),
@@ -67,21 +37,18 @@ if val_data:
                 dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
                 dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
                 ]
-
-    image_train_data = VAL_DATA_PATH + 'combined_images.npy'
-    image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
-else:
+else:    
     # Reset-Free Data
+    VAL_DATA_PATH = "data/combined_reset_free_v5/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'combined_reset_free_v5_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
-    
-    # Tray Reset-Free Data (with distractors)
-    #demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
-    
-    # Tray Reset-Free Data (without distractors)
-    #demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 
-    image_train_data = VAL_DATA_PATH + 'combined_images.npy'
-    image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
+    # Tray Reset-Free Data (with distractors)
+    # VAL_DATA_PATH = "data/combined_reset_free_v5_tray_only/"
+    # demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+
+    # Tray Reset-Free Data (without distractors)
+    # VAL_DATA_PATH = "data/combined_reset_free_v5_tray_test_env_only/"
+    # demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 
 if __name__ == "__main__":
     variant = dict(
@@ -99,36 +66,41 @@ if __name__ == "__main__":
         qf_kwargs=dict(
             hidden_sizes=[256, 256],
         ),
-        vf_kwargs=dict(
-            hidden_sizes=[256, 256],
-        ),
 
         trainer_kwargs=dict(
             discount=0.99,
+            soft_target_tau=5e-3,
+            target_update_period=1,
             policy_lr=3E-4,
             qf_lr=3E-4,
             reward_scale=1,
+            beta=1,
+            use_automatic_entropy_tuning=False,
+            alpha=0,
 
-            policy_weight_decay=0,
+            policy_weight_decay=1e-4,
             q_weight_decay=0,
 
-            reward_transform_kwargs=dict(m=1, b=-1),
-            terminal_transform_kwargs=None,
+            rl_weight=1.0,
+            use_awr_update=True,
+            use_reparam_update=False,
+            compute_bc=False,
+            reparam_weight=0.0,
+            awr_weight=1.0,
+            bc_weight=0.0,
 
-            beta=0.1,
-            quantile=0.9,
-            clip_score=100,
+            reward_transform_kwargs=None,
+            terminal_transform_kwargs=None,
         ),
 
         max_path_length=65, #50
         algo_kwargs=dict(
-            batch_size=1024, #1024
-            start_epoch=-150, # offline epochs
+            batch_size=1024,
+            start_epoch=-25, # offline epochs
             num_epochs=1001, # online epochs
             num_eval_steps_per_epoch=1000,
-            num_expl_steps_per_train_loop=1000,
+            num_expl_steps_per_train_loop=1000, 
             num_trains_per_train_loop=1000,
-            num_online_trains_per_train_loop=1000,
             min_num_steps_before_training=4000,
         ),
         replay_buffer_kwargs=dict(
@@ -272,20 +244,26 @@ if __name__ == "__main__":
     search_space = {
         "seed": range(3),
         'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
-        'reward_kwargs.epsilon': [5.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
-        'env_kwargs.reset_interval' : [1],
+        'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'env_kwargs.reset_interval' : [1],#[1, 2, 4, 5, 10, 15, 20, 25],
+        #'tray_obj' : ['mug', 'long_sofa', 'camera', 'grill_trash_can', 'beer_bottle'], # Set goal
 
         "image": [False], # Latent-space or image-space
         "online_offline_split": [False], # Single replay buffer vs Two replay buffers (one for online, one for offline)
         "ground_truth_expl_goals": [False], # PixelCNN expl goals vs ground truth expl goals
 
-        'algo_kwargs.start_epoch': [-150],
-        'algo_kwargs.num_online_trains_per_train_loop': [1000],
-        
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
+        'trainer_kwargs.awr_weight': [1.0],
+        'trainer_kwargs.awr_use_mle_for_vf': [True, ],
+        'trainer_kwargs.awr_sample_actions': [False, ],
+        'trainer_kwargs.clip_score': [2, ],
+        'trainer_kwargs.awr_min_q': [True, ],
+        'trainer_kwargs.reward_transform_kwargs': [None, ],
+        'trainer_kwargs.terminal_transform_kwargs': [dict(m=0, b=0),],
         'qf_kwargs.output_activation': [Clamp(max=0)],
+        'replay_buffer_kwargs.max_size': [int(1E6)],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -297,7 +275,11 @@ if __name__ == "__main__":
         env_type = variant['env_type']
         if not val_data and env_type == 'pnp':
             env_type = 'obj'
-        eval_goals = EVAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
+        if 'tray_obj' in variant and env_type == 'tray':
+            eval_goals = EVAL_DATA_PATH + 'tray_{0}_goals.pkl'.format(variant['tray_obj'])
+            variant['env_kwargs']['test_object_subset'] = [variant['tray_obj']]
+        else:
+            eval_goals = EVAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         if variant['ground_truth_expl_goals']:
@@ -318,13 +300,11 @@ if __name__ == "__main__":
             variant['env_class'] = SawyerRigAffordancesV0
             variant['env_kwargs']['env_type'] = env_type
 
-        variants.append(variant)
-
-        # Image
+        #Image
         if variant['image']:
             variant['policy_class'] = GaussianCNNPolicy
             variant['qf_class'] = ConcatCNN
-            variant['vf_class'] = CNN
+
             variant['policy_kwargs'] = dict(
                 # CNN params
                 input_width=48,
@@ -358,20 +338,7 @@ if __name__ == "__main__":
                 pool_strides=[2, 2, 1],
                 pool_paddings=[0, 0, 0],
             )
-            variant['vf_kwargs'] = dict(
-                input_width=48,
-                input_height=48,
-                input_channels=6,
-                kernel_sizes=[3, 3, 3],
-                n_channels=[16, 16, 16],
-                strides=[1, 1, 1],
-                hidden_sizes=[1024, 512, 256],
-                paddings=[1, 1, 1],
-                pool_type='max2d',
-                pool_sizes=[2, 2, 1],  # the one at the end means no pool
-                pool_strides=[2, 2, 1],
-                pool_paddings=[0, 0, 0],
-            )
+
             ## Keys used by reward function for reward calculation
             variant['observation_key_reward_fn'] = 'latent_observation'
             variant['desired_goal_key_reward_fn'] = 'latent_desired_goal'
@@ -382,8 +349,7 @@ if __name__ == "__main__":
 
             for demo_path in variant['path_loader_kwargs']['demo_paths']:
                 demo_path['use_latents'] = False
-            
-            variant['algo_kwargs']['batch_size'] = 256
-            variant['replay_buffer_kwargs']['max_size'] = int(5E5)
 
-    run_variants(iql_rig_experiment, variants, run_id=0, process_args_fn=process_args)
+        variants.append(variant)
+
+    run_variants(awac_rig_experiment, variants, run_id=0, process_args_fn=process_args)
