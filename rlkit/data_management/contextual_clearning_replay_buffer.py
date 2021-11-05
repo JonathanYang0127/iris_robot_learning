@@ -30,7 +30,7 @@ class RemapKeyFn(SampleContextFromObsDictFn):
         return new_obs
 
 
-class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
+class ContextualRelabelingCLearningReplayBuffer(ObsDictReplayBuffer):
     """
     Save goals from the same trajectory into the replay buffer.
     Only add_path is implemented.
@@ -56,12 +56,12 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             fraction_distribution_context,
             fraction_next_context=0.,
             fraction_replay_buffer_context=0.0,
-            post_process_batch_fn=None,
+            # post_process_batch_fn=None,
             observation_key=None,  # for backwards compatibility
             observation_keys=None,
-            observation_key_reward_fn=None,
             save_data_in_snapshot=False,
             internal_keys=None,
+            desired_goal_key='desired_goal',
             **kwargs
     ):
         if observation_key is not None and observation_keys is not None:
@@ -72,11 +72,9 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             )
         if observation_keys is None:
             observation_keys = [observation_key]
-        if observation_key_reward_fn is None:
-            self.observation_keys_reward_fn = observation_keys
-        else:
-            self.observation_keys_reward_fn = [observation_key_reward_fn]
         ob_keys_to_save = observation_keys_to_save + context_keys
+        if desired_goal_key not in ob_keys_to_save:
+            ob_keys_to_save.append(desired_goal_key)
         super().__init__(
             max_size,
             env,
@@ -100,7 +98,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
                 fraction_future_context,
                 fraction_distribution_context,
             ))
-        self._context_keys = context_keys 
+        self._context_keys = context_keys
         self._context_distribution = context_distribution
         for k in context_keys:
             distribution_keys = set(self._context_distribution.spaces.keys())
@@ -117,28 +115,30 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         )
         self._fraction_replay_buffer_context = fraction_replay_buffer_context
 
-        def composed_post_process_batch_fn(
-                batch, replay_buffer, obs_dict, next_obs_dict, new_contexts, 
-        ):
-            new_batch = batch
-            if post_process_batch_fn:
-                new_batch = post_process_batch_fn(
-                    new_batch,
-                    replay_buffer,
-                    obs_dict, next_obs_dict, new_contexts
-                )
-            if self._reward_fn:
-                new_batch['rewards'] = self._reward_fn(
-                    obs_dict,
-                    new_batch['actions'],
-                    next_obs_dict,
-                    new_contexts,
-                )
-            if len(new_batch['rewards'].shape) == 1:
-                new_batch['rewards'] = new_batch['rewards'].reshape(-1, 1)
-            return new_batch
+        self.desired_goal_key = desired_goal_key
 
-        self._post_process_batch_fn = composed_post_process_batch_fn
+        # def composed_post_process_batch_fn(
+        #         batch, replay_buffer, obs_dict, next_obs_dict, new_contexts
+        # ):
+        #     new_batch = batch
+        #     if post_process_batch_fn:
+        #         new_batch = post_process_batch_fn(
+        #             new_batch,
+        #             replay_buffer,
+        #             obs_dict, next_obs_dict, new_contexts
+        #         )
+        #     if self._reward_fn:
+        #         new_batch['rewards'] = self._reward_fn(
+        #             obs_dict,
+        #             new_batch['actions'],
+        #             next_obs_dict,
+        #             new_contexts,
+        #         )
+        #     if len(new_batch['rewards'].shape) == 1:
+        #         new_batch['rewards'] = new_batch['rewards'].reshape(-1, 1)
+        #     return new_batch
+
+        # self._post_process_batch_fn = composed_post_process_batch_fn
 
     def random_batch(self, batch_size):
         num_future_contexts = int(batch_size * self._fraction_future_context)
@@ -163,7 +163,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         if num_distrib_contexts > 0:
             curr_obs = {
                 k: next_obs_dict[k][num_rollout_contexts:num_rollout_contexts + num_distrib_contexts]
-                for k in self.observation_keys
+                for k in self.ob_keys_to_save #self.observation_keys
             }
             sampled_contexts = self._context_distribution(
                 context=curr_obs).sample(num_distrib_contexts, )
@@ -200,12 +200,27 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         new_contexts = ppp.treemap(concat, *tuple(contexts),
                                    atomic_type=np.ndarray)
 
+        future_states_dict = {}
+        future_obs_idxs = self._get_future_obs_indices(indices)
+        future_states_dict = self._batch_obs_dict(future_obs_idxs)
+
+        random_indices = self._sample_indices(batch_size)
+        random_states_dict = self._batch_obs_dict(random_indices)
+
         if len(self.observation_keys) == 1:
-            obs = obs_dict[self.observation_keys[0]]
-            next_obs = next_obs_dict[self.observation_keys[0]]
+            obs_key = self.observation_keys[0]
+            obs = obs_dict[obs_key]
+            next_obs = next_obs_dict[obs_key]
+            future_obs = future_states_dict[obs_key]
+            random_obs = random_states_dict[obs_key]
         else:
             obs = tuple(obs_dict[k] for k in self.observation_keys)
             next_obs = tuple(next_obs_dict[k] for k in self.observation_keys)
+        
+        new_contexts_keys = [key for key in new_contexts.keys()]
+        assert len(new_contexts_keys) == 1
+        new_contexts['resampled_goals'] = new_contexts.pop(new_contexts_keys[0])
+
         batch = {
             'observations': obs,
             'actions': actions,
@@ -213,14 +228,17 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             'terminals': self._terminals[indices],
             'next_observations': next_obs,
             'indices': np.array(indices).reshape(-1, 1),
+            #'resampled_goals': resampled_goals,
+            'random_obs': random_obs,
+            'future_obs': future_obs,
             **new_contexts
         }
-        new_batch = self._post_process_batch_fn(
-            batch,
-            self,
-            obs_dict, next_obs_dict, new_contexts,
-        )
-        return new_batch
+        # new_batch = self._post_process_batch_fn(
+        #     batch,
+        #     self,
+        #     obs_dict, next_obs_dict, new_contexts
+        # )
+        return batch #new_batch
 
     def _get_replay_buffer_contexts(self, batch_size):
         indices = self._sample_indices(batch_size)

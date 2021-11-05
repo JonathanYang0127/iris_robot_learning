@@ -4,11 +4,11 @@ from rlkit.samplers.data_collector.step_collector import MdpStepCollector
 from rlkit.samplers.data_collector.path_collector import GoalConditionedPathCollector
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.networks.cnn import ConcatCNN
-from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic, GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy, GaussianTwoChannelCNNPolicy
+from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
 from rlkit.util.io import load_local_or_remote_file
-from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.iql_trainer import IQLTrainer
+#from rlkit.torch.sac.awac_trainer import AWACTrainer
+from rlkit.torch.sac.clearning_trainer import CLearningTrainer
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
     TorchOnlineRLAlgorithm,
@@ -56,12 +56,13 @@ from rlkit.envs.contextual.goal_conditioned import (
 
 
 from torch.utils import data
-from rlkit.data_management.contextual_replay_buffer import (
-    ContextualRelabelingReplayBuffer,
+# from rlkit.data_management.contextual_replay_buffer import (
+#     ContextualRelabelingReplayBuffer,
+#     RemapKeyFn,
+# )
+from rlkit.data_management.contextual_clearning_replay_buffer import (
+    ContextualRelabelingCLearningReplayBuffer,
     RemapKeyFn,
-)
-from rlkit.data_management.online_offline_split_replay_buffer import (
-    OnlineOfflineSplitReplayBuffer,
 )
 from rlkit.envs.contextual import ContextualEnv
 from rlkit.envs.contextual.goal_conditioned import (
@@ -74,8 +75,8 @@ from rlkit.envs.contextual.latent_distributions import (
     AmortizedConditionalPriorDistribution,
     PresampledPriorDistribution,
     ConditionalPriorDistribution,
+    CLearningConditionalPriorDistribution,
     AmortizedPriorDistribution,
-    AddDecodedImageDistribution,
     AddLatentDistribution,
     AddConditionalLatentDistribution,
     PriorDistribution,
@@ -104,7 +105,7 @@ class RewardFn:
             env,
             obs_type='latent',
             reward_type='dense',
-            epsilon=1.0,
+            epsilon=1.0
     ):
         if obs_type == 'latent':
             self.observation_key = 'latent_observation'
@@ -159,7 +160,6 @@ def process_args(variant):
         variant['num_presample'] = 50
         variant.get('algo_kwargs', {}).update(dict(
             batch_size=5,
-            start_epoch=-2,
             num_epochs=5,
             num_eval_steps_per_epoch=50,
             num_expl_steps_per_train_loop=50,
@@ -178,21 +178,16 @@ def process_args(variant):
                 num_test_batches_per_epoch=2,
             ),
         ))
-        demo_paths = variant['path_loader_kwargs'].get('demo_paths', [])
-        if len(demo_paths) > 1:
-            variant['path_loader_kwargs']['demo_paths'] = [demo_paths[0]]
+        # import ipdb; ipdb.set_trace()
 
-def awac_rig_experiment(
+def clearning_rig_experiment(
         max_path_length,
         qf_kwargs,
         trainer_kwargs,
         replay_buffer_kwargs,
-        online_offline_split_replay_buffer_kwargs,
         policy_kwargs,
         algo_kwargs,
         train_vae_kwargs,
-        image=False,
-        online_offline_split=False,
         policy_class=TanhGaussianPolicy,
         env_id=None,
         env_class=None,
@@ -200,10 +195,8 @@ def awac_rig_experiment(
         reward_kwargs=None,
         encoder_wrapper=EncoderWrappedEnv,
         observation_key='latent_observation',
-        observation_keys=['latent_observation'],
-        observation_key_reward_fn='latent_observation',
         desired_goal_key='latent_desired_goal',
-        desired_goal_key_reward_fn='latent_desired_goal',
+        pixelcnn_sample_k=10,
         state_observation_key='state_observation',
         state_goal_key='state_desired_goal',
         image_goal_key='image_desired_goal',
@@ -221,6 +214,7 @@ def awac_rig_experiment(
         evaluation_goal_sampling_mode=None,
         exploration_goal_sampling_mode=None,
         training_goal_sampling_mode=None,
+        save_goals=False,
 
         add_env_demos=False,
         add_env_offpolicy_data=False,
@@ -249,6 +243,7 @@ def awac_rig_experiment(
         seed=None,
         **kwargs,
     ):
+
     #Kwarg Definitions
     if exploration_policy_kwargs is None:
         exploration_policy_kwargs = {}
@@ -265,7 +260,7 @@ def awac_rig_experiment(
         save_video_kwargs = {}
     if not renderer_kwargs:
         renderer_kwargs = {}
-    
+
     #Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
     def contextual_env_distrib_and_reward(
@@ -284,14 +279,14 @@ def awac_rig_experiment(
         if goal_sampling_mode == "vae_prior":
             latent_goal_distribution = PriorDistribution(
                 model.representation_size,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                desired_goal_key,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
 
         elif goal_sampling_mode == "amortized_vae_prior":
             latent_goal_distribution = AmortizedPriorDistribution(
                 model,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                desired_goal_key,
                 num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
@@ -299,20 +294,20 @@ def awac_rig_experiment(
         elif goal_sampling_mode == 'conditional_vae_prior':
             latent_goal_distribution = ConditionalPriorDistribution(
                 model,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key
+                desired_goal_key
             )
-            if image:
-                latent_goal_distribution = AddDecodedImageDistribution(
-                    latent_goal_distribution,
-                    desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
-                    image_goal_key,
-                    model,
-                )
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
+        elif goal_sampling_mode == 'clearning_conditional_vae_prior':
+            latent_goal_distribution = CLearningConditionalPriorDistribution(
+                model,
+                desired_goal_key,
+                pixelcnn_sample_k=pixelcnn_sample_k,
+            )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
         elif goal_sampling_mode == "amortized_conditional_vae_prior":
             latent_goal_distribution = AmortizedConditionalPriorDistribution(
                 model,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                desired_goal_key,
                 num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
@@ -333,7 +328,7 @@ def awac_rig_experiment(
             latent_goal_distribution = add_distrib(
                 image_goal_distribution,
                 image_goal_key,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                desired_goal_key,
                 model,
             )
         elif goal_sampling_mode == "presample_latents":
@@ -341,22 +336,16 @@ def awac_rig_experiment(
             #diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                desired_goal_key,
                 state_env,
                 num_presample=num_presample,
+                save_goals=save_goals,
             )
-            if image:
-                latent_goal_distribution = AddDecodedImageDistribution(
-                    latent_goal_distribution,
-                    desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
-                    image_goal_key,
-                    model,
-                )
         elif goal_sampling_mode == "presampled_latents":
             diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresampledPriorDistribution(
                 presampled_goals_path,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                desired_goal_key,
             )
         elif goal_sampling_mode == "reset_of_env":
             state_goal_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
@@ -373,7 +362,7 @@ def awac_rig_experiment(
             latent_goal_distribution = AddLatentDistribution(
                 image_goal_distribution,
                 image_goal_key,
-                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                desired_goal_key,
                 model,
             )
             diagnostics = state_goal_env.get_contextual_diagnostics
@@ -414,7 +403,6 @@ def awac_rig_experiment(
     eval_env_kwargs = env_kwargs.copy()
     eval_env_kwargs['expl'] = False
 
-
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
         env_id, env_class, expl_env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
         presampled_goal_kwargs['expl_goals'], num_presample
@@ -444,114 +432,60 @@ def awac_rig_experiment(
     action_dim = expl_env.action_space.low.size
 
     state_rewards = reward_kwargs.get('reward_type', 'dense') == 'wrapped_env'
-    if desired_goal_key_reward_fn: 
-        if state_rewards:
-            mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key, desired_goal_key_reward_fn: observation_key_reward_fn})
-            obs_keys = [state_observation_key, observation_key, observation_key_reward_fn]
-            cont_keys = [state_goal_key, context_key, desired_goal_key_reward_fn]
-        else:
-            mapper = RemapKeyFn({context_key: observation_key, desired_goal_key_reward_fn: observation_key_reward_fn})
-            obs_keys = [observation_key, observation_key_reward_fn] + list(reset_keys_map.values())
-            cont_keys = [context_key, desired_goal_key_reward_fn]
+    if state_rewards:
+        mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key})
+        obs_keys = [state_observation_key, observation_key]
+        cont_keys = [state_goal_key, context_key]
     else:
-        if state_rewards:
-            mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key})
-            obs_keys = [state_observation_key, observation_key]
-            cont_keys = [state_goal_key, context_key]
-        else:
-            mapper = RemapKeyFn({context_key: observation_key})
-            obs_keys = [observation_key] + list(reset_keys_map.values())
-            cont_keys = [context_key]
+        mapper = RemapKeyFn({context_key: observation_key})
+        obs_keys = [observation_key] + list(reset_keys_map.values())
+        cont_keys = [context_key]
 
     #Replay Buffer
-    def concat_context_to_obs(batch, replay_buffer, obs_dict, next_obs_dict, new_contexts):
-        obs = batch['observations']
-        next_obs = batch['next_observations']
-        context = batch[context_key]
-        batch['observations'] = np.concatenate([obs, context], axis=1)
-        batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
-        return batch
-    
-    if online_offline_split:
-        online_replay_buffer = ContextualRelabelingReplayBuffer(
-            env=eval_env,
-            context_keys=cont_keys,
-            observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
-            observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
-            context_distribution=training_context_distrib,#expl_context_distrib,
-            sample_context_from_obs_dict_fn=mapper,
-            reward_fn=eval_reward,
-            post_process_batch_fn=concat_context_to_obs,
-            **online_offline_split_replay_buffer_kwargs['online_replay_buffer_kwargs']
-        )
-        offline_replay_buffer = ContextualRelabelingReplayBuffer(
-            env=eval_env,
-            context_keys=cont_keys,
-            observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
-            observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
-            context_distribution=training_context_distrib,#expl_context_distrib,
-            sample_context_from_obs_dict_fn=mapper,
-            reward_fn=eval_reward,
-            post_process_batch_fn=concat_context_to_obs,
-            **online_offline_split_replay_buffer_kwargs['offline_replay_buffer_kwargs']
-        )
-        replay_buffer = OnlineOfflineSplitReplayBuffer(
-            offline_replay_buffer,
-            online_replay_buffer,
-            **online_offline_split_replay_buffer_kwargs
-        )
-    else:
-        replay_buffer = ContextualRelabelingReplayBuffer(
-            env=eval_env,
-            context_keys=cont_keys,
-            observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
-            observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
-            context_distribution=training_context_distrib,#expl_context_distrib,
-            sample_context_from_obs_dict_fn=mapper,
-            reward_fn=eval_reward,
-            post_process_batch_fn=concat_context_to_obs,
-            **replay_buffer_kwargs
-        )
-
-    if trainer_kwargs['compute_bc']:
-        assert not online_offline_split, "have not implemented online_offline_split for demo_train/test_buffers yet"
-        replay_buffer_kwargs.update(demo_replay_buffer_kwargs)
-        demo_train_buffer = ContextualRelabelingReplayBuffer(
-            env=eval_env,
-            context_keys=cont_keys,
-            observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
-            observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
-            context_distribution=training_context_distrib,#expl_context_distrib,
-            sample_context_from_obs_dict_fn=mapper,
-            reward_fn=eval_reward,
-            post_process_batch_fn=concat_context_to_obs,
-            **replay_buffer_kwargs
-        )
-        demo_test_buffer = ContextualRelabelingReplayBuffer(
-            env=eval_env,
-            context_keys=cont_keys,
-            observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
-            observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
-            context_distribution=training_context_distrib,#expl_context_distrib,
-            sample_context_from_obs_dict_fn=mapper,
-            reward_fn=eval_reward,
-            post_process_batch_fn=concat_context_to_obs,
-
-            **replay_buffer_kwargs
-        )
-    else:
-        demo_train_buffer = None 
-        demo_test_buffer = None
+    # def concat_context_to_obs(batch, replay_buffer, obs_dict, next_obs_dict, new_contexts):
+    #     obs = batch['observations']
+    #     next_obs = batch['next_observations']
+    #     context = batch[context_key]
+    #     batch['observations'] = np.concatenate([obs, context], axis=1)
+    #     batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
+    #     return batch
+    replay_buffer = ContextualRelabelingCLearningReplayBuffer(
+        env=eval_env,
+        context_keys=cont_keys,
+        observation_keys_to_save=obs_keys,
+        observation_key=observation_key,
+        context_distribution=training_context_distrib,#expl_context_distrib,
+        sample_context_from_obs_dict_fn=mapper,
+        reward_fn=eval_reward,
+        desired_goal_key=desired_goal_key,
+        # post_process_batch_fn=concat_context_to_obs,
+        **replay_buffer_kwargs
+    )
+    replay_buffer_kwargs.update(demo_replay_buffer_kwargs)
+    demo_train_buffer = ContextualRelabelingCLearningReplayBuffer(
+        env=eval_env,
+        context_keys=cont_keys,
+        observation_keys_to_save=obs_keys,
+        observation_key=observation_key,
+        context_distribution=training_context_distrib,#expl_context_distrib,
+        sample_context_from_obs_dict_fn=mapper,
+        reward_fn=eval_reward,
+        desired_goal_key=desired_goal_key,
+        # post_process_batch_fn=concat_context_to_obs,
+        **replay_buffer_kwargs
+    )
+    demo_test_buffer = ContextualRelabelingCLearningReplayBuffer(
+        env=eval_env,
+        context_keys=cont_keys,
+        observation_keys_to_save=obs_keys,
+        observation_key=observation_key,
+        context_distribution=training_context_distrib,#expl_context_distrib,
+        sample_context_from_obs_dict_fn=mapper,
+        reward_fn=eval_reward,
+        desired_goal_key=desired_goal_key,
+        # post_process_batch_fn=concat_context_to_obs,
+        **replay_buffer_kwargs
+    )
 
     #Neural Network Architecture
     def create_qf():
@@ -574,6 +508,19 @@ def awac_rig_experiment(
         **policy_kwargs,
     )
 
+    if exploration_goal_sampling_mode == "clearning_conditional_vae_prior":
+        expl_env.context_distribution.policy = policy
+        expl_env.context_distribution.qf1 = qf1
+        expl_env.context_distribution.qf2 = qf2
+    if training_goal_sampling_mode == "clearning_conditional_vae_prior":
+        training_env.context_distribution.policy = policy
+        training_env.context_distribution.qf1 = qf1
+        training_env.context_distribution.qf2 = qf2
+    if evaluation_goal_sampling_mode == "clearning_conditional_vae_prior":
+        eval_env.context_distribution.policy = policy
+        eval_env.context_distribution.qf1 = qf1
+        eval_env.context_distribution.qf2 = qf2
+
     #Path Collectors
     eval_path_collector = ContextualPathCollector(
         eval_env,
@@ -591,7 +538,7 @@ def awac_rig_experiment(
     )
 
     #Algorithm
-    trainer = AWACTrainer(
+    trainer = CLearningTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
@@ -663,6 +610,15 @@ def awac_rig_experiment(
             **path_loader_kwargs
         )
         path_loader.load_demos()
+    if pretrain_policy:
+        trainer.pretrain_policy_with_bc(
+            policy,
+            demo_train_buffer,
+            demo_test_buffer,
+            trainer.bc_num_pretrain_steps,
+        )
+    if pretrain_rl:
+        trainer.pretrain_q_with_bc_data()
 
     if save_pretrained_algorithm:
         p_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.p')

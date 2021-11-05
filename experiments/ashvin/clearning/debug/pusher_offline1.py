@@ -16,6 +16,8 @@ from rlkit.torch.sac.clearning_trainer import CLearningTrainer
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.data_management.clearning_replay_buffer import CLearningReplayBuffer
 
+from rlkit.torch.networks import Clamp, Sigmoid
+
 if __name__ == "__main__":
     variant = dict(
         num_epochs=1001,
@@ -88,8 +90,8 @@ if __name__ == "__main__":
         path_loader_kwargs=dict(
             demo_paths=[
                 dict(
-                    path="ashvin/icml2020/pusher/state2/random2/run12/id*/video_*_vae.p",
-                    sync_dir="ashvin/icml2020/pusher/state2/random2/run12",
+                    path="/2tb/home/patrickhaoy/data/gcrl_data/id*/video_*_vae.p", #"ashvin/icml2020/pusher/state2/random2/run12/id*/video_*_vae.p",
+                    #sync_dir="ashvin/icml2020/pusher/state2/random2/run12",
                     obs_dict=False, # misleading but this arg is really "unwrap_obs_dict"
                     is_demo=True,
                     data_split=0.1,
@@ -110,7 +112,7 @@ if __name__ == "__main__":
         # ),
         load_demos=True,
         pretrain_policy=True,
-        pretrain_rl=False,
+        pretrain_rl=True,
         # save_pretrained_algorithm=True,
         # snapshot_mode="all",
         env_class=SawyerPushAndReachXYEnv,
@@ -130,15 +132,23 @@ if __name__ == "__main__":
         observation_key="state_observation",
         desired_goal_key="state_desired_goal",
         achieved_goal_key="state_achieved_goal",
+
+        save_video=True,
+        save_video_kwargs=dict(
+            save_video_period=25,
+            pad_color=0,
+        ),
     )
 
     search_space = {
         'seedid': range(5),
-        'trainer_kwargs.beta': [0.1, 1, ],
-        'num_trains_per_train_loop': [1000, 4000],
-        'env_kwargs.reward_type': ['puck_distance', 'hand_and_puck_distance', ],
+        'seed': [0, ],
+        'trainer_kwargs.beta': [0.001, 0.01, 0.1, ], # 'trainer_kwargs.beta': [0.1, 1, ],
+        'num_trains_per_train_loop': [4000], # 'num_trains_per_train_loop': [1000, 4000],
+        'env_kwargs.reward_type': ['puck_distance'],#, 'hand_and_puck_distance', ],
         'policy_kwargs.min_log_std': [-6, ],
         # 'trainer_kwargs.bc_weight': [0, 1],
+        'qf_kwargs.output_activation': [Sigmoid()], #[Clamp(max=0)],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(

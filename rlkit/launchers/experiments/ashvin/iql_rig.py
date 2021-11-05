@@ -2,13 +2,14 @@ from rlkit.envs.wrappers import StackObservationEnv, RewardWrapperEnv
 import rlkit.torch.pytorch_util as ptu
 from rlkit.samplers.data_collector.step_collector import MdpStepCollector
 from rlkit.samplers.data_collector.path_collector import GoalConditionedPathCollector
-from rlkit.torch.networks import ConcatMlp
-from rlkit.torch.networks.cnn import ConcatCNN
-from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic, GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy, GaussianTwoChannelCNNPolicy
+from rlkit.torch.networks import ConcatMlp, Mlp
+from rlkit.torch.networks.cnn import ConcatCNN, CNN
+from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic
 from rlkit.envs.images import EnvRenderer, InsertImageEnv
 from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 from rlkit.torch.sac.iql_trainer import IQLTrainer
+from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy, GaussianCNNPolicy, GaussianTwoChannelCNNPolicy
 from rlkit.torch.torch_rl_algorithm import (
     TorchBatchRLAlgorithm,
     TorchOnlineRLAlgorithm,
@@ -105,6 +106,7 @@ class RewardFn:
             obs_type='latent',
             reward_type='dense',
             epsilon=1.0,
+            # cnn=None,
     ):
         if obs_type == 'latent':
             self.observation_key = 'latent_observation'
@@ -166,9 +168,6 @@ def process_args(variant):
             num_trains_per_train_loop=10,
             min_num_steps_before_training=50,
         ))
-        variant['trainer_kwargs']['bc_num_pretrain_steps'] = min(10, variant['trainer_kwargs'].get('bc_num_pretrain_steps', 0))
-        variant['trainer_kwargs']['q_num_pretrain1_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain1_steps', 0))
-        variant['trainer_kwargs']['q_num_pretrain2_steps'] = min(10, variant['trainer_kwargs'].get('q_num_pretrain2_steps', 0))
         variant.get('train_vae_kwargs', {}).update(dict(
             num_epochs=1,
             train_pixelcnn_kwargs=dict(
@@ -182,9 +181,10 @@ def process_args(variant):
         if len(demo_paths) > 1:
             variant['path_loader_kwargs']['demo_paths'] = [demo_paths[0]]
 
-def awac_rig_experiment(
+def iql_rig_experiment(
         max_path_length,
         qf_kwargs,
+        vf_kwargs,
         trainer_kwargs,
         replay_buffer_kwargs,
         online_offline_split_replay_buffer_kwargs,
@@ -201,9 +201,9 @@ def awac_rig_experiment(
         encoder_wrapper=EncoderWrappedEnv,
         observation_key='latent_observation',
         observation_keys=['latent_observation'],
-        observation_key_reward_fn='latent_observation',
+        observation_key_reward_fn=None,
         desired_goal_key='latent_desired_goal',
-        desired_goal_key_reward_fn='latent_desired_goal',
+        desired_goal_key_reward_fn=None,
         state_observation_key='state_observation',
         state_goal_key='state_desired_goal',
         image_goal_key='image_desired_goal',
@@ -245,10 +245,12 @@ def awac_rig_experiment(
         num_presample=5000,
         init_camera=None,
         qf_class=ConcatMlp,
+        vf_class=Mlp,
         env_type=None, # For plotting
         seed=None,
         **kwargs,
     ):
+
     #Kwarg Definitions
     if exploration_policy_kwargs is None:
         exploration_policy_kwargs = {}
@@ -414,7 +416,6 @@ def awac_rig_experiment(
     eval_env_kwargs = env_kwargs.copy()
     eval_env_kwargs['expl'] = False
 
-
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
         env_id, env_class, expl_env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
         presampled_goal_kwargs['expl_goals'], num_presample
@@ -429,7 +430,7 @@ def awac_rig_experiment(
     )
     path_loader_kwargs['env'] = eval_env
 
-    #AWAC Code
+    #IQL Code
     if add_env_demos:
         path_loader_kwargs["demo_paths"].append(env_demo_path)
     if add_env_offpolicy_data:
@@ -471,7 +472,7 @@ def awac_rig_experiment(
         batch['observations'] = np.concatenate([obs, context], axis=1)
         batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
         return batch
-    
+
     if online_offline_split:
         online_replay_buffer = ContextualRelabelingReplayBuffer(
             env=eval_env,
@@ -519,40 +520,6 @@ def awac_rig_experiment(
             **replay_buffer_kwargs
         )
 
-    if trainer_kwargs['compute_bc']:
-        assert not online_offline_split, "have not implemented online_offline_split for demo_train/test_buffers yet"
-        replay_buffer_kwargs.update(demo_replay_buffer_kwargs)
-        demo_train_buffer = ContextualRelabelingReplayBuffer(
-            env=eval_env,
-            context_keys=cont_keys,
-            observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
-            observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
-            context_distribution=training_context_distrib,#expl_context_distrib,
-            sample_context_from_obs_dict_fn=mapper,
-            reward_fn=eval_reward,
-            post_process_batch_fn=concat_context_to_obs,
-            **replay_buffer_kwargs
-        )
-        demo_test_buffer = ContextualRelabelingReplayBuffer(
-            env=eval_env,
-            context_keys=cont_keys,
-            observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
-            observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
-            context_distribution=training_context_distrib,#expl_context_distrib,
-            sample_context_from_obs_dict_fn=mapper,
-            reward_fn=eval_reward,
-            post_process_batch_fn=concat_context_to_obs,
-
-            **replay_buffer_kwargs
-        )
-    else:
-        demo_train_buffer = None 
-        demo_test_buffer = None
-
     #Neural Network Architecture
     def create_qf():
         if qf_class is ConcatMlp:
@@ -567,6 +534,15 @@ def awac_rig_experiment(
     qf2 = create_qf()
     target_qf1 = create_qf()
     target_qf2 = create_qf()
+
+    def create_vf():
+        if vf_class is Mlp:
+            vf_kwargs["input_size"] = obs_dim
+        return vf_class(
+            output_size=1,
+            **vf_kwargs
+        )
+    vf = create_vf()
 
     policy = policy_class(
         obs_dim=obs_dim,
@@ -591,13 +567,14 @@ def awac_rig_experiment(
     )
 
     #Algorithm
-    trainer = AWACTrainer(
+    trainer = IQLTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
+        vf=vf,
         **trainer_kwargs
     )
 
@@ -617,7 +594,6 @@ def awac_rig_experiment(
 
     #Video Saving
     if save_video:
-
         expl_video_func = RIGVideoSaveFunction(
             model,
             expl_path_collector,
@@ -650,11 +626,15 @@ def awac_rig_experiment(
         )
         algorithm.post_train_funcs.append(eval_video_func)
 
-    #AWAC CODE
+    #IQL CODE
     if save_paths:
         algorithm.post_train_funcs.append(save_paths)
 
+    if online_offline_split:
+        replay_buffer.set_online_mode(False)
     if load_demos:
+        demo_train_buffer = None 
+        demo_test_buffer = None
         path_loader = path_loader_class(trainer,
             replay_buffer=replay_buffer,
             demo_train_buffer=demo_train_buffer,
@@ -672,4 +652,7 @@ def awac_rig_experiment(
         torch.save(data, open(pt_path, "wb"))
         torch.save(data, open(p_path, "wb"))
 
+    if online_offline_split:
+        replay_buffer.set_online_mode(True)
+    
     algorithm.train()

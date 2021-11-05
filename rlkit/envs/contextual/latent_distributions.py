@@ -5,7 +5,41 @@ from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch import pytorch_util as ptu
 
 from rlkit.core import logger
+import torch
 
+class AddDecodedImageDistribution(DictDistribution):
+    def __init__(
+        self,
+        dist,
+        input_key,
+        output_key,
+        model,
+    ):
+        self.dist = dist
+        self._spaces = dist.spaces
+        self.input_key = input_key
+        self.output_key = output_key
+        self.model = model
+        self.image_size = self.model.imlength
+        image_space = Box(
+            np.zeros(self.image_size),
+            np.ones(self.image_size),
+            dtype=np.float32,
+        )
+        self._spaces[output_key] = image_space
+
+    def sample(self, batch_size: int):
+        s = self.dist.sample(batch_size)
+        s[self.output_key] = self.model.decode_np(s[self.input_key]).reshape((-1, self.image_size))
+        return s
+
+    def __call__(self, context):
+        self.dist.context = context
+        return self
+
+    @property
+    def spaces(self):
+        return self._spaces
 
 class AddLatentDistribution(DictDistribution):
     def __init__(
@@ -205,8 +239,78 @@ class ConditionalPriorDistribution(DictDistributionGenerator):
     def sample(self, batch_size):
         s = self.dist.sample(batch_size) if self.dist else {}
         z_0 = self.context['initial_latent_state'].reshape(-1, self.representation_size)
-        s[self.key] = self.model.sample_prior(batch_size, cond=z_0, image_cond=False)
+        s[self.key] = self.model.sample_prior(batch_size, cond=z_0)#, image_cond=False)
         return s
+
+    def __call__(self, context):
+        self.context = context
+        return self
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+class CLearningConditionalPriorDistribution(DictDistributionGenerator):
+    def __init__(
+            self,
+            model,
+            key,
+            dist=None,
+            policy=None,
+            qf1=None,
+            qf2=None,
+            pixelcnn_sample_k=10,
+    ):
+        self.representation_size = model.representation_size
+        self._spaces = dist.spaces if dist else {}
+        self.model = model
+        self.key = key
+        self.dist = dist
+        latent_space = Box(
+            -10 * np.ones(self.representation_size),
+            10 * np.ones(self.representation_size),
+            dtype=np.float32,
+        )
+        self._spaces[key] = latent_space
+
+        self.policy = policy
+        self.qf1 = qf1
+        self.qf2 = qf2
+        self.k = pixelcnn_sample_k
+
+    def sample(self, batch_size):
+        s = self.dist.sample(batch_size) if self.dist else {}
+        z_0 = self.context['initial_latent_state'].reshape(-1, self.representation_size)
+
+        ## Faster, but requires more memory
+        z_0 = np.repeat(z_0, self.k, axis=0)
+        goal = self.model.sample_prior(batch_size*self.k, z_0)
+        score = self.score_fn(z_0, goal)
+        assert score.shape == (batch_size*self.k,)
+        best_goals = np.empty((batch_size, self.representation_size))
+        for i, score_i in enumerate(range(0, batch_size*self.k, self.k)):
+            idx = score_i+np.argmax(score[score_i:score_i+self.k])
+            best_goals[i] = goal[idx]
+
+        ## Slower, but requires less memory
+        # best_scores = np.zeros((batch_size,))
+        # best_goals = np.empty((batch_size, self.representation_size))
+        # for _ in range(self.k):
+        #     goal = self.model.sample_prior(batch_size, cond=z_0)
+        #     score = self.score_fn(z_0, goal)
+        #     indices = np.nonzero(score > best_scores)
+        #     best_scores[indices] = score[indices]
+        #     best_goals[indices] = goal[indices]
+
+        s[self.key] = best_goals
+        return s
+
+    def score_fn(self, s_current, s_future):
+        obs = ptu.from_numpy(np.concatenate((s_current, s_future), axis=1))
+        a_next, log_pi = self.policy(obs).rsample_and_logprob()
+        classification = torch.min(self.qf1(obs, a_next, ), self.qf2(obs, a_next, ))
+        w = classification / (1 - classification)
+        return ptu.get_numpy(w).squeeze(axis=1)
 
     def __call__(self, context):
         self.context = context

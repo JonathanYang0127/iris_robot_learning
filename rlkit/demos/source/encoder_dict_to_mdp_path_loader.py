@@ -21,7 +21,6 @@ from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
 from rlkit.core import logger
 import glob
 
-
 class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
     def __init__(
@@ -89,7 +88,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
         self.object_list = object_list
         self.env = env
 
-    def preprocess(self, observation):
+    def preprocess(self, observation, use_latents=True):
         observation = copy.deepcopy(observation)
         images = np.stack([observation[i]['image_observation'] for i in range(len(observation))])
 
@@ -107,7 +106,12 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             observation[i]["latent_observation"] = latents[i]
             observation[i]["latent_achieved_goal"] = latents[i]
             observation[i]["latent_desired_goal"] = latents[-1]
-            del observation[i]['image_observation']
+            if use_latents:
+                del observation[i]['image_observation']
+            else:
+                observation[i]["initial_image_observation"] = observation[0]['image_observation']
+                observation[i]["image_achieved_goal"] = observation[i]['image_observation']
+                observation[i]["image_desired_goal"] = observation[-1]['image_observation']
 
         return observation
 
@@ -122,8 +126,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
         return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs)))
 
-
-    def load_path(self, path, replay_buffer, obs_dict=None):
+    def load_path(self, path, replay_buffer, obs_dict=None, use_latents=True):
         # Filter data #
         if not self.data_filter_fn(path): return
 
@@ -132,8 +135,8 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
         H = min(len(path["observations"]), len(path["actions"]))
         if obs_dict:
-            traj_obs = self.preprocess(path["observations"])
-            next_traj_obs = self.preprocess(path["next_observations"])
+            traj_obs = self.preprocess(path["observations"], use_latents=use_latents)
+            next_traj_obs = self.preprocess(path["next_observations"], use_latents=use_latents)
         else:
             traj_obs = self.preprocess_array_obs(path["observations"])
             next_traj_obs = self.preprocess_array_obs(path["next_observations"])
@@ -141,7 +144,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
         for i in range(H):
             ob = traj_obs[i]
             next_ob = next_traj_obs[i]
-            action = path["actions"][i]
+            action = path["actions"][i] 
             reward = path["rewards"][i]
             terminal = path["terminals"][i]
             if not self.load_terminals:
@@ -170,7 +173,6 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
         print("loading path, length", len(path["observations"]), len(path["actions"]))
         print("actions", np.min(path["actions"]), np.max(path["actions"]))
         print("path sum rewards", sum(rewards), len(rewards))
-
 
 class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
@@ -281,7 +283,6 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
         if self.normalize:
             return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
         return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs)))
-
 
     def load_path(self, path, replay_buffer, obs_dict=None):
         # Filter data #

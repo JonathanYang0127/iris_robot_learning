@@ -5,7 +5,6 @@ from gym.spaces import Dict, Discrete
 from rlkit.data_management.replay_buffer import ReplayBuffer
 import rlkit.data_management.images as image_np
 
-
 class ObsDictReplayBuffer(ReplayBuffer):
     """
     Save goals from the same trajectory into the replay buffer.
