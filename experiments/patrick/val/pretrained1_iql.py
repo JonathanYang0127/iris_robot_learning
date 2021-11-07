@@ -13,9 +13,13 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-val_data = False # VAL data or new reset-free data
+DATASETS = ["val", "reset-free", "tray-reset-free", "tray-test-reset-free", "rotated-top-drawer-reset-free"]
 
-if val_data:
+dataset = "rotated-top-drawer-reset-free"
+assert dataset in DATASETS
+
+# VAL Data
+if dataset == 'val':
     VAL_DATA_PATH = "data/combined/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),
                 dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl', obs_dict=True, is_demo=True),
@@ -37,18 +41,24 @@ if val_data:
                 dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl', obs_dict=True, is_demo=True),
                 dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
                 ]
-else:    
-    # Reset-Free Data
+# Reset-Free Data
+elif dataset == 'reset-free-v5':
     VAL_DATA_PATH = "data/combined_reset_free_v5/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'combined_reset_free_v5_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
-
-    # Tray Reset-Free Data (with distractors)
-    # VAL_DATA_PATH = "data/combined_reset_free_v5_tray_only/"
-    # demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
-
-    # Tray Reset-Free Data (without distractors)
-    # VAL_DATA_PATH = "data/combined_reset_free_v5_tray_test_env_only/"
-    # demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+# Tray Reset-Free Data (with distractors)
+elif dataset == 'reset-free-v5-tray':
+    VAL_DATA_PATH = "data/combined_reset_free_v5_tray_only/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+# Tray Reset-Free Data (without distractors)
+elif dataset == 'reset-free-v5-tray-test':
+    VAL_DATA_PATH = "data/combined_reset_free_v5_tray_test_env_only/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+# Rotated Drawer Reset-Free Data
+elif variant['dataset'] == "reset-free-v5-rotated-top-drawer":
+    VAL_DATA_PATH = "data/reset_free_v5_rotated_top_drawer/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+else:
+    return 1/0
 
 vqvae = VAL_DATA_PATH + "best_vqvae.pt"
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
@@ -225,7 +235,6 @@ if __name__ == "__main__":
                 ),
                 use_parallel_dataloading=False,
             ),
-
             save_period=50,
         ),
         train_model_func=train_vqvae,
@@ -242,8 +251,8 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(3),
-        'env_type': ['top_drawer', 'bottom_drawer', 'tray', 'pnp'],
-        'reward_kwargs.epsilon': [4.0, 5.0, 6.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'env_type': ['top_drawer'],
+        'reward_kwargs.epsilon': [3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
         'env_kwargs.reset_interval' : [1],
 
         "image": [False], # Latent-space or image-space
@@ -252,6 +261,7 @@ if __name__ == "__main__":
 
         'algo_kwargs.start_epoch': [-150],
         'algo_kwargs.num_online_trains_per_train_loop': [1000],
+        'algo_kwargs.batch_size': [1024],
         
         'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
@@ -266,7 +276,7 @@ if __name__ == "__main__":
     variants = []
     for variant in sweeper.iterate_hyperparameters():
         env_type = variant['env_type']
-        if not val_data and env_type == 'pnp':
+        if dataset != 'val' and env_type == 'pnp':
             env_type = 'obj'
         eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
@@ -277,7 +287,7 @@ if __name__ == "__main__":
             variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
             variant['presampled_goal_kwargs']['training_goals'] = eval_goals
 
-        if val_data:
+        if dataset == 'val':
             if env_type in ['top_drawer', 'bottom_drawer']:
                 variant['env_class'] = SawyerRigAffordancesV0
                 variant['env_kwargs']['env_type'] = env_type
@@ -285,11 +295,13 @@ if __name__ == "__main__":
                 variant['env_class'] = SawyerRigMultiobjTrayV0
             if env_type == 'pnp':
                 variant['env_class'] = SawyerRigMultiobjV0
-        else:
+        elif dataset in ["reset-free", "tray-reset-free", "tray-test-reset-free"]:
             variant['env_class'] = SawyerRigAffordancesV0
             variant['env_kwargs']['env_type'] = env_type
-
-        variants.append(variant)
+        elif dataset == "rotated-top-drawer-reset-free":
+            variant['env_class'] = SawyerRigAffordancesV1
+        else:
+            return 1/0
 
         # Image
         if variant['image']:
@@ -356,5 +368,7 @@ if __name__ == "__main__":
             
             variant['algo_kwargs']['batch_size'] = 256
             variant['replay_buffer_kwargs']['max_size'] = int(5E5)
+        
+        variants.append(variant)
 
     run_variants(iql_rig_experiment, variants, run_id=0, process_args_fn=process_args)
