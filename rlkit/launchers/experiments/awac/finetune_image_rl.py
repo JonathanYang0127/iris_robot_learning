@@ -49,6 +49,8 @@ from rlkit.torch.sac.policies import GaussianPolicy, GaussianMixturePolicy, Gaus
 from rlkit.torch.networks.cnn import ConcatCNN, CNN
 from rlkit.torch.networks import ConcatMlp, Mlp
 
+from rlkit.data_management.dataset_logger_fn import DatasetLoggerFn, run_bc_batch
+
 ENV_PARAMS = {
     'HalfCheetah-v2': {
         'num_expl_steps_per_train_loop': 1000,
@@ -466,5 +468,10 @@ def experiment(variant):
         )
         buffer_path = osp.join(logger.get_snapshot_dir(), 'buffers.p')
         pickle.dump(buffers, open(buffer_path, "wb"))
+
+    demo_train_log_fn = DatasetLoggerFn(demo_train_buffer, run_bc_batch, prefix="demo_train/", policy=policy)
+    algorithm._expl_get_diag_fns.append(demo_train_log_fn)
+    demo_test_log_fn = DatasetLoggerFn(demo_test_buffer, run_bc_batch, prefix="demo_test/", policy=policy)
+    algorithm._expl_get_diag_fns.append(demo_test_log_fn)
 
     algorithm.train()
