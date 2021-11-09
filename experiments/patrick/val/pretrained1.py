@@ -8,6 +8,7 @@ from rlkit.torch.networks.cnn import ConcatCNN, CNN
 from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
 from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
 from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
+from roboverse.envs.sawyer_rig_affordances_v1 import SawyerRigAffordancesV1
 from rlkit.torch.networks import Clamp
 from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
@@ -42,23 +43,23 @@ if dataset == 'val':
                 dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl', obs_dict=True, is_demo=True),
                 ]
 # Reset-Free Data
-elif dataset == 'reset-free-v5':
+elif dataset == 'reset-free':
     VAL_DATA_PATH = "data/combined_reset_free_v5/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'combined_reset_free_v5_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 # Tray Reset-Free Data (with distractors)
-elif dataset == 'reset-free-v5-tray':
+elif dataset == 'tray-reset-free':
     VAL_DATA_PATH = "data/combined_reset_free_v5_tray_only/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 # Tray Reset-Free Data (without distractors)
-elif dataset == 'reset-free-v5-tray-test':
+elif dataset == 'tray-test-reset-free':
     VAL_DATA_PATH = "data/combined_reset_free_v5_tray_test_env_only/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 # Rotated Drawer Reset-Free Data
-elif variant['dataset'] == "reset-free-v5-rotated-top-drawer":
+elif dataset == "rotated-top-drawer-reset-free":
     VAL_DATA_PATH = "data/reset_free_v5_rotated_top_drawer/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 else:
-    return 1/0
+    assert False
 
 vqvae = VAL_DATA_PATH + "best_vqvae.pt"
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
@@ -316,7 +317,7 @@ if __name__ == "__main__":
         elif dataset == "rotated-top-drawer-reset-free":
             variant['env_class'] = SawyerRigAffordancesV1
         else:
-            return 1/0
+            assert False
 
         #Image
         if variant['image']:

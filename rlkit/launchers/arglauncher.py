@@ -149,7 +149,7 @@ def process_launcher_args(variant):
 
     launcher_config.setdefault("slurm_config", dict(
         slurm_config_name="gpu", 
-        slurm_config_envfile="/global/home/users/anair17/torch110.sh",
+        slurm_config_envfile="/global/home/users/patrickhaoy/torch110.sh",
     ))
 
 
@@ -179,6 +179,7 @@ def process_launcher_args(variant):
     if "--slurmconfig" in sys.argv:
         i = sys.argv.index("--slurmconfig")
         launcher_config["slurm_config_name"] = sys.argv[i+1]
+        launcher_config["slurm_config"]["slurm_config_name"] = sys.argv[i+1]
 
     if "--verbose" in sys.argv:
         launcher_config["verbose"] = True
@@ -251,8 +252,8 @@ def get_line_brc_script(
     variant,
     i,
     slurm_config_name="gpu", 
-    slurm_config_envfile="/global/home/users/anair17/torch110.sh",
-    slurm_time=720,
+    slurm_config_envfile="/global/home/users/patrickhaoy/torch110.sh",
+    slurm_time=1440,
 ):
     if variant["launcher_config"].get("use_gpu"):
         assert "gpu" in slurm_config_name, "running non-GPU experiment on GPU machine"
