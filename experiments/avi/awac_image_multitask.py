@@ -263,7 +263,8 @@ if __name__ == '__main__':
         use_task_embedding=args.use_task_embedding,
         seed=args.seed,
         trainer_kwargs=dict(
-            discount=0.99,
+            discount=0.9666,
+            use_terminals=True,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,

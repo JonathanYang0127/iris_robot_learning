@@ -71,6 +71,16 @@ def experiment(variant):
         #hacky change because the num_tasks passed into roboverse doesn't count exploration
         env_num_tasks //= 2
     eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
+    if variant['exploration_task'] < num_tasks:
+        if variant['exploration_task'] < env_num_tasks:
+            opp_task = variant['exploration_task']+env_num_tasks
+        else:
+            opp_task = variant['exploration_task']-env_num_tasks
+    else:
+        if variant['exploration_task'] < num_tasks + env_num_tasks:
+            opp_task = variant['exploration_task']+env_num_tasks
+        else:
+            opp_task = variant['exploration_task']-env_num_tasks
 
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
@@ -199,7 +209,6 @@ def experiment(variant):
     if variant['exploration_task'] < num_tasks:
         replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
         replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
-        opp_task = variant['exploration_task']+env_num_tasks
         replay_buffer.task_buffers[opp_task].bias_point = replay_buffer.task_buffers[opp_task]._top
         replay_buffer.task_buffers[opp_task].before_bias_point_probability = 0.3
 
@@ -256,7 +265,7 @@ def experiment(variant):
     )
 
     if variant['expl_reset_free']:
-        train_tasks = [variant['exploration_task'], variant['exploration_task']+env_num_tasks]
+        train_tasks = [variant['exploration_task'], opp_task]
     else:
         train_tasks = [variant['exploration_task']]
 
@@ -345,7 +354,8 @@ if __name__ == '__main__':
         epochs_per_reset = 1,
 
         trainer_kwargs=dict(
-            discount=0.99,
+            discount=0.9666,
+            use_terminals=True,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
