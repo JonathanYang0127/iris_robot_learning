@@ -14,9 +14,12 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-DATASETS = ["val", "reset-free", "tray-reset-free", "tray-test-reset-free", "rotated-top-drawer-reset-free"]
+DATASETS = [
+    "val", "reset-free", "tray-reset-free", "tray-test-reset-free", "rotated-top-drawer-reset-free", 
+    "reconstructed-rotated-top-drawer-reset-free", "antialias-rotated-top-drawer-reset-free",
+]
 
-dataset = "rotated-top-drawer-reset-free"
+dataset = "antialias-rotated-top-drawer-reset-free"
 assert dataset in DATASETS
 
 # VAL Data
@@ -58,6 +61,12 @@ elif dataset == 'tray-test-reset-free':
 elif dataset == "rotated-top-drawer-reset-free":
     VAL_DATA_PATH = "data/reset_free_v5_rotated_top_drawer/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+elif dataset == "reconstructed-rotated-top-drawer-reset-free":
+    VAL_DATA_PATH = "data/reconstructed_reset_free_v5_rotated_top_drawer/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'reconstructed_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+elif dataset == "antialias-rotated-top-drawer-reset-free":
+    VAL_DATA_PATH = "data/antialias_reset_free_v5_rotated_top_drawer/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 else:
     assert False
 
@@ -252,15 +261,16 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(3),
+        #"eval_seeds": [1, 2, 4, 5, 6, 7],
         'env_type': ['top_drawer'],
-        'reward_kwargs.epsilon': [3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'reward_kwargs.epsilon': [5.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
         'env_kwargs.reset_interval' : [1],
 
         "image": [False], # Latent-space or image-space
         "online_offline_split": [True], # Single replay buffer vs Two replay buffers (one for online, one for offline)
-        "ground_truth_expl_goals": [False], # PixelCNN expl goals vs ground truth expl goals
+        "ground_truth_expl_goals": [True, False], # PixelCNN expl goals vs ground truth expl goals
 
-        'algo_kwargs.start_epoch': [-150],
+        'algo_kwargs.start_epoch': [-100],
         'algo_kwargs.num_online_trains_per_train_loop': [8000],
         'algo_kwargs.batch_size': [1024],
         
@@ -279,7 +289,10 @@ if __name__ == "__main__":
         env_type = variant['env_type']
         if dataset != 'val' and env_type == 'pnp':
             env_type = 'obj'
-        eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
+        if 'eval_seeds' in variant.keys():
+            eval_goals = VAL_DATA_PATH + '{0}_goals{1}.pkl'.format(env_type, variant['eval_seeds'])
+        else:
+            eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         if variant['ground_truth_expl_goals']:
@@ -299,8 +312,12 @@ if __name__ == "__main__":
         elif dataset in ["reset-free", "tray-reset-free", "tray-test-reset-free"]:
             variant['env_class'] = SawyerRigAffordancesV0
             variant['env_kwargs']['env_type'] = env_type
-        elif dataset == "rotated-top-drawer-reset-free":
+        elif dataset in ["rotated-top-drawer-reset-free", "reconstructed-rotated-top-drawer-reset-free"]:
             variant['env_class'] = SawyerRigAffordancesV1
+        elif dataset == "antialias-rotated-top-drawer-reset-free":
+            variant['env_class'] = SawyerRigAffordancesV1
+            variant['env_kwargs']['downsample'] = True
+            variant['env_kwargs']['env_obs_img_dim'] = 196
         else:
             assert False
 
