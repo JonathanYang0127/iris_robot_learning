@@ -260,21 +260,26 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(3),
-        #"eval_seeds": [1, 2, 4, 5, 6, 7],
+        "seed": range(2),
+        "eval_seeds": [1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
         'env_type': ['top_drawer'],
         'reward_kwargs.epsilon': [5.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        #'trainer_kwargs.beta': [0.3],
         'env_kwargs.reset_interval' : [1],
+        'env_kwargs.full_open_close_init_and_goal' : [True],
+        'gripper_observation' : [True],
 
         "image": [False], # Latent-space or image-space
+        "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
+
+        "max_path_length": [100],
+        "algo_kwargs.num_expl_steps_per_train_loop": [2000],
+
+        'algo_kwargs.num_online_trains_per_train_loop': [8000],
         "online_offline_split": [True], # Single replay buffer vs Two replay buffers (one for online, one for offline)
-        "ground_truth_expl_goals": [True, False], # PixelCNN expl goals vs ground truth expl goals
 
         'algo_kwargs.start_epoch': [-100],
-        'algo_kwargs.num_online_trains_per_train_loop': [8000],
         'algo_kwargs.batch_size': [1024],
-        
-        'trainer_kwargs.beta': [0.3],
         # 'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
         'qf_kwargs.output_activation': [Clamp(max=0)],
@@ -290,7 +295,7 @@ if __name__ == "__main__":
         if dataset != 'val' and env_type == 'pnp':
             env_type = 'obj'
         if 'eval_seeds' in variant.keys():
-            eval_goals = VAL_DATA_PATH + '{0}_goals{1}.pkl'.format(env_type, variant['eval_seeds'])
+            eval_goals = VAL_DATA_PATH + '{0}_goals_seed{1}.pkl'.format(env_type, variant['eval_seeds'])
         else:
             eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
@@ -300,6 +305,12 @@ if __name__ == "__main__":
             variant['training_goal_sampling_mode']="presampled_images"
             variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
             variant['presampled_goal_kwargs']['training_goals'] = eval_goals
+
+            variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs'] = dict(
+                fraction_future_context=0.6,
+                fraction_distribution_context=0.0,
+                max_size=int(6E5),
+            )
 
         if dataset == 'val':
             if env_type in ['top_drawer', 'bottom_drawer']:
@@ -320,9 +331,16 @@ if __name__ == "__main__":
             variant['env_kwargs']['env_obs_img_dim'] = 196
         else:
             assert False
+        
+        if 'eval_seeds' in variant.keys():
+            variant['env_kwargs']['test_env_seed'] = variant['eval_seeds']
+        
+        if variant['gripper_observation']:
+            variant['observation_keys'] = ['latent_observation', 'gripper_state_observation']
 
         # Image
         if variant['image']:
+            assert 'gripper_observation' not in variant or not variant['gripper_observation'], "image-based not implemented yet"
             variant['policy_class'] = GaussianCNNPolicy
             variant['qf_class'] = ConcatCNN
             variant['vf_class'] = CNN

@@ -78,6 +78,7 @@ from rlkit.envs.contextual.latent_distributions import (
     AmortizedPriorDistribution,
     AddDecodedImageDistribution,
     AddLatentDistribution,
+    AddGripperStateDistribution,
     AddConditionalLatentDistribution,
     PriorDistribution,
     PresamplePriorDistribution,
@@ -88,6 +89,7 @@ from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector
 )
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv, ConditionalEncoderWrappedEnv
+from rlkit.envs.gripper_state_wrapper import GripperStateWrappedEnv
 from rlkit.envs.dual_encoder_wrapper import DualEncoderWrappedEnv
 from rlkit.envs.vae_wrappers import VAEWrappedEnv
 from rlkit.core.eval_util import create_stats_ordered_dict
@@ -99,6 +101,9 @@ import multiworld
 from rlkit.torch.grill.common import train_vae
 from rlkit.torch.gan.bigan import CVBiGAN
 from rlkit.torch.vae.vq_vae import CCVAE
+
+from roboverse.bullet.misc import quat_to_deg
+from rlkit.samplers.rollout_functions import contextual_rollout
 
 class RewardFn:
     def __init__(self,
@@ -160,13 +165,14 @@ def process_args(variant):
         variant['max_path_length'] = 5
         variant['num_presample'] = 50
         variant.get('algo_kwargs', {}).update(dict(
-            batch_size=5,
-            start_epoch=-2,
-            num_epochs=5,
-            num_eval_steps_per_epoch=50,
-            num_expl_steps_per_train_loop=50,
-            num_trains_per_train_loop=10,
-            min_num_steps_before_training=50,
+            batch_size=2,
+            start_epoch=-1,
+            num_epochs=1,
+            num_eval_steps_per_epoch=2,
+            num_expl_steps_per_train_loop=2,
+            num_trains_per_train_loop=2,
+            num_online_trains_per_train_loop=2,
+            min_num_steps_before_training=2,
         ))
         variant.get('train_vae_kwargs', {}).update(dict(
             num_epochs=1,
@@ -205,9 +211,12 @@ def iql_rig_experiment(
         desired_goal_key='latent_desired_goal',
         desired_goal_key_reward_fn=None,
         state_observation_key='state_observation',
+        gripper_observation_key='gripper_state_observation',
         state_goal_key='state_desired_goal',
         image_goal_key='image_desired_goal',
+        gripper_goal_key='gripper_state_desired_goal',
         reset_keys_map=None,
+        gripper_observation=False,
 
         path_loader_class=MDPPathLoader,
         demo_replay_buffer_kwargs=None,
@@ -283,6 +292,12 @@ def iql_rig_experiment(
             step_keys_map=dict(image_observation="latent_observation"),
             reset_keys_map=reset_keys_map,
         )
+        if gripper_observation:
+            encoded_env = GripperStateWrappedEnv(
+                encoded_env, 
+                state_observation_key,
+                step_keys_map=dict(gripper_state_observation="gripper_state_observation")
+            )
         if goal_sampling_mode == "vae_prior":
             latent_goal_distribution = PriorDistribution(
                 model.representation_size,
@@ -381,6 +396,13 @@ def iql_rig_experiment(
             diagnostics = state_goal_env.get_contextual_diagnostics
         else:
             error
+        
+        if gripper_observation:
+            latent_goal_distribution = AddGripperStateDistribution(
+                latent_goal_distribution,
+                state_goal_key,
+                gripper_goal_key,
+            )
 
         reward_fn = RewardFn(
             state_env,
@@ -442,33 +464,48 @@ def iql_rig_experiment(
             expl_env.observation_space.spaces[observation_key].low.size
             + expl_env.observation_space.spaces[context_key].low.size
     )
+    if gripper_observation:
+        obs_dim += 6*2
     action_dim = expl_env.action_space.low.size
 
     state_rewards = reward_kwargs.get('reward_type', 'dense') == 'wrapped_env'
-    if desired_goal_key_reward_fn: 
-        if state_rewards:
-            mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key, desired_goal_key_reward_fn: observation_key_reward_fn})
-            obs_keys = [state_observation_key, observation_key, observation_key_reward_fn]
-            cont_keys = [state_goal_key, context_key, desired_goal_key_reward_fn]
-        else:
-            mapper = RemapKeyFn({context_key: observation_key, desired_goal_key_reward_fn: observation_key_reward_fn})
-            obs_keys = [observation_key, observation_key_reward_fn] + list(reset_keys_map.values())
-            cont_keys = [context_key, desired_goal_key_reward_fn]
+    
+    mapper_dict = {context_key: observation_key}
+    obs_keys = [observation_key]
+    cont_keys = [context_key]
+
+    if desired_goal_key_reward_fn:
+        mapper_dict[desired_goal_key_reward_fn] = observation_key_reward_fn
+        obs_keys.append(observation_key_reward_fn)
+        cont_keys.append(desired_goal_key_reward_fn)
+
+    if state_rewards:
+        mapper_dict[state_goal_key] = state_observation_key
+        obs_keys.append(state_observation_key)
+        cont_keys.append(state_goal_key)
     else:
-        if state_rewards:
-            mapper = RemapKeyFn({context_key: observation_key, state_goal_key: state_observation_key})
-            obs_keys = [state_observation_key, observation_key]
-            cont_keys = [state_goal_key, context_key]
-        else:
-            mapper = RemapKeyFn({context_key: observation_key})
-            obs_keys = [observation_key] + list(reset_keys_map.values())
-            cont_keys = [context_key]
+        obs_keys.extend(list(reset_keys_map.values()))
+    
+    if gripper_observation:
+        mapper_dict[gripper_goal_key] = gripper_observation_key
+        obs_keys.append(gripper_observation_key)
+        cont_keys.append(gripper_goal_key)
+
+    mapper = RemapKeyFn(mapper_dict)
+    
 
     #Replay Buffer
     def concat_context_to_obs(batch, replay_buffer, obs_dict, next_obs_dict, new_contexts):
         obs = batch['observations']
+        if type(obs) is tuple:
+            obs = np.concatenate(obs, axis=1)
         next_obs = batch['next_observations']
-        context = batch[context_key]
+        if type(next_obs) is tuple:
+            next_obs = np.concatenate(next_obs, axis=1)
+        if len(new_contexts.keys()) > 1:
+            context = np.concatenate(tuple(new_contexts.values()), axis=1)
+        else:
+            context = batch[context_key]
         batch['observations'] = np.concatenate([obs, context], axis=1)
         batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
         return batch
@@ -478,9 +515,9 @@ def iql_rig_experiment(
             env=eval_env,
             context_keys=cont_keys,
             observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
+            observation_key=observation_key if observation_keys is None else None,
             observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
+            observation_keys=observation_keys,
             context_distribution=training_context_distrib,#expl_context_distrib,
             sample_context_from_obs_dict_fn=mapper,
             reward_fn=eval_reward,
@@ -491,9 +528,9 @@ def iql_rig_experiment(
             env=eval_env,
             context_keys=cont_keys,
             observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
+            observation_key=observation_key if observation_keys is None else None,
             observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
+            observation_keys=observation_keys,
             context_distribution=training_context_distrib,#expl_context_distrib,
             sample_context_from_obs_dict_fn=mapper,
             reward_fn=eval_reward,
@@ -510,9 +547,9 @@ def iql_rig_experiment(
             env=eval_env,
             context_keys=cont_keys,
             observation_keys_to_save=obs_keys,
-            observation_key=observation_key,
+            observation_key=observation_key if observation_keys is None else None,
             observation_key_reward_fn=observation_key_reward_fn,
-            #observation_keys=observation_keys,
+            observation_keys=observation_keys,
             context_distribution=training_context_distrib,#expl_context_distrib,
             sample_context_from_obs_dict_fn=mapper,
             reward_fn=eval_reward,
@@ -551,19 +588,62 @@ def iql_rig_experiment(
     )
 
     #Path Collectors
+    path_collector_observation_keys = [observation_key, ] if observation_keys is None else observation_keys
+    path_collector_context_keys_for_policy = [context_key, ] if not gripper_observation else [context_key, gripper_goal_key]
+    def obs_processor(o):
+        combined_obs = []
+        for k in path_collector_observation_keys:
+            if k == gripper_observation_key:
+                combined_obs.append(np.concatenate((o['state_observation'][:3], quat_to_deg(o['state_observation'][3:7])/360.0), axis=0))
+            else:
+                combined_obs.append(o[k])
+        for k in path_collector_context_keys_for_policy:
+            if k == gripper_goal_key:
+                combined_obs.append(np.concatenate((o['state_desired_goal'][:3], quat_to_deg(o['state_desired_goal'][3:7])/360.0), axis=0))
+            else:
+                combined_obs.append(o[k])
+        return np.concatenate(combined_obs, axis=0)
+
+    def gripper_state_contextual_rollout(
+        env,
+        agent,
+        **kwargs,
+    ):
+        paths = contextual_rollout(
+            env,
+            agent,
+            **kwargs
+        )
+        
+        for i in range(paths['observations'].shape[0]):
+            d = paths['observations'][i]
+            d['gripper_state_observation'] = np.concatenate((d['state_observation'][:3], quat_to_deg(d['state_observation'][3:7])/360.0), axis=0)
+            d['gripper_state_desired_goal'] = np.concatenate((d['state_desired_goal'][:3], quat_to_deg(d['state_desired_goal'][3:7])/360.0), axis=0)
+        
+        for i in range(paths['next_observations'].shape[0]):
+            d = paths['next_observations'][i]
+            d['gripper_state_observation'] = np.concatenate((d['state_observation'][:3], quat_to_deg(d['state_observation'][3:7])/360.0), axis=0)
+            d['gripper_state_desired_goal'] = np.concatenate((d['state_desired_goal'][:3], quat_to_deg(d['state_desired_goal'][3:7])/360.0), axis=0)
+        
+        return paths
+
     eval_path_collector = ContextualPathCollector(
         eval_env,
         MakeDeterministic(policy),
-        observation_keys=[observation_key, ],
-        context_keys_for_policy=[context_key, ],
+        observation_keys=path_collector_observation_keys,
+        context_keys_for_policy=path_collector_context_keys_for_policy,
+        obs_processor=obs_processor,
+        rollout=gripper_state_contextual_rollout if gripper_observation else contextual_rollout,
     )
     exploration_policy = create_exploration_policy(
         expl_env, policy, **exploration_policy_kwargs)
     expl_path_collector = ContextualPathCollector(
         expl_env,
         exploration_policy,
-        observation_keys=[observation_key, ],
-        context_keys_for_policy=[context_key, ],
+        observation_keys=path_collector_observation_keys,
+        context_keys_for_policy=path_collector_context_keys_for_policy,
+        obs_processor=obs_processor,
+        rollout=gripper_state_contextual_rollout if gripper_observation else contextual_rollout,
     )
 
     #Algorithm

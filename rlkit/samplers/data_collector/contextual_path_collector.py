@@ -5,7 +5,6 @@ from rlkit.policies.base import Policy
 from rlkit.samplers.data_collector import MdpPathCollector
 from rlkit.samplers.rollout_functions import contextual_rollout
 
-
 class ContextualPathCollector(MdpPathCollector):
     def __init__(
             self,
@@ -16,12 +15,15 @@ class ContextualPathCollector(MdpPathCollector):
             context_keys_for_policy='context',
             render=False,
             render_kwargs=None,
+            obs_processor=None,
+            rollout=contextual_rollout,
             **kwargs
     ):
         rollout_fn = partial(
-            contextual_rollout,
+            rollout,
             context_keys_for_policy=context_keys_for_policy,
             observation_keys=observation_keys,
+            obs_processor=obs_processor,
         )
         super().__init__(
             env, policy,

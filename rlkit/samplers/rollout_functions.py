@@ -41,7 +41,6 @@ def multitask_rollout(
         paths['observations'] = paths['observations'][observation_key]
     return paths
 
-
 def contextual_rollout(
         env,
         agent,

@@ -6,6 +6,7 @@ from rlkit.torch import pytorch_util as ptu
 
 from rlkit.core import logger
 import torch
+from roboverse.bullet.misc import quat_to_deg_batch
 
 class AddDecodedImageDistribution(DictDistribution):
     def __init__(
@@ -36,6 +37,36 @@ class AddDecodedImageDistribution(DictDistribution):
     def __call__(self, context):
         self.dist.context = context
         return self
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+class AddGripperStateDistribution(DictDistribution):
+    def __init__(
+        self,
+        dist,
+        input_key,
+        output_key,
+    ):
+        self.dist = dist
+        self._spaces = dist.spaces
+        self.input_key = input_key
+        self.output_key = output_key
+        self.gripper_state_size = 6
+        gripper_state_space = Box(
+            -1 * np.ones(self.gripper_state_size),
+            1 * np.ones(self.gripper_state_size),
+            dtype=np.float32,
+        )
+        self._spaces[output_key] = gripper_state_space
+
+    def sample(self, batch_size: int):
+        s = self.dist.sample(batch_size)
+        gripper_pos = s[self.input_key][:,:3]
+        gripper_deg = quat_to_deg_batch(s[self.input_key][:,3:7])/360.0
+        s[self.output_key] = np.concatenate((gripper_pos, gripper_deg), axis=0)
+        return s
 
     @property
     def spaces(self):

@@ -214,6 +214,7 @@ def process_launcher_args(variant):
 SBATCH_CMDS = dict(
     gpu =               "sbatch -A co_rail -p savio3_gpu -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
     # lowprio options on savio3_gpu
+    gpulowprio0 =      "sbatch -A co_rail -p savio3_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:TITAN:1 --wrap=$'source %s && python %s --variants %d'",
     gpu_v100 =          "sbatch -A co_rail -p savio3_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=8 --gres=gpu:V100:1 --wrap=$'source %s && python %s --variants %d'",
     gpu_2080 =          "sbatch -A co_rail -p savio3_gpu --qos savio_lowprio -t %d -N 1 -n 1 --cpus-per-task=4 --gres=gpu:GTX2080TI:1 --wrap=$'source %s && python %s --variants %d'",
     # lowprio options on other partitions
@@ -229,7 +230,7 @@ SBATCH_CMDS = dict(
     cpu3lowprio =       "sbatch -A co_rail -p savio3 --qos savio_lowprio -t %d --wrap=$'source %s && python %s --variants %d'",
 )
 
-def run_variants_brc(variants, path="/tmp/script_to_scp_over.sh"):
+def run_variants_brc(variants, path="/home/patrickhaoy/code/script_to_scp_over.sh"):
     i = sys.argv.index("--script")
     args = sys.argv[:i] + sys.argv[i+1:]
     args_string = " ".join(args)

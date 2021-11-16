@@ -20,6 +20,7 @@ from rlkit.data_management.path_builder import PathBuilder
 from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
 from rlkit.core import logger
 import glob
+from roboverse.bullet.misc import quat_to_deg
 
 class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
@@ -91,6 +92,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
     def preprocess(self, observation, use_latents=True):
         observation = copy.deepcopy(observation)
         images = np.stack([observation[i]['image_observation'] for i in range(len(observation))])
+        gripper_states = np.stack([np.concatenate((observation[i]['state_observation'][:3], quat_to_deg(observation[i]['state_observation'][3:7])/360.0), axis=0) for i in range(len(observation))])
 
         if self.normalize:
             images = images / 255.0
@@ -106,6 +108,8 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             observation[i]["latent_observation"] = latents[i]
             observation[i]["latent_achieved_goal"] = latents[i]
             observation[i]["latent_desired_goal"] = latents[-1]
+            observation[i]["gripper_state_observation"] = gripper_states[i]
+            observation[i]["gripper_state_desired_goal"] = gripper_states[-1]
             if use_latents:
                 del observation[i]['image_observation']
             else:
