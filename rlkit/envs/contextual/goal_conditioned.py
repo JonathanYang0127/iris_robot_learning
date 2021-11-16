@@ -92,7 +92,6 @@ class AddImageDistribution(DictDistribution):
     def spaces(self):
         return self._spaces
 
-
 class PresampledDistribution(DictDistribution):
     def __init__(
             self,
@@ -148,6 +147,39 @@ class PresampledPathDistribution(DictDistribution):
     def spaces(self):
         return self.observation_space.spaces
 
+class NotDonePresampledPathDistribution(PresampledPathDistribution):
+    def __init__(
+            self,
+            datapath,
+            representation_size,
+            env,
+            initialize_encodings=True, # Set to true if you plan to re-encode presampled images
+    ):
+        self.env = env
+        super().__init__(datapath, representation_size, initialize_encodings=initialize_encodings)
+
+    def sample(self, batch_size: int):
+        idx = []
+        possible_idxs = list(range(0, self._num_presampled_goals))
+        np.random.shuffle(possible_idxs)
+        for i in possible_idxs:
+            sampled_goal = {
+                k: v[i] for k, v in self._presampled_goals.items()
+            }
+            if not self.env.done_fn(self.context, sampled_goal):
+                idx.append(i)
+                if len(idx) == batch_size:
+                    break
+        if len(idx) != batch_size:
+            assert False, "not enough not done goal samples"
+        sampled_goals = {
+            k: v[idx] for k, v in self._presampled_goals.items()
+        }
+        return sampled_goals
+
+    def __call__(self, context):
+        self.context = context
+        return self
 
 class ContextualRewardFnFromMultitaskEnv(ContextualRewardFn):
     def __init__(

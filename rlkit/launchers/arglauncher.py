@@ -129,6 +129,8 @@ def process_logger_args(variant, run_id=None):
     elif "--nosnapshot" in sys.argv:
         logger_config["snapshot_mode"] = 'none'
         logger_config["snapshot_gap"] = 1
+    elif "--save_pretrained" in sys.argv:
+        logger_config["snapshot_mode"] = 'save_pretrained'
 
     if "--run" in sys.argv:
         i = sys.argv.index("--run")

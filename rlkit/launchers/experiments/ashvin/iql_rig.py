@@ -70,6 +70,7 @@ from rlkit.envs.contextual.goal_conditioned import (
     ContextualRewardFnFromMultitaskEnv,
     AddImageDistribution,
     PresampledPathDistribution,
+    NotDonePresampledPathDistribution,
 )
 from rlkit.envs.contextual.latent_distributions import (
     AmortizedConditionalPriorDistribution,
@@ -168,12 +169,14 @@ def process_args(variant):
             batch_size=2,
             start_epoch=-1,
             num_epochs=1,
-            num_eval_steps_per_epoch=2,
+            num_eval_steps_per_epoch=16,
             num_expl_steps_per_train_loop=2,
             num_trains_per_train_loop=2,
             num_online_trains_per_train_loop=2,
             min_num_steps_before_training=2,
         ))
+        variant['online_offline_split_replay_buffer_kwargs']['online_replay_buffer_kwargs']['max_size'] = int(5E2)
+        variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'] = int(5E2)
         variant.get('train_vae_kwargs', {}).update(dict(
             num_epochs=1,
             train_pixelcnn_kwargs=dict(
@@ -246,6 +249,7 @@ def iql_rig_experiment(
         renderer_kwargs=None,
         imsize=84,
         pretrained_vae_path="",
+        pretrained_rl_path="",
         input_representation="",
         goal_representation="",
         presampled_goal_kwargs=None,
@@ -338,6 +342,27 @@ def iql_rig_experiment(
             image_goal_distribution = PresampledPathDistribution(
                 presampled_goals_path,
                 model.representation_size,
+            )
+
+            #Representation Check
+            if ccvae_or_cbigan_exp:
+                add_distrib = AddConditionalLatentDistribution
+            else:
+                add_distrib = AddLatentDistribution
+
+            #AddLatentDistribution
+            latent_goal_distribution = add_distrib(
+                image_goal_distribution,
+                image_goal_key,
+                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                model,
+            )
+        elif goal_sampling_mode == "not_done_presampled_images":
+            diagnostics = state_env.get_contextual_diagnostics
+            image_goal_distribution = NotDonePresampledPathDistribution(
+                presampled_goals_path,
+                model.representation_size,
+                encoded_env,
             )
 
             #Representation Check
@@ -557,35 +582,44 @@ def iql_rig_experiment(
             **replay_buffer_kwargs
         )
 
-    #Neural Network Architecture
-    def create_qf():
-        if qf_class is ConcatMlp:
-            qf_kwargs["input_size"] = obs_dim + action_dim
-        if qf_class is ConcatCNN:
-            qf_kwargs["added_fc_input_size"] = action_dim
-        return qf_class(
-            output_size=1,
-            **qf_kwargs
-        )
-    qf1 = create_qf()
-    qf2 = create_qf()
-    target_qf1 = create_qf()
-    target_qf2 = create_qf()
+    if pretrained_rl_path:
+        rl_model_dict = load_local_or_remote_file(pretrained_rl_path)
+        qf1 = rl_model_dict['trainer/qf1']
+        qf2 = rl_model_dict['trainer/qf2']
+        target_qf1 = rl_model_dict['trainer/target_qf1']
+        target_qf2 = rl_model_dict['trainer/target_qf2']
+        vf = rl_model_dict['trainer/vf']
+        policy = rl_model_dict['trainer/policy']
+    else:
+        #Neural Network Architecture
+        def create_qf():
+            if qf_class is ConcatMlp:
+                qf_kwargs["input_size"] = obs_dim + action_dim
+            if qf_class is ConcatCNN:
+                qf_kwargs["added_fc_input_size"] = action_dim
+            return qf_class(
+                output_size=1,
+                **qf_kwargs
+            )
+        qf1 = create_qf()
+        qf2 = create_qf()
+        target_qf1 = create_qf()
+        target_qf2 = create_qf()
 
-    def create_vf():
-        if vf_class is Mlp:
-            vf_kwargs["input_size"] = obs_dim
-        return vf_class(
-            output_size=1,
-            **vf_kwargs
-        )
-    vf = create_vf()
+        def create_vf():
+            if vf_class is Mlp:
+                vf_kwargs["input_size"] = obs_dim
+            return vf_class(
+                output_size=1,
+                **vf_kwargs
+            )
+        vf = create_vf()
 
-    policy = policy_class(
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        **policy_kwargs,
-    )
+        policy = policy_class(
+            obs_dim=obs_dim,
+            action_dim=action_dim,
+            **policy_kwargs,
+        )
 
     #Path Collectors
     path_collector_observation_keys = [observation_key, ] if observation_keys is None else observation_keys

@@ -63,10 +63,12 @@ class AddGripperStateDistribution(DictDistribution):
 
     def sample(self, batch_size: int):
         s = self.dist.sample(batch_size)
-        gripper_pos = s[self.input_key][:,:3]
-        gripper_deg = quat_to_deg_batch(s[self.input_key][:,3:7])/360.0
-        s[self.output_key] = np.concatenate((gripper_pos, gripper_deg), axis=0)
+        s[self.output_key] = np.concatenate((s[self.input_key][:,:3], quat_to_deg_batch(s[self.input_key][:,3:7])/360.0), axis=1)
         return s
+
+    def __call__(self, context):
+        self.context = self.dist(context)
+        return self
 
     @property
     def spaces(self):
@@ -97,6 +99,10 @@ class AddLatentDistribution(DictDistribution):
         s = self.dist.sample(batch_size)
         s[self.output_key] = self.model.encode_np(s[self.input_key])
         return s
+
+    def __call__(self, context):
+        self.context = self.dist(context)
+        return self
 
     @property
     def spaces(self):

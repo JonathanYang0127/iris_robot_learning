@@ -71,6 +71,7 @@ else:
     assert False
 
 vqvae = VAL_DATA_PATH + "best_vqvae.pt"
+pretrained_rl_path = VAL_DATA_PATH + "itr_-1.pt"
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
 image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
@@ -261,23 +262,22 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(2),
-        "eval_seeds": [1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
-        'env_type': ['top_drawer'],
-        'reward_kwargs.epsilon': [5.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
-        #'trainer_kwargs.beta': [0.3],
-        'env_kwargs.reset_interval' : [1],
+        "eval_seeds": [0, 1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
+        "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
         'env_kwargs.full_open_close_init_and_goal' : [True],
         'gripper_observation' : [True],
-
-        "image": [False], # Latent-space or image-space
-        "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
-
         "max_path_length": [100],
         "algo_kwargs.num_expl_steps_per_train_loop": [2000],
+        "only_not_done_goals": [True],
+        #"pretrained_rl_path": [pretrained_rl_path],
 
+        'reward_kwargs.epsilon': [5.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'trainer_kwargs.beta': [0.3],
+        'env_type': ['top_drawer'],
+        'env_kwargs.reset_interval' : [1],
         'algo_kwargs.num_online_trains_per_train_loop': [8000],
         "online_offline_split": [True], # Single replay buffer vs Two replay buffers (one for online, one for offline)
-
+        "image": [False], # Latent-space or image-space
         'algo_kwargs.start_epoch': [-100],
         'algo_kwargs.batch_size': [1024],
         # 'num_pybullet_objects':[None],
@@ -311,6 +311,14 @@ if __name__ == "__main__":
                 fraction_distribution_context=0.0,
                 max_size=int(6E5),
             )
+        
+        if variant['only_not_done_goals']:
+            if variant["training_goal_sampling_mode"] == "presampled_images":
+                variant["training_goal_sampling_mode"] = "not_done_presampled_images"
+            if variant["exploration_goal_sampling_mode"] == "presampled_images":
+                variant["exploration_goal_sampling_mode"] = "not_done_presampled_images"
+            if variant["evaluation_goal_sampling_mode"] == "presampled_images":
+                variant["evaluation_goal_sampling_mode"] = "not_done_presampled_images"
 
         if dataset == 'val':
             if env_type in ['top_drawer', 'bottom_drawer']:
