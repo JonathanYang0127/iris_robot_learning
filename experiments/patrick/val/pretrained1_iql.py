@@ -262,23 +262,26 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(2),
-        "eval_seeds": [0, 1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
+        "eval_seeds": [5], #[0, 1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
         "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
         'env_kwargs.full_open_close_init_and_goal' : [True],
         'gripper_observation' : [True],
         "max_path_length": [100],
-        "algo_kwargs.num_expl_steps_per_train_loop": [2000],
+        "algo_kwargs.num_expl_steps_per_train_loop": [1000],
         "only_not_done_goals": [True],
-        #"pretrained_rl_path": [pretrained_rl_path],
+        "pretrained_rl_path": [pretrained_rl_path],
+        "num_demos": [16],
 
-        'reward_kwargs.epsilon': [5.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
-        'trainer_kwargs.beta': [0.3],
+        "policy_kwargs.std": [.001, .005, .01, .025, .05, .1, .25, .5],
+
+        'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'trainer_kwargs.beta': [5.0],
         'env_type': ['top_drawer'],
         'env_kwargs.reset_interval' : [1],
-        'algo_kwargs.num_online_trains_per_train_loop': [8000],
+        'algo_kwargs.num_online_trains_per_train_loop': [1000, 8000], #[8000],
         "online_offline_split": [True], # Single replay buffer vs Two replay buffers (one for online, one for offline)
         "image": [False], # Latent-space or image-space
-        'algo_kwargs.start_epoch': [-100],
+        'algo_kwargs.start_epoch': [0],
         'algo_kwargs.batch_size': [1024],
         # 'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
@@ -294,11 +297,18 @@ if __name__ == "__main__":
         env_type = variant['env_type']
         if dataset != 'val' and env_type == 'pnp':
             env_type = 'obj'
-        if 'eval_seeds' in variant.keys():
-            eval_goals = VAL_DATA_PATH + '{0}_goals_seed{1}.pkl'.format(env_type, variant['eval_seeds'])
-        else:
-            eval_goals = VAL_DATA_PATH + '{0}_goals.pkl'.format(env_type)
+        
+        full_open_close_str = "full_open_close_" if variant['env_kwargs']['full_open_close_init_and_goal'] else ""
+        eval_seed_str = f"_seed{variant['eval_seeds']}" if 'eval_seeds' in variant.keys() else ""
+        eval_goals = VAL_DATA_PATH + f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl'
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
+
+        variant['path_loader_kwargs']['demo_paths'] = variant['path_loader_kwargs']['demo_paths'][:variant['num_demos']]
+        variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'] = min(int(6E5), int(500*75*variant['num_demos']))
+        variant['online_offline_split_replay_buffer_kwargs']['online_replay_buffer_kwargs']['max_size'] = int(1E6 - variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'])
+
+        if 'pretrained_rl_path' in variant and variant['pretrained_rl_path']:
+            assert variant['algo_kwargs']['start_epoch'] == 0
 
         if variant['ground_truth_expl_goals']:
             variant['exploration_goal_sampling_mode']="presampled_images" #"presample_latents"

@@ -160,18 +160,24 @@ class NotDonePresampledPathDistribution(PresampledPathDistribution):
 
     def sample(self, batch_size: int):
         idx = []
-        possible_idxs = list(range(0, self._num_presampled_goals))
-        np.random.shuffle(possible_idxs)
-        for i in possible_idxs:
-            sampled_goal = {
-                k: v[i] for k, v in self._presampled_goals.items()
-            }
-            if not self.env.done_fn(self.context, sampled_goal):
-                idx.append(i)
-                if len(idx) == batch_size:
+        for j in range(0, batch_size):
+            possible_idxs = list(range(0, self._num_presampled_goals))
+            np.random.shuffle(possible_idxs)
+            if batch_size == 1:
+                curr_obs = self.context
+            else:
+                curr_obs = {
+                    k: self.context[k][j] for k, v in self.context.items()
+                }
+            for i in possible_idxs:
+                sampled_goal = {
+                    k: v[i] for k, v in self._presampled_goals.items()
+                }
+                if not self.env.done_fn(curr_obs, sampled_goal):
+                    idx.append(i)
                     break
-        if len(idx) != batch_size:
-            assert False, "not enough not done goal samples"
+            if len(idx) != j+1:
+                assert False, "not enough not done goal samples"
         sampled_goals = {
             k: v[idx] for k, v in self._presampled_goals.items()
         }

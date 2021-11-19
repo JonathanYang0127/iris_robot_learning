@@ -166,7 +166,7 @@ def process_args(variant):
         variant['max_path_length'] = 5
         variant['num_presample'] = 50
         variant.get('algo_kwargs', {}).update(dict(
-            batch_size=2,
+            batch_size=64,
             start_epoch=-1,
             num_epochs=1,
             num_eval_steps_per_epoch=16,
@@ -504,9 +504,9 @@ def iql_rig_experiment(
         obs_keys.append(observation_key_reward_fn)
         cont_keys.append(desired_goal_key_reward_fn)
 
+    obs_keys.append(state_observation_key)
     if state_rewards:
         mapper_dict[state_goal_key] = state_observation_key
-        obs_keys.append(state_observation_key)
         cont_keys.append(state_goal_key)
     else:
         obs_keys.extend(list(reset_keys_map.values()))
@@ -590,6 +590,9 @@ def iql_rig_experiment(
         target_qf2 = rl_model_dict['trainer/target_qf2']
         vf = rl_model_dict['trainer/vf']
         policy = rl_model_dict['trainer/policy']
+        if 'std' in policy_kwargs and policy_kwargs['std'] is not None:
+            policy.std = policy_kwargs['std']
+            policy.log_std = np.log(policy.std)
     else:
         #Neural Network Architecture
         def create_qf():
