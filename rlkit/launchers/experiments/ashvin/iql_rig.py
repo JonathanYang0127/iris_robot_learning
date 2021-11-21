@@ -683,6 +683,10 @@ def iql_rig_experiment(
         rollout=gripper_state_contextual_rollout if gripper_observation else contextual_rollout,
     )
 
+    if 'beta_online' in trainer_kwargs and trainer_kwargs['beta_online']:
+        if algo_kwargs['start_epoch'] == 0:
+            trainer_kwargs['beta'] = trainer_kwargs['beta_online']
+
     #Algorithm
     trainer = IQLTrainer(
         env=eval_env,
@@ -705,6 +709,12 @@ def iql_rig_experiment(
         max_path_length=max_path_length,
         **algo_kwargs
     )
+
+    if 'beta_online' in trainer_kwargs and trainer_kwargs['beta_online']:
+        def switch_beta(self, epoch):
+            if epoch == -1:
+                self.trainer.beta = trainer_kwargs['beta_online']
+        algorithm.post_epoch_funcs.append(switch_beta)
 
 
     algorithm.to(ptu.device)

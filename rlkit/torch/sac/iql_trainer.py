@@ -43,6 +43,7 @@ class IQLTrainer(TorchTrainer):
             policy_weight_decay=0,
             q_weight_decay=0,
             optimizer_class=optim.Adam,
+            bc=False,
 
             policy_update_period=1,
             q_update_period=1,
@@ -56,6 +57,8 @@ class IQLTrainer(TorchTrainer):
             soft_target_tau=1e-2,
             target_update_period=1,
             beta=1.0,
+            *args,
+            **kwargs
     ):
         super().__init__()
         self.env = env
@@ -69,6 +72,7 @@ class IQLTrainer(TorchTrainer):
         self.vf = vf
         self.z = z
         self.buffer_policy = buffer_policy
+        self.bc = bc
 
         self.qf_criterion = nn.MSELoss()
         self.vf_criterion = nn.MSELoss()
@@ -173,7 +177,7 @@ class IQLTrainer(TorchTrainer):
         if self.clip_score is not None:
             exp_adv = torch.clamp(exp_adv, max=self.clip_score)
 
-        weights = exp_adv[:, 0].detach()
+        weights = ptu.from_numpy(np.ones(exp_adv[:, 0].shape)).detach() if self.bc else exp_adv[:, 0].detach()
         policy_loss = (-policy_logpp * weights).mean()
 
         """

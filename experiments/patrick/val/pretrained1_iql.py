@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     search_space = {
         "seed": range(2),
-        "eval_seeds": [5], #[0, 1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
+        "eval_seeds": [1, 2, 3], #[0, 1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
         "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
         'env_kwargs.full_open_close_init_and_goal' : [True],
         'gripper_observation' : [True],
@@ -272,13 +272,18 @@ if __name__ == "__main__":
         "pretrained_rl_path": [pretrained_rl_path],
         "num_demos": [16],
 
-        "policy_kwargs.std": [.001, .005, .01, .025, .05, .1, .25, .5],
-
+        "policy_kwargs.std": [0.05],
+        'trainer_kwargs.bc': [False],
         'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
         'trainer_kwargs.beta': [5.0],
+        'trainer_kwargs.beta_online': [0.1],
+
+        #'trainer_kwargs.policy_weight_decay': [int(1E-2), int(1E-3), int(1E-4), 0],
+        #'trainer_kwargs.q_weight_decay': [int(1E-2), int(1E-3), int(1E-4), 0],
+
         'env_type': ['top_drawer'],
         'env_kwargs.reset_interval' : [1],
-        'algo_kwargs.num_online_trains_per_train_loop': [1000, 8000], #[8000],
+        'algo_kwargs.num_online_trains_per_train_loop': [8000],
         "online_offline_split": [True], # Single replay buffer vs Two replay buffers (one for online, one for offline)
         "image": [False], # Latent-space or image-space
         'algo_kwargs.start_epoch': [0],
