@@ -34,6 +34,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             evaluation_get_diagnostic_functions=None,
             eval_epoch_freq=1,
             eval_only=False,
+            offline_expl_epoch_freq=1,
             save_algorithm=False,
             save_replay_buffer=False,
             save_logger=False,
@@ -75,6 +76,8 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
 
         self._eval_epoch_freq = eval_epoch_freq
         self._eval_only = eval_only
+
+        self._offline_expl_epoch_freq = offline_expl_epoch_freq
 
     def train(self):
         timer.return_global_times = True
@@ -168,11 +171,18 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
                    prefix='replay_buffer/')
         append_log(algo_log, self.trainer.get_diagnostics(), prefix='trainer/')
         # Exploration
-        append_log(algo_log, self.expl_data_collector.get_diagnostics(),
-                   prefix='expl/')
-        expl_paths = self.expl_data_collector.get_epoch_paths()
-        for fn in self._expl_get_diag_fns:
-            append_log(algo_log, fn(expl_paths), prefix='expl/')
+        if self.epoch >= 0 or self.epoch % self._offline_expl_epoch_freq == 0:
+            self._prev_expl_log = OrderedDict()
+            expl_diag = self.expl_data_collector.get_diagnostics()
+            self._prev_expl_log.update(expl_diag)
+            append_log(algo_log, expl_diag, prefix='expl/')
+            expl_paths = self.expl_data_collector.get_epoch_paths()
+            for fn in self._expl_get_diag_fns:
+                addl_diag = fn(expl_paths)
+                self._prev_expl_log.update(addl_diag)
+                append_log(algo_log, addl_diag, prefix='expl/')
+        else:
+            append_log(algo_log, self._prev_expl_log, prefix='expl/')
         # Eval
         if self.epoch % self._eval_epoch_freq == 0:
             self._prev_eval_log = OrderedDict()

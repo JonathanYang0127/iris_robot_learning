@@ -58,7 +58,7 @@ class IQLTrainer(TorchTrainer):
             target_update_period=1,
             beta=1.0,
             *args,
-            **kwargs
+            **kwargs,
     ):
         super().__init__()
         self.env = env

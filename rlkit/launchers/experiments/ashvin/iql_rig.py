@@ -167,8 +167,8 @@ def process_args(variant):
         variant['num_presample'] = 50
         variant.get('algo_kwargs', {}).update(dict(
             batch_size=64,
-            start_epoch=-1,
-            num_epochs=1,
+            start_epoch=-100,
+            num_epochs=5,
             num_eval_steps_per_epoch=16,
             num_expl_steps_per_train_loop=2,
             num_trains_per_train_loop=2,
@@ -245,7 +245,8 @@ def iql_rig_experiment(
 
         # Video parameters
         save_video=True,
-        save_video_kwargs=None,
+        expl_save_video_kwargs=None,
+        eval_save_video_kwargs=None,
         renderer_kwargs=None,
         imsize=84,
         pretrained_vae_path="",
@@ -276,8 +277,10 @@ def iql_rig_experiment(
             {'eval_goals': '','expl_goals': '','training_goals': ''}
     if path_loader_kwargs is None:
         path_loader_kwargs = {}
-    if not save_video_kwargs:
-        save_video_kwargs = {}
+    if not expl_save_video_kwargs:
+        expl_save_video_kwargs = {}
+    if not eval_save_video_kwargs:
+        eval_save_video_kwargs = {}
     if not renderer_kwargs:
         renderer_kwargs = {}
     
@@ -683,7 +686,8 @@ def iql_rig_experiment(
         rollout=gripper_state_contextual_rollout if gripper_observation else contextual_rollout,
     )
 
-    if 'beta_online' in trainer_kwargs and trainer_kwargs['beta_online']:
+    if trainer_kwargs['use_online_beta']:
+        assert trainer_kwargs['use_anneal_beta'] == False
         if algo_kwargs['start_epoch'] == 0:
             trainer_kwargs['beta'] = trainer_kwargs['beta_online']
 
@@ -710,12 +714,20 @@ def iql_rig_experiment(
         **algo_kwargs
     )
 
-    if 'beta_online' in trainer_kwargs and trainer_kwargs['beta_online']:
+    if trainer_kwargs['use_online_beta']:
+        assert trainer_kwargs['use_anneal_beta'] == False
         def switch_beta(self, epoch):
             if epoch == -1:
                 self.trainer.beta = trainer_kwargs['beta_online']
         algorithm.post_epoch_funcs.append(switch_beta)
-
+    elif trainer_kwargs['use_anneal_beta']:
+        def switch_beta(self, epoch):
+            print(self.trainer.beta)
+            if (epoch != algo_kwargs['start_epoch'] 
+                and (epoch - algo_kwargs['start_epoch']) % trainer_kwargs['anneal_beta_every'] == 0 
+                and self.trainer.beta * trainer_kwargs['anneal_beta_by'] >= trainer_kwargs['anneal_beta_stop_at']):
+                 self.trainer.beta *= trainer_kwargs['anneal_beta_by']
+        algorithm.post_epoch_funcs.append(switch_beta)
 
     algorithm.to(ptu.device)
 
@@ -732,7 +744,7 @@ def iql_rig_experiment(
             unnormalize=True,
             imsize=imsize,
             image_format=renderer.output_image_format,
-            **save_video_kwargs
+            **expl_save_video_kwargs
         )
         algorithm.post_train_funcs.append(expl_video_func)
 
@@ -749,7 +761,7 @@ def iql_rig_experiment(
             unnormalize=True,
             imsize=imsize,
             image_format=renderer.output_image_format,
-            **save_video_kwargs
+            **eval_save_video_kwargs
         )
         algorithm.post_train_funcs.append(eval_video_func)
 

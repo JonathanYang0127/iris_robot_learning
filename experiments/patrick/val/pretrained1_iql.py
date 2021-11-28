@@ -71,7 +71,9 @@ else:
     assert False
 
 vqvae = VAL_DATA_PATH + "best_vqvae.pt"
-pretrained_rl_path = VAL_DATA_PATH + "itr_-1.pt"
+#pretrained_rl_path = VAL_DATA_PATH + "itr_-1.pt"
+# pretrained_rl_path = VAL_DATA_PATH + "run150_id2_itr_-1.pt"
+pretrained_rl_path = VAL_DATA_PATH + "run155_id3_itr_-1.pt"
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
 image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
@@ -154,8 +156,12 @@ if __name__ == "__main__":
         observation_keys=['latent_observation'],
         desired_goal_key='latent_desired_goal',
         save_video=True,
-        save_video_kwargs=dict(
+        expl_save_video_kwargs=dict(
             save_video_period=25,
+            pad_color=0,
+        ),
+        eval_save_video_kwargs=dict(
+            save_video_period=1000,
             pad_color=0,
         ),
 
@@ -261,32 +267,47 @@ if __name__ == "__main__":
     )
 
     search_space = {
-        "seed": range(2),
-        "eval_seeds": [1, 2, 3], #[0, 1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
-        "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
-        'env_kwargs.full_open_close_init_and_goal' : [True],
-        'gripper_observation' : [True],
+        "num_demos": [2, 1],
+        "seed": [2],
+        "eval_seeds": [1], #[0, 1, 2, 3, 4, 5, 6, 7], #[1, 2, 4, 5, 6, 7]
+        #"pretrained_rl_path": [pretrained_rl_path],
+        'algo_kwargs.start_epoch': [-100],
+        
+        "policy_kwargs.std": [0.05], #[0.05, 0.1, 0.15, 0.2],
+        'trainer_kwargs.bc': [False],
+        'reward_kwargs.epsilon': [3.5], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
+        'trainer_kwargs.beta': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0], 
+        'trainer_kwargs.quantile': [0.9],
+
+        'trainer_kwargs.use_online_beta': [True],
+        'trainer_kwargs.beta_online': [0.01],
+        
+        'trainer_kwargs.use_anneal_beta' : [False],
+        'trainer_kwargs.anneal_beta_every': [20],
+        'trainer_kwargs.anneal_beta_by': [.05], #[.05, .1, .15, .2, .25, .3, .35, .4, .45, .5],
+        'trainer_kwargs.anneal_beta_stop_at': [.0001],
+        #'online_offline_split_replay_buffer_kwargs.sample_online_fraction': [.2, .6, 1.0],
+
+        'env_kwargs.full_open_close_init_and_goal' : [False],
+        'full_open_close_goal' : [False],
+
         "max_path_length": [100],
         "algo_kwargs.num_expl_steps_per_train_loop": [1000],
+
+        'online_offline_split_replay_buffer_kwargs.offline_replay_buffer_kwargs.preallocate_arrays': [True],
+        'online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.preallocate_arrays': [True],
+
+        # 'trainer_kwargs.policy_weight_decay': [1E-2, 1E-3, 1E-4, 0],
+        # 'trainer_kwargs.q_weight_decay': [1E-2, 1E-3, 1E-4, 0],
+
+        "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
+        'gripper_observation' : [True],
         "only_not_done_goals": [True],
-        "pretrained_rl_path": [pretrained_rl_path],
-        "num_demos": [16],
-
-        "policy_kwargs.std": [0.05],
-        'trainer_kwargs.bc': [False],
-        'reward_kwargs.epsilon': [4.0], #3.5, 4.0, 4.5, 5.0, 5.5, 6.0
-        'trainer_kwargs.beta': [5.0],
-        'trainer_kwargs.beta_online': [0.1],
-
-        #'trainer_kwargs.policy_weight_decay': [int(1E-2), int(1E-3), int(1E-4), 0],
-        #'trainer_kwargs.q_weight_decay': [int(1E-2), int(1E-3), int(1E-4), 0],
-
         'env_type': ['top_drawer'],
         'env_kwargs.reset_interval' : [1],
         'algo_kwargs.num_online_trains_per_train_loop': [8000],
         "online_offline_split": [True], # Single replay buffer vs Two replay buffers (one for online, one for offline)
         "image": [False], # Latent-space or image-space
-        'algo_kwargs.start_epoch': [0],
         'algo_kwargs.batch_size': [1024],
         # 'num_pybullet_objects':[None],
         'policy_kwargs.min_log_std': [-6],
@@ -303,14 +324,14 @@ if __name__ == "__main__":
         if dataset != 'val' and env_type == 'pnp':
             env_type = 'obj'
         
-        full_open_close_str = "full_open_close_" if variant['env_kwargs']['full_open_close_init_and_goal'] else ""
+        full_open_close_str = "full_open_close_" if variant['full_open_close_goal'] else ""
         eval_seed_str = f"_seed{variant['eval_seeds']}" if 'eval_seeds' in variant.keys() else ""
         eval_goals = VAL_DATA_PATH + f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl'
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         variant['path_loader_kwargs']['demo_paths'] = variant['path_loader_kwargs']['demo_paths'][:variant['num_demos']]
         variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'] = min(int(6E5), int(500*75*variant['num_demos']))
-        variant['online_offline_split_replay_buffer_kwargs']['online_replay_buffer_kwargs']['max_size'] = int(1E6 - variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'])
+        variant['online_offline_split_replay_buffer_kwargs']['online_replay_buffer_kwargs']['max_size'] = min(int(4/6 * 500*75*variant['num_demos']), int(1E6 - variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size']))
 
         if 'pretrained_rl_path' in variant and variant['pretrained_rl_path']:
             assert variant['algo_kwargs']['start_epoch'] == 0
@@ -321,12 +342,14 @@ if __name__ == "__main__":
             variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
             variant['presampled_goal_kwargs']['training_goals'] = eval_goals
 
-            variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs'] = dict(
-                fraction_future_context=0.6,
-                fraction_distribution_context=0.0,
-                max_size=int(6E5),
-            )
+            variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['fraction_distribution_context'] = 0.0
         
+            # speed up training
+            assert variant['algo_kwargs']['start_epoch'] % 100 == 0
+            variant['algo_kwargs']['eval_epoch_freq'] = 100
+            variant['algo_kwargs']['offline_expl_epoch_freq'] = 5
+            variant['eval_save_video_kwargs']['save_video_period'] = 100
+
         if variant['only_not_done_goals']:
             if variant["training_goal_sampling_mode"] == "presampled_images":
                 variant["training_goal_sampling_mode"] = "not_done_presampled_images"

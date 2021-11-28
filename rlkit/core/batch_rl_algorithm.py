@@ -80,11 +80,12 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         if not self._eval_only:
             for _ in range(self.num_train_loops_per_epoch):
                 timer.start_timer('exploration sampling', unique=False)
-                new_expl_paths = self.expl_data_collector.collect_new_paths(
-                    self.max_path_length,
-                    self.num_expl_steps_per_train_loop,
-                    discard_incomplete_paths=False,
-                )
+                if self.epoch >= 0 or self.epoch % self._offline_expl_epoch_freq == 0:
+                    new_expl_paths = self.expl_data_collector.collect_new_paths(
+                        self.max_path_length,
+                        self.num_expl_steps_per_train_loop,
+                        discard_incomplete_paths=False,
+                    )
                 timer.stop_timer('exploration sampling')
 
                 timer.start_timer('replay buffer data storing', unique=False)
@@ -96,6 +97,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                 num_trains = self.num_trains_per_train_loop
                 if self.epoch >= 0:
                     num_trains = self.num_online_trains_per_train_loop
+                    
                 for _ in range(num_trains):
                     train_data = self.replay_buffer.random_batch(self.batch_size)
                     self.trainer.train(train_data)
