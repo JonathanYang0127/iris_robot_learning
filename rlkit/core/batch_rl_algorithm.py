@@ -58,7 +58,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             if self.multi_task:
                 init_expl_paths = self.expl_data_collector.collect_new_paths(
                     self.max_path_length,
-                    self.num_eval_steps_per_epoch,
+                    self.min_num_steps_before_training,
                     discard_incomplete_paths=True,
                     multi_task=True,
                     task_index=self.exploration_task

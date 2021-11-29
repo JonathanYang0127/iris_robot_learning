@@ -326,8 +326,8 @@ if __name__ == '__main__':
         algorithm="AWAC-Pixel",
 
         num_epochs=3000,
-        batch_size=128,
-        meta_batch_size=2,
+        batch_size=64,
+        meta_batch_size=4,
         max_path_length=40,
         num_trains_per_train_loop=1000,
         # num_eval_steps_per_epoch=0,
