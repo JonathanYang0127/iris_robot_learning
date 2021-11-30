@@ -167,7 +167,7 @@ def process_args(variant):
         variant['num_presample'] = 50
         variant.get('algo_kwargs', {}).update(dict(
             batch_size=64,
-            start_epoch=-100,
+            start_epoch=-5,
             num_epochs=5,
             num_eval_steps_per_epoch=16,
             num_expl_steps_per_train_loop=2,
@@ -251,6 +251,7 @@ def iql_rig_experiment(
         imsize=84,
         pretrained_vae_path="",
         pretrained_rl_path="",
+        use_pretrained_rl_path=False,
         input_representation="",
         goal_representation="",
         presampled_goal_kwargs=None,
@@ -585,7 +586,7 @@ def iql_rig_experiment(
             **replay_buffer_kwargs
         )
 
-    if pretrained_rl_path:
+    if use_pretrained_rl_path:
         rl_model_dict = load_local_or_remote_file(pretrained_rl_path)
         qf1 = rl_model_dict['trainer/qf1']
         qf2 = rl_model_dict['trainer/qf2']
