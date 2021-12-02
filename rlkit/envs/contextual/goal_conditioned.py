@@ -244,7 +244,7 @@ class MultipleGoalsNotDonePresampledPathDistribution(NotDonePresampledPathDistri
                 if k not in sampled_goals.keys():
                     sampled_goals[k] = v[goal_idx:goal_idx+1]
                 else:
-                    sampled_goals[k] = np.concatenate(sampled_goals[k], v[goal_idx:goal_idx+1], axis=0)
+                    sampled_goals[k] = np.concatenate((sampled_goals[k], v[goal_idx:goal_idx+1]), axis=0)
 
         return sampled_goals
 
