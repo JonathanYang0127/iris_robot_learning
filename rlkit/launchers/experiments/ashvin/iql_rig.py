@@ -71,6 +71,7 @@ from rlkit.envs.contextual.goal_conditioned import (
     AddImageDistribution,
     PresampledPathDistribution,
     NotDonePresampledPathDistribution,
+    MultipleGoalsNotDonePresampledPathDistribution,
 )
 from rlkit.envs.contextual.latent_distributions import (
     AmortizedConditionalPriorDistribution,
@@ -263,6 +264,7 @@ def iql_rig_experiment(
         vf_class=Mlp,
         env_type=None, # For plotting
         seed=None,
+        multiple_goals_eval_seeds=None,
         **kwargs,
     ):
 
@@ -367,6 +369,28 @@ def iql_rig_experiment(
                 presampled_goals_path,
                 model.representation_size,
                 encoded_env,
+            )
+
+            #Representation Check
+            if ccvae_or_cbigan_exp:
+                add_distrib = AddConditionalLatentDistribution
+            else:
+                add_distrib = AddLatentDistribution
+
+            #AddLatentDistribution
+            latent_goal_distribution = add_distrib(
+                image_goal_distribution,
+                image_goal_key,
+                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                model,
+            )
+        elif goal_sampling_mode == "multiple_goals_not_done_presampled_images":
+            diagnostics = state_env.get_contextual_diagnostics
+            image_goal_distribution = MultipleGoalsNotDonePresampledPathDistribution(
+                presampled_goals_path,
+                model.representation_size,
+                encoded_env,
+                multiple_goals_eval_seeds,
             )
 
             #Representation Check
@@ -688,7 +712,6 @@ def iql_rig_experiment(
     )
 
     if trainer_kwargs['use_online_beta']:
-        assert trainer_kwargs['use_anneal_beta'] == False
         if algo_kwargs['start_epoch'] == 0:
             trainer_kwargs['beta'] = trainer_kwargs['beta_online']
 
@@ -716,7 +739,6 @@ def iql_rig_experiment(
     )
 
     if trainer_kwargs['use_online_beta']:
-        assert trainer_kwargs['use_anneal_beta'] == False
         def switch_beta(self, epoch):
             if epoch == -1:
                 self.trainer.beta = trainer_kwargs['beta_online']

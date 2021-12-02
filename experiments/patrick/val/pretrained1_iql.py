@@ -272,8 +272,10 @@ if __name__ == "__main__":
 
     search_space = {
         # Seed
-        "seed": range(2),
-        "eval_seeds": [1], # Evaluation environment seed
+        "seed": range(3),
+        "env_kwargs.use_multiple_goals": [False],
+        "eval_seeds": [1], # If 'use_multiple_goals'=False, use this evaluation environment seed
+        "multiple_goals_eval_seeds": [[0, 1, 5, 7]], # If 'use_multiple_goals'=True, use list of evaluation environment seeds
         'env_type': ['top_drawer'],
 
         # Training Parameters
@@ -285,6 +287,7 @@ if __name__ == "__main__":
         "max_path_length": [100], # Length of trajectory during exploration and evaluation
         "algo_kwargs.num_expl_steps_per_train_loop": [1000], # Total number of steps during exploration per train loop
         'env_kwargs.reset_interval' : [1], # Reset environment every 'reset_interval' episodes
+        #'online_offline_split_replay_buffer_kwargs.offline_replay_buffer_kwargs.fraction_distribution_context': [0.0, 0.1],
 
         ## Training Hyperparameters
         'trainer_kwargs.beta': [0.01], 
@@ -303,7 +306,7 @@ if __name__ == "__main__":
         ## Network Parameters
         'gripper_observation' : [False], # Concatenate gripper position and rotation into network input
         "image": [False], # Latent-space or image-space
-        "policy_kwargs.std": [0.09], # Fixed std of policy during exploration
+        "policy_kwargs.std": [0.15], # Fixed std of policy during exploration
         'qf_kwargs.output_activation': [Clamp(max=0)],
 
         ## Goals
@@ -319,19 +322,31 @@ if __name__ == "__main__":
 
     variants = []
     for variant in sweeper.iterate_hyperparameters():
+        ## Error checking
         assert variant['algo_kwargs']['start_epoch'] % variant['algo_kwargs']['eval_epoch_freq'] == 0
         if variant['algo_kwargs']['start_epoch'] < 0:
             assert variant['algo_kwargs']['start_epoch'] % variant['algo_kwargs']['offline_expl_epoch_freq'] == 0
         if variant['use_pretrained_rl_path']:
             assert variant['algo_kwargs']['start_epoch'] == 0
+        if variant['trainer_kwargs']['use_online_beta']:
+            assert variant['trainer_kwargs']['use_anneal_beta'] == False
+        if variant['multiple_goals_eval_seeds']:
+            assert variant['only_not_done_goals'], 'multiple goals without filtering out bad goals not implemented yet'
+            assert not variant['gripper_observation'], 'multiple goals with gripper observation not implemented yet'
 
         env_type = variant['env_type']
         if dataset != 'val' and env_type == 'pnp':
             env_type = 'obj'
         
         full_open_close_str = "full_open_close_" if variant['full_open_close_goal'] else ""
-        eval_seed_str = f"_seed{variant['eval_seeds']}" if 'eval_seeds' in variant.keys() else ""
-        eval_goals = VAL_DATA_PATH + f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl'
+        if variant['env_kwargs']['use_multiple_goals']:
+            eval_goals = []
+            for eval_seed in variant['multiple_goals_eval_seeds']:
+                eval_seed_str = f"_seed{eval_seed}"
+                eval_goals.append(VAL_DATA_PATH + f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl')
+        else:
+            eval_seed_str = f"_seed{variant['eval_seeds']}" if 'eval_seeds' in variant.keys() else ""
+            eval_goals = VAL_DATA_PATH + f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl'
         variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
         variant['path_loader_kwargs']['demo_paths'] = variant['path_loader_kwargs']['demo_paths'][:variant['num_demos']]
@@ -347,12 +362,20 @@ if __name__ == "__main__":
             variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['fraction_distribution_context'] = 0.0
 
         if variant['only_not_done_goals']:
-            if variant["training_goal_sampling_mode"] == "presampled_images":
-                variant["training_goal_sampling_mode"] = "not_done_presampled_images"
-            if variant["exploration_goal_sampling_mode"] == "presampled_images":
-                variant["exploration_goal_sampling_mode"] = "not_done_presampled_images"
-            if variant["evaluation_goal_sampling_mode"] == "presampled_images":
-                variant["evaluation_goal_sampling_mode"] = "not_done_presampled_images"
+            if variant['env_kwargs']['use_multiple_goals']:
+                if variant["training_goal_sampling_mode"] == "presampled_images":
+                    variant["training_goal_sampling_mode"] = "multiple_goals_not_done_presampled_images"
+                if variant["exploration_goal_sampling_mode"] == "presampled_images":
+                    variant["exploration_goal_sampling_mode"] = "multiple_goals_not_done_presampled_images"
+                if variant["evaluation_goal_sampling_mode"] == "presampled_images":
+                    variant["evaluation_goal_sampling_mode"] = "multiple_goals_not_done_presampled_images"
+            else:
+                if variant["training_goal_sampling_mode"] == "presampled_images":
+                    variant["training_goal_sampling_mode"] = "not_done_presampled_images"
+                if variant["exploration_goal_sampling_mode"] == "presampled_images":
+                    variant["exploration_goal_sampling_mode"] = "not_done_presampled_images"
+                if variant["evaluation_goal_sampling_mode"] == "presampled_images":
+                    variant["evaluation_goal_sampling_mode"] = "not_done_presampled_images"
 
         if dataset == 'val':
             if env_type in ['top_drawer', 'bottom_drawer']:
@@ -376,6 +399,8 @@ if __name__ == "__main__":
         
         if 'eval_seeds' in variant.keys():
             variant['env_kwargs']['test_env_seed'] = variant['eval_seeds']
+        if variant['env_kwargs']['use_multiple_goals']:
+            variant['env_kwargs']['test_env_seeds'] = variant['multiple_goals_eval_seeds']
         
         if variant['gripper_observation']:
             variant['observation_keys'] = ['latent_observation', 'gripper_state_observation']

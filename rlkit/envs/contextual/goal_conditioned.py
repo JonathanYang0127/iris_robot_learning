@@ -177,7 +177,8 @@ class NotDonePresampledPathDistribution(PresampledPathDistribution):
                     idx.append(i)
                     break
             if len(idx) != j+1:
-                assert False, "not enough not done goal samples"
+                idx.append((self.env.test_env_seed, np.random.choice(possible_idxs)))
+                #assert False, "not enough not done goal samples"
         sampled_goals = {
             k: v[idx] for k, v in self._presampled_goals.items()
         }
@@ -186,6 +187,83 @@ class NotDonePresampledPathDistribution(PresampledPathDistribution):
     def __call__(self, context):
         self.context = context
         return self
+
+class MultipleGoalsNotDonePresampledPathDistribution(NotDonePresampledPathDistribution):
+    def __init__(
+            self,
+            datapaths,
+            representation_size,
+            env,
+            goal_env_seeds,
+            initialize_encodings=True, # Set to true if you plan to re-encode presampled images
+    ):
+        self.goal_env_seeds = goal_env_seeds
+        self.env = env
+        self.representation_size = representation_size 
+
+        self._presampled_goals = {}
+        self._num_presampled_goals = {}
+        for goal_env_seed, datapath in zip(self.goal_env_seeds, datapaths):
+            presampled_goals = load_local_or_remote_file(datapath)
+            num_presampled_goals = presampled_goals[list(presampled_goals)[0]].shape[0]
+
+            self._presampled_goals[goal_env_seed] = presampled_goals
+            self._num_presampled_goals[goal_env_seed] = num_presampled_goals
+
+            if initialize_encodings:
+                presampled_goals['initial_latent_state'] = np.zeros((num_presampled_goals, self.representation_size))
+        self._set_spaces()
+
+    def sample(self, batch_size: int):
+        idx = []
+        
+        for j in range(0, batch_size):
+            possible_idxs = list(range(0, self._num_presampled_goals[self.env.test_env_seed]))
+            np.random.shuffle(possible_idxs)
+            if batch_size == 1:
+                curr_obs = self.context
+            else:
+                curr_obs = {
+                    k: self.context[k][j] for k, v in self.context.items()
+                }
+            for i in possible_idxs:
+                sampled_goal = {
+                    k: v[i] for k, v in self._presampled_goals[self.env.test_env_seed].items()
+                }
+                if not self.env.done_fn(curr_obs, sampled_goal):
+                    idx.append((self.env.test_env_seed, i))
+                    break
+            if len(idx) != j+1:
+                idx.append((self.env.test_env_seed, np.random.choice(possible_idxs)))
+                #assert False, "not enough not done goal samples"
+            
+        sampled_goals = {}
+        for i in idx:
+            env_seed_idx, goal_idx = i
+            for k, v in self._presampled_goals[env_seed_idx].items():
+                if k not in sampled_goals.keys():
+                    sampled_goals[k] = v[goal_idx:goal_idx+1]
+                else:
+                    sampled_goals[k] = np.concatenate(sampled_goals[k], v[goal_idx:goal_idx+1], axis=0)
+
+        return sampled_goals
+
+    def __call__(self, context):
+        self.context = context
+        return self
+
+    def _set_spaces(self):
+        pairs = []
+        for key in self._presampled_goals[list(self._presampled_goals.keys())[0]]:
+            dim = self._presampled_goals[list(self._presampled_goals.keys())[0]][key][0].shape[0]
+            box = gym.spaces.Box(-np.ones(dim), np.ones(dim))
+            pairs.append((key, box))
+        self.observation_space = Dict(pairs)
+
+    @property
+    def spaces(self):
+        return self.observation_space.spaces
+    
 
 class ContextualRewardFnFromMultitaskEnv(ContextualRewardFn):
     def __init__(
