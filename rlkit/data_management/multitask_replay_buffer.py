@@ -7,6 +7,7 @@ from rlkit.data_management.simple_replay_buffer import (
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from gym.spaces import Box, Discrete, Tuple
+from collections import OrderedDict
 
 
 class MultiTaskReplayBuffer(ReplayBuffer):
@@ -206,6 +207,10 @@ class MultiTaskReplayBuffer(ReplayBuffer):
 
     def get_snapshot(self):
         return dict()
+
+    def get_diagnostics(self):
+        return OrderedDict([("task " + str(i) + " size", self.num_steps_can_sample(i)) \
+                             for i in self.task_indices])
 
 
 class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):

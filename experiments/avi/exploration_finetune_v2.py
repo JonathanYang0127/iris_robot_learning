@@ -242,7 +242,7 @@ def experiment(variant):
             q_function=qf1, n_components=10)
     elif variant['exploration_strategy'] == 'cem':
         exploration_strategy = CEMExplorationStrategy(task_embeddings_batch,
-            update_frequency=variant['exploration_update_frequency'], n_components=10)
+            update_frequency=variant['exploration_update_frequency'], n_components=num_tasks)
     elif variant['exploration_strategy'] == 'fast':
         exploration_strategy = FastExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=10)
@@ -256,25 +256,27 @@ def experiment(variant):
         policy,
         observation_keys=observation_keys,
         expl_reset_free=args.expl_reset_free,
-        epochs_per_reset=variant['epochs_per_reset']
+        epochs_per_reset=variant['epochs_per_reset'],
+        exploration_task=variant['exploration_task']
     )
-    eval_path_collector = ObsDictPathCollector(
-        eval_env,
-        eval_policy,
+    # TODO: need to give this a copy of the env if we change epochs_per_reset to be >1
+    eval_path_collector = EmbeddingExplorationObsDictPathCollector(
+        exploration_strategy,
+        expl_env,
+        policy,
         observation_keys=observation_keys,
+        expl_reset_free=False,
+        epochs_per_reset=variant['epochs_per_reset'],
+        exploration_task=variant['exploration_task'],
+        do_cem_update=False
     )
-
-    if variant['expl_reset_free']:
-        train_tasks = [variant['exploration_task'], opp_task]
-    else:
-        train_tasks = [variant['exploration_task']]
 
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
         evaluation_env=eval_env,
         exploration_data_collector=expl_path_collector,
-        evaluation_data_collector=expl_path_collector,
+        evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
@@ -286,7 +288,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-        train_tasks=train_tasks,
+        train_tasks=[variant['exploration_task'], opp_task],
         eval_tasks=[variant['exploration_task']],
     )
 
@@ -331,7 +333,7 @@ if __name__ == '__main__':
         max_path_length=40,
         num_trains_per_train_loop=1000,
         # num_eval_steps_per_epoch=0,
-        num_eval_steps_per_epoch=0,
+        num_eval_steps_per_epoch=40 *40,
         num_expl_steps_per_train_loop=40 * 40,
         min_num_steps_before_training=100 * 40,
 

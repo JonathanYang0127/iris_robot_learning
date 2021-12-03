@@ -192,7 +192,7 @@ def add_reward_filtered_trajectories_to_buffers_multitask(
         path_len = len(data[j]['actions'])
         path = data[j]
         task_idx = data[j]['env_infos'][0]['task_idx']
-        
+
         for arg in args:
             if arg[1](path['rewards']):
                 path_obs = process_keys(path['observations'], observation_keys)
@@ -241,7 +241,9 @@ class VideoSaveFunctionBullet:
             video_dir = osp.join(self.logdir,
                                  'videos_eval/{epoch}/'.format(epoch=epoch))
             eval_paths = algo.eval_data_collector.get_epoch_paths()
+            expl_paths = algo.expl_data_collector.get_epoch_paths()
             dump_video_basic(video_dir, eval_paths)
+            dump_video_basic(video_dir+"expl/", expl_paths)
 
 
 def dump_video_basic(video_dir, paths):

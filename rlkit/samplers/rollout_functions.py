@@ -125,8 +125,6 @@ def rollout(
     if not expl_reset_free:
         o = env.reset()
     else:
-        # TODO (homer): temp fix to ensure embedding matches env task idx matches object positions
-        # env.reset_robot_only()
         o = env.get_observation()
     if reset_callback:
         reset_callback(env, agent, o)
