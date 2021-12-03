@@ -95,11 +95,11 @@ class MdpPathCollector(PathCollector):
                     opp_task = self._env.env.task_idx + self._env.num_tasks
                     self._env.reset_task(opp_task)
 
-                if object_detector is not None:
-                    from widowx_envs.scripts.label_pickplace_rewards import (
-                        relabel_path_rewards_with_obj_model_and_thresh)
-                    path = relabel_path_rewards_with_obj_model_and_thresh(
-                        object_detector, path, max_path_length_this_loop)
+            if object_detector is not None:
+                from widowx_envs.scripts.label_pickplace_rewards import (
+                    relabel_path_rewards_with_obj_model_and_thresh)
+                path = relabel_path_rewards_with_obj_model_and_thresh(
+                    object_detector, path, max_path_length_this_loop)
 
             path_len = len(path['actions'])
             if (
@@ -237,7 +237,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         def exploration_rollout(*args, **kwargs):
             # determine which task we're in
             self._reverse = self._env.env.is_reset_task()
-            
+
             embedding = self._exploration_strategy.sample_embedding(reverse=self._reverse)
             rollout = fixed_contextual_rollout(*args,
                 observation_keys=self._observation_keys,
