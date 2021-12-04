@@ -156,6 +156,7 @@ class NotDonePresampledPathDistribution(PresampledPathDistribution):
             initialize_encodings=True, # Set to true if you plan to re-encode presampled images
     ):
         self.env = env
+        self.context = None
         super().__init__(datapath, representation_size, initialize_encodings=initialize_encodings)
 
     def sample(self, batch_size: int):
@@ -187,6 +188,47 @@ class NotDonePresampledPathDistribution(PresampledPathDistribution):
     def __call__(self, context):
         self.context = context
         return self
+
+class TwoDistributions(DictDistribution):
+    def __init__(
+        self,
+        dist1: DictDistribution,
+        dist2: DictDistribution,
+        dist1_sampling_prob,
+    ):
+        self.dist1 = dist1
+        self.dist2 = dist2
+        self.dist1_sampling_prob = dist1_sampling_prob
+
+        self._spaces = dist1.spaces
+
+    def sample(self, batch_size: int):
+        dist1_batch_size = np.random.binomial(batch_size, self.dist1_sampling_prob)
+        dist2_batch_size = batch_size - dist1_batch_size
+
+        sampled_goals = {}
+        if dist1_batch_size == 0:
+            sampled_goals = self.dist2.sample(dist2_batch_size)
+        elif dist2_batch_size == 0:
+            sampled_goals = self.dist1.sample(dist1_batch_size)
+        else:
+            sampled_goals = self.dist1.sample(dist1_batch_size)
+            dist2_sampled_goals = self.dist2.sample(dist2_batch_size)
+
+            for k in sampled_goals.keys():
+                sampled_goals[k] = np.concatenate((sampled_goals[k], dist2_sampled_goals[k]), axis=0)
+        
+        return sampled_goals
+    
+    def __call__(self, context):
+        self.context = context
+        self.dist1(context)
+        self.dist2(context)
+        return self
+    
+    @property
+    def spaces(self):
+        return self._spaces
 
 class MultipleGoalsNotDonePresampledPathDistribution(NotDonePresampledPathDistribution):
     def __init__(

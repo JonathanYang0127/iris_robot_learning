@@ -141,7 +141,7 @@ if __name__ == "__main__":
             ),
             offline_replay_buffer_kwargs=dict(
                 fraction_future_context=0.6,
-                fraction_distribution_context=0.1,
+                fraction_distribution_context=0.0,
                 max_size=int(6E5),
             ),
             sample_online_fraction=0.2
@@ -260,8 +260,11 @@ if __name__ == "__main__":
         train_model_func=train_vqvae,
         presampled_goal_kwargs=dict(
             eval_goals='', #HERE
+            eval_goals_kwargs={},
             expl_goals='',
+            expl_goals_kwargs={},
             training_goals='',
+            training_goals_kwargs={},
         ),
         launcher_config=dict(
             unpack_variant=True,
@@ -272,14 +275,14 @@ if __name__ == "__main__":
 
     search_space = {
         # Seed
-        "seed": range(3),
+        "seed": range(2),
         "env_kwargs.use_multiple_goals": [False],
         "eval_seeds": [1], # If 'use_multiple_goals'=False, use this evaluation environment seed
         "multiple_goals_eval_seeds": [[0, 1, 5, 7]], # If 'use_multiple_goals'=True, use list of evaluation environment seeds
         'env_type': ['top_drawer'],
 
         # Training Parameters
-        "num_demos": [2], # Use first 'num_demos' demos for offline data
+        "num_demos": [1], # Use first 'num_demos' demos for offline data
         "use_pretrained_rl_path": [False], # Load up existing policy/q-network/value network vs train a new one
         'algo_kwargs.start_epoch': [-100], # Negative epochs are pretraining. For only finetuning, set start_epoch=0.
         'trainer_kwargs.bc': [False], # Run BC experiment
@@ -287,7 +290,6 @@ if __name__ == "__main__":
         "max_path_length": [100], # Length of trajectory during exploration and evaluation
         "algo_kwargs.num_expl_steps_per_train_loop": [1000], # Total number of steps during exploration per train loop
         'env_kwargs.reset_interval' : [1], # Reset environment every 'reset_interval' episodes
-        #'online_offline_split_replay_buffer_kwargs.offline_replay_buffer_kwargs.fraction_distribution_context': [0.0, 0.1],
 
         ## Training Hyperparameters
         'trainer_kwargs.beta': [0.01], 
@@ -306,14 +308,22 @@ if __name__ == "__main__":
         ## Network Parameters
         'gripper_observation' : [False], # Concatenate gripper position and rotation into network input
         "image": [False], # Latent-space or image-space
-        "policy_kwargs.std": [0.15], # Fixed std of policy during exploration
+        "policy_kwargs.std": [0.01, 0.15], # Fixed std of policy during exploration
+        "exploration_policy_kwargs.exploration_version": ['ou'],
+        "exploration_policy_kwargs.exploration_noise": [0.0, 0.1, 0.2, 0.3, 0.4],
         'qf_kwargs.output_activation': [Clamp(max=0)],
 
         ## Goals
-        "ground_truth_expl_goals": [True], # PixelCNN expl goals vs ground truth expl goals
+        "use_both_ground_truth_and_affordance_expl_goals": [False],
+        "affordance_sampling_prob": [1], # If "use_ground_truth_and_affordance_expl_goals"=True, this gives sampling proportion of affordance model during expl     
+        "ground_truth_expl_goals": [True], # If ""use_ground_truth_and_affordance_expl_goals"=False, we use either PixelCNN expl goals or ground truth expl goals
+        
         "only_not_done_goals": [True], # For ground truth goals, only select goals that are not achieved by the initialization
         'env_kwargs.full_open_close_init_and_goal' : [False],  # Initialize drawer to fully close or fully open. Alternative, initialized uniform random.
         'full_open_close_goal' : [False], # Only use ground truth goals that are near-fully open or closed.
+
+        # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_distribution_context": [0.0],
+        # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_future_context": [.8, 1.0],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -353,13 +363,16 @@ if __name__ == "__main__":
         variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'] = min(int(6E5), int(500*75*variant['num_demos']))
         variant['online_offline_split_replay_buffer_kwargs']['online_replay_buffer_kwargs']['max_size'] = min(int(4/6 * 500*75*variant['num_demos']), int(1E6 - variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size']))
 
-        if variant['ground_truth_expl_goals']:
+        if variant['use_both_ground_truth_and_affordance_expl_goals']:
+            variant['exploration_goal_sampling_mode']="conditional_vae_prior_and_not_done_presampled_images"
+            variant['training_goal_sampling_mode']="presample_latents"
+            variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
+            variant['presampled_goal_kwargs']['expl_goals_kwargs']['affordance_sampling_prob'] = variant['affordance_sampling_prob']
+        elif variant['ground_truth_expl_goals']:
             variant['exploration_goal_sampling_mode']="presampled_images" #"presample_latents"
             variant['training_goal_sampling_mode']="presampled_images"
             variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
             variant['presampled_goal_kwargs']['training_goals'] = eval_goals
-
-            variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['fraction_distribution_context'] = 0.0
 
         if variant['only_not_done_goals']:
             if variant['env_kwargs']['use_multiple_goals']:

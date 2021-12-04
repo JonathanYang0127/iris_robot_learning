@@ -272,6 +272,7 @@ class ConditionalPriorDistribution(DictDistributionGenerator):
             dtype=np.float32,
         )
         self._spaces[key] = latent_space
+        self.context = None
 
     def sample(self, batch_size):
         s = self.dist.sample(batch_size) if self.dist else {}

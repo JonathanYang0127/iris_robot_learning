@@ -72,6 +72,7 @@ from rlkit.envs.contextual.goal_conditioned import (
     PresampledPathDistribution,
     NotDonePresampledPathDistribution,
     MultipleGoalsNotDonePresampledPathDistribution,
+    TwoDistributions,
 )
 from rlkit.envs.contextual.latent_distributions import (
     AmortizedConditionalPriorDistribution,
@@ -171,7 +172,7 @@ def process_args(variant):
             start_epoch=-5,
             num_epochs=5,
             num_eval_steps_per_epoch=16,
-            num_expl_steps_per_train_loop=2,
+            num_expl_steps_per_train_loop=25,
             num_trains_per_train_loop=2,
             num_online_trains_per_train_loop=2,
             min_num_steps_before_training=2,
@@ -290,7 +291,7 @@ def iql_rig_experiment(
     #Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
     def contextual_env_distrib_and_reward(
-            env_id, env_class, env_kwargs, encoder_wrapper, goal_sampling_mode, presampled_goals_path, num_presample
+            env_id, env_class, env_kwargs, encoder_wrapper, goal_sampling_mode, presampled_goals_path, num_presample, presampled_goals_kwargs,
     ):
         state_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
         renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
@@ -384,6 +385,56 @@ def iql_rig_experiment(
                 desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
                 model,
             )
+        elif goal_sampling_mode == "conditional_vae_prior_and_not_done_presampled_images":
+            cvp_latent_goal_distribution = ConditionalPriorDistribution(
+                model,
+                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key
+            )
+            if image:
+                cvp_latent_goal_distribution = AddDecodedImageDistribution(
+                    cvp_latent_goal_distribution,
+                    desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                    image_goal_key,
+                    model,
+                )
+            
+            ndpi_image_goal_distribution = NotDonePresampledPathDistribution(
+                presampled_goals_path,
+                model.representation_size,
+                encoded_env,
+            )
+
+            #Representation Check
+            if ccvae_or_cbigan_exp:
+                add_distrib = AddConditionalLatentDistribution
+            else:
+                add_distrib = AddLatentDistribution
+
+            #AddLatentDistribution
+            ndpi_latent_goal_distribution = add_distrib(
+                ndpi_image_goal_distribution,
+                image_goal_key,
+                desired_goal_key_reward_fn if desired_goal_key_reward_fn else desired_goal_key,
+                model,
+            )
+
+            latent_goal_distribution = TwoDistributions(
+                cvp_latent_goal_distribution, 
+                ndpi_latent_goal_distribution, 
+                presampled_goals_kwargs['affordance_sampling_prob'],
+            )
+
+            def state_env_null_wrapper(f):
+                global check_state_env_null
+                def check_state_env_null(paths, contexts):
+                    if "state_observation" not in paths[0]["observations"][-1].keys() or "state_desired_goal" not in contexts[0].keys():
+                        return OrderedDict()
+                    else:
+                        return f(paths, contexts)
+                return check_state_env_null
+
+            diagnostics = [StateImageGoalDiagnosticsFn({}, ), state_env_null_wrapper(state_env.get_contextual_diagnostics)]
+
         elif goal_sampling_mode == "multiple_goals_not_done_presampled_images":
             diagnostics = state_env.get_contextual_diagnostics
             image_goal_distribution = MultipleGoalsNotDonePresampledPathDistribution(
@@ -466,7 +517,7 @@ def iql_rig_experiment(
             context_distribution=latent_goal_distribution,
             reward_fn=reward_fn,
             observation_key=observation_key,
-            contextual_diagnostics_fns=[diagnostics],
+            contextual_diagnostics_fns=[diagnostics] if not isinstance(diagnostics, list) else diagnostics,
         )
         return env, latent_goal_distribution, reward_fn
 
@@ -493,15 +544,15 @@ def iql_rig_experiment(
 
     expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
         env_id, env_class, expl_env_kwargs, encoder_wrapper, exploration_goal_sampling_mode,
-        presampled_goal_kwargs['expl_goals'], num_presample
+        presampled_goal_kwargs['expl_goals'], num_presample, presampled_goal_kwargs['expl_goals_kwargs'],
     )
     training_env, training_context_distrib, training_reward = contextual_env_distrib_and_reward(
         env_id, env_class, expl_env_kwargs, encoder_wrapper, training_goal_sampling_mode,
-        presampled_goal_kwargs['training_goals'], num_presample
+        presampled_goal_kwargs['training_goals'], num_presample, presampled_goal_kwargs['training_goals_kwargs'],
     )
     eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
         env_id, env_class, eval_env_kwargs, encoder_wrapper, evaluation_goal_sampling_mode,
-        presampled_goal_kwargs['eval_goals'], num_presample
+        presampled_goal_kwargs['eval_goals'], num_presample, presampled_goal_kwargs['eval_goals_kwargs'],
     )
     path_loader_kwargs['env'] = eval_env
 
@@ -745,7 +796,6 @@ def iql_rig_experiment(
         algorithm.post_epoch_funcs.append(switch_beta)
     elif trainer_kwargs['use_anneal_beta']:
         def switch_beta(self, epoch):
-            print(self.trainer.beta)
             if (epoch != algo_kwargs['start_epoch'] 
                 and (epoch - algo_kwargs['start_epoch']) % trainer_kwargs['anneal_beta_every'] == 0 
                 and self.trainer.beta * trainer_kwargs['anneal_beta_by'] >= trainer_kwargs['anneal_beta_stop_at']):
