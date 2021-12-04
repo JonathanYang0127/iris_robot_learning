@@ -228,6 +228,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         self._epochs_per_reset = epochs_per_reset
         self._exploration_task = exploration_task
         self._do_cem_update = do_cem_update
+        self._epoch = 0
 
     def collect_new_paths(
             self,
@@ -253,6 +254,18 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
                 self._exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
             return rollout
         self._rollout_fn = exploration_rollout
+
+        if self._epoch % self._epochs_per_reset == 0:
+            self._env.reset_task(self._exploration_task)
+            # alternate which task we reset to
+            if self._epoch % 2 == 0:
+                if self._env.env.is_reset_task():
+                    opp_task = self._env.env.task_idx - self._env.num_tasks
+                else:
+                    opp_task = self._env.env.task_idx + self._env.num_tasks
+                self._env.reset_task(opp_task)
+            self._env.reset()
+
         return super().collect_new_paths(expl_reset_free=self._expl_reset_free, *args, **kwargs)
 
     def get_snapshot(self):
@@ -263,16 +276,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         return snapshot
 
     def end_epoch(self, epoch):
-        if epoch % self._epochs_per_reset == 0:
-            self._env.reset_task(self._exploration_task)
-            # alternate which task we reset to
-            if not epoch % 2 == 0:
-                if self._env.env.is_reset_task():
-                    opp_task = self._env.env.task_idx - self._env.num_tasks
-                else:
-                    opp_task = self._env.env.task_idx + self._env.num_tasks
-                self._env.reset_task(opp_task)
-            self._env.reset()
+        self._epoch = epoch
         super().end_epoch(epoch)
 
 '''
