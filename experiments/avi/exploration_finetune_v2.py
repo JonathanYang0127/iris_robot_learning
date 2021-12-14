@@ -259,7 +259,6 @@ def experiment(variant):
         epochs_per_reset=variant['epochs_per_reset'],
         exploration_task=variant['exploration_task']
     )
-    # TODO: need to give this a copy of the env if we change epochs_per_reset to be >1
     eval_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
         expl_env,
@@ -332,7 +331,6 @@ if __name__ == '__main__':
         meta_batch_size=4,
         max_path_length=40,
         num_trains_per_train_loop=1000,
-        # num_eval_steps_per_epoch=0,
         num_eval_steps_per_epoch=40 *40,
         num_expl_steps_per_train_loop=40 * 40,
         min_num_steps_before_training=100 * 40,

@@ -222,7 +222,6 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         self._exploration_strategy = exploration_strategy
         self._observation_keys = observation_keys
         self._expl_reset_free = expl_reset_free
-        self._prev_success = False
         self._reverse = False
         self._env = env
         self._epochs_per_reset = epochs_per_reset
@@ -258,7 +257,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         if self._epoch % self._epochs_per_reset == 0:
             self._env.reset_task(self._exploration_task)
             # alternate which task we reset to
-            if self._epoch % 2 == 0:
+            if (self._epoch // self._epochs_per_reset) % 2 == 0:
                 if self._env.env.is_reset_task():
                     opp_task = self._env.env.task_idx - self._env.num_tasks
                 else:

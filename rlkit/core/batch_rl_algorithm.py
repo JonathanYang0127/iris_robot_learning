@@ -3,6 +3,8 @@ from collections import OrderedDict
 from rlkit.core.timer import timer
 from rlkit.core.rl_algorithm import BaseRLAlgorithm
 import numpy as np
+from rlkit.core import logger
+import os
 
 class BatchRLAlgorithm(BaseRLAlgorithm):
     def __init__(
@@ -75,6 +77,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
 
         timer.start_timer('evaluation sampling')
         if self.epoch % self._eval_epoch_freq == 0 and self.num_eval_steps_per_epoch > 0:
+            save_state_file = logger.get_snapshot_dir() + "/state{}.bullet".format(self.epoch)
+            self.eval_env.env.save_state(save_state_file)
             if self.multi_task:
                 for i in self.eval_tasks:
                     self.eval_data_collector.collect_new_paths(
@@ -90,6 +94,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                     self.num_eval_steps_per_epoch,
                     discard_incomplete_paths=True,
                 )
+            self.eval_env.env.restore_state(save_state_file)
+            os.remove(save_state_file)
         timer.stop_timer('evaluation sampling')
 
         if not self._eval_only:
