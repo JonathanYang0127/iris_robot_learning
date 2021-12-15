@@ -12,7 +12,7 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-VAL_DATA_PATH = "data/reset_free_v5_rotated_top_drawer/"
+VAL_DATA_PATH = "data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/"
 
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
 image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
@@ -102,7 +102,7 @@ def main():
     )
 
     search_space = {
-        "seed": range(3),
+        "seed": range(2, 4),
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,

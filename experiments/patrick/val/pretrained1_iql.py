@@ -17,9 +17,13 @@ from rlkit.torch.grill.common import train_vqvae
 DATASETS = [
     "val", "reset-free", "tray-reset-free", "tray-test-reset-free", "rotated-top-drawer-reset-free", 
     "reconstructed-rotated-top-drawer-reset-free", "antialias-rotated-top-drawer-reset-free",
+    "antialias-right-top-drawer-reset-free", "antialias-rotated-semicircle-top-drawer-reset-free",
+    "new-view-antialias-rotated-semicircle-top-drawer-reset-free",
+    "new-view-antialias-rotated-semicircle-top-drawer-reset-free-large",
+    "new-close-view-antialias-rotated-semicircle-top-drawer-reset-free",
 ]
 
-dataset = "antialias-rotated-top-drawer-reset-free"
+dataset = "new-close-view-antialias-rotated-semicircle-top-drawer-reset-free"
 assert dataset in DATASETS
 
 # VAL Data
@@ -69,10 +73,25 @@ elif dataset == "reconstructed-rotated-top-drawer-reset-free":
 elif dataset == "antialias-rotated-top-drawer-reset-free":
     VAL_DATA_PATH = "data/antialias_reset_free_v5_rotated_top_drawer/"
     demo_paths=[dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+elif dataset == "antialias-right-top-drawer-reset-free":
+    VAL_DATA_PATH = "data/antialias_reset_free_v5_right_top_drawer/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_right_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+elif dataset == "antialias-rotated-semicircle-top-drawer-reset-free":
+    VAL_DATA_PATH = "data/antialias_reset_free_v5_rotated_semicircle_top_drawer/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+elif dataset == "new-view-antialias-rotated-semicircle-top-drawer-reset-free":
+    VAL_DATA_PATH = "data/new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(8)]
+elif dataset == "new-view-antialias-rotated-semicircle-top-drawer-reset-free-large":
+    VAL_DATA_PATH = "data/new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_large/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_large_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(32)]
+elif dataset == "new-close-view-antialias-rotated-semicircle-top-drawer-reset-free":
+    VAL_DATA_PATH = "data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/"
+    demo_paths=[dict(path=VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(32)]
 else:
     assert False
 
-vqvae = VAL_DATA_PATH + "best_vqvae.pt"
+vqvae = VAL_DATA_PATH + "best_vqvae.pt" #VAL_DATA_PATH + "best_vqvae_run18_epoch3.pt" 
 pretrained_rl_path = VAL_DATA_PATH + "run155_id3_itr_-1.pt"
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
 image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
@@ -275,21 +294,22 @@ if __name__ == "__main__":
 
     search_space = {
         # Seed
-        "seed": range(2),
+        "seed": range(3),
         "env_kwargs.use_multiple_goals": [False],
         "eval_seeds": [1], # If 'use_multiple_goals'=False, use this evaluation environment seed
         "multiple_goals_eval_seeds": [[0, 1, 5, 7]], # If 'use_multiple_goals'=True, use list of evaluation environment seeds
         'env_type': ['top_drawer'],
 
         # Training Parameters
-        "num_demos": [1], # Use first 'num_demos' demos for offline data
+        "num_demos": [1, 2], # Use first 'num_demos' demos for offline data
         "use_pretrained_rl_path": [False], # Load up existing policy/q-network/value network vs train a new one
         'algo_kwargs.start_epoch': [-100], # Negative epochs are pretraining. For only finetuning, set start_epoch=0.
         'trainer_kwargs.bc': [False], # Run BC experiment
         'algo_kwargs.num_online_trains_per_train_loop': [8000],
         "max_path_length": [100], # Length of trajectory during exploration and evaluation
         "algo_kwargs.num_expl_steps_per_train_loop": [1000], # Total number of steps during exploration per train loop
-        'env_kwargs.reset_interval' : [1], # Reset environment every 'reset_interval' episodes
+        'env_kwargs.drawer_sliding' : [True],
+        'env_kwargs.reset_interval' : [1, 10], # Reset environment every 'reset_interval' episodes
 
         ## Training Hyperparameters
         'trainer_kwargs.beta': [0.01], 
@@ -302,28 +322,32 @@ if __name__ == "__main__":
         'trainer_kwargs.anneal_beta_by': [.05],
         'trainer_kwargs.anneal_beta_stop_at': [.0001],
 
-        'reward_kwargs.epsilon': [3.5],
+        'reward_kwargs.epsilon': [2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25],
         'trainer_kwargs.quantile': [0.9],
 
         ## Network Parameters
         'gripper_observation' : [False], # Concatenate gripper position and rotation into network input
         "image": [False], # Latent-space or image-space
-        "policy_kwargs.std": [0.01, 0.15], # Fixed std of policy during exploration
-        "exploration_policy_kwargs.exploration_version": ['ou'],
-        "exploration_policy_kwargs.exploration_noise": [0.0, 0.1, 0.2, 0.3, 0.4],
+        "policy_kwargs.std": [0.15], # Fixed std of policy during exploration
+        # "exploration_policy_kwargs.exploration_version": ['ou'],
+        # "exploration_policy_kwargs.exploration_noise": [0.0, 0.1, 0.2, 0.3, 0.4],
         'qf_kwargs.output_activation': [Clamp(max=0)],
 
         ## Goals
         "use_both_ground_truth_and_affordance_expl_goals": [False],
         "affordance_sampling_prob": [1], # If "use_ground_truth_and_affordance_expl_goals"=True, this gives sampling proportion of affordance model during expl     
-        "ground_truth_expl_goals": [True], # If ""use_ground_truth_and_affordance_expl_goals"=False, we use either PixelCNN expl goals or ground truth expl goals
+        "ground_truth_expl_goals": [False], # If ""use_ground_truth_and_affordance_expl_goals"=False, we use either PixelCNN expl goals or ground truth expl goals
         
         "only_not_done_goals": [True], # For ground truth goals, only select goals that are not achieved by the initialization
         'env_kwargs.full_open_close_init_and_goal' : [False],  # Initialize drawer to fully close or fully open. Alternative, initialized uniform random.
         'full_open_close_goal' : [False], # Only use ground truth goals that are near-fully open or closed.
 
-        # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_distribution_context": [0.0],
+        ## Relabeling
+        "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_distribution_context": [0.0],
         # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_future_context": [.8, 1.0],
+
+        # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.preallocate_arrays": [True],
+        # "online_offline_split_replay_buffer_kwargs.offline_replay_buffer_kwargs.preallocate_arrays": [True],
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
@@ -403,10 +427,27 @@ if __name__ == "__main__":
             variant['env_kwargs']['env_type'] = env_type
         elif dataset in ["rotated-top-drawer-reset-free", "reconstructed-rotated-top-drawer-reset-free"]:
             variant['env_class'] = SawyerRigAffordancesV1
-        elif dataset == "antialias-rotated-top-drawer-reset-free":
+        elif dataset in [
+            "antialias-rotated-top-drawer-reset-free", "antialias-right-top-drawer-reset-free", 
+            "antialias-rotated-semicircle-top-drawer-reset-free",
+            "new-view-antialias-rotated-semicircle-top-drawer-reset-free",
+            "new-view-antialias-rotated-semicircle-top-drawer-reset-free-large",
+            "new-close-view-antialias-rotated-semicircle-top-drawer-reset-free",
+            ]:
             variant['env_class'] = SawyerRigAffordancesV1
             variant['env_kwargs']['downsample'] = True
             variant['env_kwargs']['env_obs_img_dim'] = 196
+            if dataset == "antialias-right-top-drawer-reset-free":
+                variant['env_kwargs']['fix_drawer_orientation'] = True
+            elif dataset == "antialias-rotated-semicircle-top-drawer-reset-free":
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+            elif dataset in ["new-view-antialias-rotated-semicircle-top-drawer-reset-free", "new-view-antialias-rotated-semicircle-top-drawer-reset-free-large"]:
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+                variant['env_kwargs']['new_view'] = True
+            elif dataset == "new-close-view-antialias-rotated-semicircle-top-drawer-reset-free":
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+                variant['env_kwargs']['new_view'] = True
+                variant['env_kwargs']['close_view'] = True
         else:
             assert False
         

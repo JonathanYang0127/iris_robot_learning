@@ -15,7 +15,7 @@ obj = None
 
 #all_files = glob.glob("/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/*_images.npy") #glob.glob("/2tb/home/patrickhaoy/data/affordances/combined_new/*_images.npy")
 #all_files = glob.glob("/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/*_images.npy") 
-all_files = glob.glob("/2tb/home/patrickhaoy/data/affordances/data/antialias_reset_free_v5_rotated_top_drawer/*_images.npy")
+all_files = glob.glob("/2tb/home/patrickhaoy/data/affordances/data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/*_images*.npy")
 random.shuffle(all_files)
 
 for filename in all_files:
@@ -39,7 +39,7 @@ for filename in all_files:
 # SAVE IMAGES FOR REPRESENTATION TRAINING #
 #folder = '/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_new/' #'/2tb/home/patrickhaoy/data/affordances/combined_new/' #'/media/ashvin/data2/data/uniform_data/'
 #folder = '/global/scratch/users/patrickhaoy/s3doodad/affordances/combined_reset_free_v5/'
-folder = "/2tb/home/patrickhaoy/data/affordances/data/antialias_reset_free_v5_rotated_top_drawer/"
+folder = "/2tb/home/patrickhaoy/data/affordances/data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/"
 
 train_i, test_i = split_data(observations.shape[0])
 
