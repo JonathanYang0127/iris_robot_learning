@@ -162,7 +162,7 @@ if __name__ == "__main__":
         online_offline_split_replay_buffer_kwargs=dict(
             online_replay_buffer_kwargs=dict(
                 fraction_future_context=0.6,
-                fraction_distribution_context=0.1,
+                fraction_distribution_context=0.0,
                 max_size=int(4E5),
             ),
             offline_replay_buffer_kwargs=dict(
@@ -303,7 +303,7 @@ if __name__ == "__main__":
 
     search_space = {
         # Seed
-        "seed": range(3),
+        "seed": range(2),
         "env_kwargs.use_multiple_goals": [False],
         "eval_seeds": [1], # If 'use_multiple_goals'=False, use this evaluation environment seed
         "multiple_goals_eval_seeds": [[0, 1, 5, 7]], # If 'use_multiple_goals'=True, use list of evaluation environment seeds
@@ -317,7 +317,7 @@ if __name__ == "__main__":
         'algo_kwargs.num_online_trains_per_train_loop': [8000],
         "max_path_length": [100], # Length of trajectory during exploration and evaluation
         "algo_kwargs.num_expl_steps_per_train_loop": [1000], # Total number of steps during exploration per train loop
-        'env_kwargs.drawer_sliding' : [True],
+        'env_kwargs.drawer_sliding' : [False],
         'env_kwargs.reset_interval' : [1], # Reset environment every 'reset_interval' episodes
 
         ## Training Hyperparameters
@@ -332,8 +332,8 @@ if __name__ == "__main__":
         'trainer_kwargs.anneal_beta_stop_at': [.0001],
 
         'reward_kwargs.use_pretrained_reward_classifier_path': [True], # If True, use pretrained reward classifier. If False, use epsilon.
-        'reward_kwargs.pretrained_reward_classifier_path': [VAL_DATA_PATH + 'best_reward_classifier_5_0.pt'], #reward_classifier_paths,
-        'reward_kwargs.reward_classifier_threshold': [0.95, 0.955, 0.96, 0.965, 0.97, 0.975, 0.98, 0.985, 0.99, 0.995],
+        #'reward_kwargs.pretrained_reward_classifier_path': [VAL_DATA_PATH + 'best_reward_classifier_5_0.pt'], #reward_classifier_paths,
+        'reward_kwargs.reward_classifier_threshold': [.995, .99, .98, .97, .96, .95, .94, .93, .92, .91, .90, .8, .7, .6, .5], 
         'reward_kwargs.epsilon': [3.0],
         'trainer_kwargs.quantile': [0.9],
 
@@ -355,8 +355,9 @@ if __name__ == "__main__":
         'full_open_close_goal' : [False], # Only use ground truth goals that are near-fully open or closed.
 
         ## Relabeling
-        "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_distribution_context": [0.0],
+        # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_distribution_context": [0.0],
         # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_future_context": [.8, 1.0],
+        "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_replay_buffer_context": [0.0, 0.2],
 
         # "online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.preallocate_arrays": [True],
         # "online_offline_split_replay_buffer_kwargs.offline_replay_buffer_kwargs.preallocate_arrays": [True],

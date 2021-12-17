@@ -8,8 +8,8 @@ from rlkit.torch.networks import Clamp, Sigmoid, SigmoidClamp
 
 VAL_DATA_PATH = "data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/"
 
-train_demo_paths = [VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{0}.pkl'.format(i) for i in range(0, 31)]
-test_demo_paths = [VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{0}.pkl'.format(i) for i in range(31, 32)]
+train_demo_paths = [VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{0}.pkl'.format(i) for i in range(0, 28)]
+test_demo_paths = [VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{0}.pkl'.format(i) for i in range(28, 32)]
 vqvae = '/2tb/home/patrickhaoy/data/affordances/experiments/patrick/val/train-vqvae/run29/id0/best_vqvae.pt'
 
 def main():
@@ -22,7 +22,7 @@ def main():
         ),
         train_classifier_kwargs=dict(
             vqvae_path=vqvae,
-            num_epochs=100,
+            num_epochs=3000,
             dataset_path={'train': train_demo_paths,
                           'test': test_demo_paths,
                           },

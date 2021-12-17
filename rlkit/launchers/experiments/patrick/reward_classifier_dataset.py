@@ -34,6 +34,9 @@ class RewardClassifierConditionalLatentBlockDataset(Dataset):
         obs = self.data[traj_i, trans_i, :]
         goal = self.data[traj_i, k_after_done_i, :]
         is_close = 1.0 if trans_i + self.positive_k_before_done >= done_i else 0.0
+
+        if np.random.rand() > .5:
+            obs, goal = goal, obs
         return np.concatenate((obs, goal, np.float32([is_close])), axis=0)
 
     def __len__(self):
