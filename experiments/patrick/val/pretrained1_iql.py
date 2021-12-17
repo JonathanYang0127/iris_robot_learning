@@ -14,6 +14,8 @@ from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
+import itertools
+
 DATASETS = [
     "val", "reset-free", "tray-reset-free", "tray-test-reset-free", "rotated-top-drawer-reset-free", 
     "reconstructed-rotated-top-drawer-reset-free", "antialias-rotated-top-drawer-reset-free",
@@ -91,10 +93,15 @@ elif dataset == "new-close-view-antialias-rotated-semicircle-top-drawer-reset-fr
 else:
     assert False
 
-vqvae = VAL_DATA_PATH + "best_vqvae.pt" #VAL_DATA_PATH + "best_vqvae_run18_epoch3.pt" 
+vqvae = VAL_DATA_PATH + "best_vqvae_run29.pt" #VAL_DATA_PATH + "best_vqvae_run18_epoch3.pt" 
+reward_classifier = VAL_DATA_PATH + "best_reward_classifier.pt"
 pretrained_rl_path = VAL_DATA_PATH + "run155_id3_itr_-1.pt"
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
 image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
+
+i = [0, 5, 10, 15]
+j = [0, 5, 10]
+reward_classifier_paths = [VAL_DATA_PATH + 'best_reward_classifier_{}_{}.pt'.format(i, j) for (i, j) in itertools.product(i, j)] 
 
 if __name__ == "__main__":
     variant = dict(
@@ -172,6 +179,8 @@ if __name__ == "__main__":
         reward_kwargs=dict(
             reward_type='sparse',
             epsilon=1.0,
+            use_pretrained_reward_classifier_path=False,
+            pretrained_reward_classifier_path=reward_classifier,
         ),
 
         observation_key='latent_observation',
@@ -301,7 +310,7 @@ if __name__ == "__main__":
         'env_type': ['top_drawer'],
 
         # Training Parameters
-        "num_demos": [1, 2], # Use first 'num_demos' demos for offline data
+        "num_demos": [4], # Use first 'num_demos' demos for offline data
         "use_pretrained_rl_path": [False], # Load up existing policy/q-network/value network vs train a new one
         'algo_kwargs.start_epoch': [-100], # Negative epochs are pretraining. For only finetuning, set start_epoch=0.
         'trainer_kwargs.bc': [False], # Run BC experiment
@@ -309,7 +318,7 @@ if __name__ == "__main__":
         "max_path_length": [100], # Length of trajectory during exploration and evaluation
         "algo_kwargs.num_expl_steps_per_train_loop": [1000], # Total number of steps during exploration per train loop
         'env_kwargs.drawer_sliding' : [True],
-        'env_kwargs.reset_interval' : [1, 10], # Reset environment every 'reset_interval' episodes
+        'env_kwargs.reset_interval' : [1], # Reset environment every 'reset_interval' episodes
 
         ## Training Hyperparameters
         'trainer_kwargs.beta': [0.01], 
@@ -322,7 +331,10 @@ if __name__ == "__main__":
         'trainer_kwargs.anneal_beta_by': [.05],
         'trainer_kwargs.anneal_beta_stop_at': [.0001],
 
-        'reward_kwargs.epsilon': [2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25],
+        'reward_kwargs.use_pretrained_reward_classifier_path': [True], # If True, use pretrained reward classifier. If False, use epsilon.
+        'reward_kwargs.pretrained_reward_classifier_path': [VAL_DATA_PATH + 'best_reward_classifier_5_0.pt'], #reward_classifier_paths,
+        'reward_kwargs.reward_classifier_threshold': [0.95, 0.955, 0.96, 0.965, 0.97, 0.975, 0.98, 0.985, 0.99, 0.995],
+        'reward_kwargs.epsilon': [3.0],
         'trainer_kwargs.quantile': [0.9],
 
         ## Network Parameters

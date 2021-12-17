@@ -74,6 +74,22 @@ def train_vae_and_update_variant(variant):
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
 
+def train_reward_classifier(variant):
+    from rlkit.torch.networks.mlp import Mlp
+    import rlkit.torch.pytorch_util as ptu
+    from rlkit.launchers.experiments.patrick.reward_classifier_launcher import train_classifier
+    
+    classifier_class = variant.get('reward_classifier_class', Mlp)
+    classifier = classifier_class(**variant['reward_classifier_kwargs'])
+    classifier.to(ptu.device)
+
+    train_classifier_kwargs = variant.get('train_classifier_kwargs', {})
+    classifier = train_classifier(
+        classifier=classifier,
+        **train_classifier_kwargs
+    )
+    return classifier
+
 def train_vqvae(variant):
     from rlkit.launchers.experiments.ashvin.pixelcnn_launcher import train_pixelcnn
     vqvae = train_vae(variant)

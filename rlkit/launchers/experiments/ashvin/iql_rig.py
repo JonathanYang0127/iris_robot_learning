@@ -110,11 +110,14 @@ from rlkit.samplers.rollout_functions import contextual_rollout
 
 class RewardFn:
     def __init__(self,
-            env,
-            obs_type='latent',
-            reward_type='dense',
-            epsilon=1.0,
-            # cnn=None,
+        env,
+        obs_type='latent',
+        reward_type='dense',
+        epsilon=1.0,
+        # cnn=None,
+        use_pretrained_reward_classifier_path=False,
+        pretrained_reward_classifier_path='',
+        reward_classifier_threshold=.5,
     ):
         if obs_type == 'latent':
             self.observation_key = 'latent_observation'
@@ -126,6 +129,12 @@ class RewardFn:
         self.reward_type = reward_type
         self.epsilon = epsilon
 
+        if use_pretrained_reward_classifier_path:
+            self.reward_type = 'pretrained_reward_classifier'
+            self.reward_classifier = load_local_or_remote_file(pretrained_reward_classifier_path)
+            self.sigmoid = torch.nn.Sigmoid()
+            self.reward_classifier_threshold = reward_classifier_threshold
+
     def process(self, obs):
         if len(obs.shape) == 1:
             return obs.reshape(1, -1)
@@ -135,7 +144,15 @@ class RewardFn:
         s = self.process(next_states[self.observation_key])
         c = self.process(contexts[self.desired_goal_key])
 
-        if self.reward_type == 'dense':
+        if self.reward_type == 'pretrained_reward_classifier':
+            input = ptu.from_numpy(np.concatenate((s, c), axis=1)).squeeze()
+            if input.shape[0] == 0:
+                reward = np.array([])
+            else:
+                pred = self.sigmoid(self.reward_classifier(input))
+                pred = ptu.get_numpy(pred)
+                reward = np.where(pred > self.reward_classifier_threshold, 0, -1)
+        elif self.reward_type == 'dense':
             reward = -np.linalg.norm(s - c, axis=1)
         elif self.reward_type == 'sparse':
             success = np.linalg.norm(s - c, axis=1) < self.epsilon
