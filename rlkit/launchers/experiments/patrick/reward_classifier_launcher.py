@@ -36,6 +36,7 @@ def train_classifier(
     positive_k_before_done=0,
     num_train_batches_per_epoch=10,
     num_test_batches_per_epoch=2,
+    flip_network_inputs_randomly=False,
 ):
     assert classifier and vqvae_path != '' and dataset_path
 
@@ -90,8 +91,8 @@ def train_classifier(
                                 pin_memory=True)
         return train_loader, val_loader
 
-    training_data = RewardClassifierConditionalLatentBlockDataset(dataset, train=True, cond_on_k_after_done=cond_on_k_after_done, positive_k_before_done=positive_k_before_done)
-    validation_data = RewardClassifierConditionalLatentBlockDataset(dataset, train=False, cond_on_k_after_done=cond_on_k_after_done, positive_k_before_done=positive_k_before_done)
+    training_data = RewardClassifierConditionalLatentBlockDataset(dataset, train=True, cond_on_k_after_done=cond_on_k_after_done, positive_k_before_done=positive_k_before_done, flip_network_inputs_randomly=flip_network_inputs_randomly)
+    validation_data = RewardClassifierConditionalLatentBlockDataset(dataset, train=False, cond_on_k_after_done=cond_on_k_after_done, positive_k_before_done=positive_k_before_done, flip_network_inputs_randomly=flip_network_inputs_randomly)
     train_loader, test_loader = data_loaders(
         training_data, validation_data, batch_size
     )

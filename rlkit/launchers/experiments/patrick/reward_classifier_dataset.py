@@ -6,7 +6,7 @@ class RewardClassifierConditionalLatentBlockDataset(Dataset):
     Loads latent block dataset
     """
 
-    def __init__(self, data, train=True, cond_on_k_after_done=10, positive_k_before_done=0):
+    def __init__(self, data, train=True, cond_on_k_after_done=10, positive_k_before_done=0, flip_network_inputs_randomly=False):
         print('Loading latent block data')
         if train:
             self.data = data['train']
@@ -21,6 +21,7 @@ class RewardClassifierConditionalLatentBlockDataset(Dataset):
 
         self.cond_on_k_after_done = cond_on_k_after_done
         self.positive_k_before_done = positive_k_before_done
+        self.flip_network_inputs_randomly = flip_network_inputs_randomly
 
     def __getitem__(self, idx):
         traj_i = idx // self.traj_length
@@ -35,7 +36,7 @@ class RewardClassifierConditionalLatentBlockDataset(Dataset):
         goal = self.data[traj_i, k_after_done_i, :]
         is_close = 1.0 if trans_i + self.positive_k_before_done >= done_i else 0.0
 
-        if np.random.rand() > .5:
+        if self.flip_network_inputs_randomly and np.random.rand() > .5:
             obs, goal = goal, obs
         return np.concatenate((obs, goal, np.float32([is_close])), axis=0)
 

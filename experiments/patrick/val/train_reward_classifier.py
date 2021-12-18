@@ -40,6 +40,7 @@ def main():
         "seed": range(1),
         "train_classifier_kwargs.cond_on_k_after_done": [10],
         "train_classifier_kwargs.positive_k_before_done": [0],
+        "train_classifier_kwargs.flip_network_inputs_randomly": [False]
     }
     sweeper = hyp.DeterministicHyperparameterSweeper(
         search_space, default_parameters=variant,
