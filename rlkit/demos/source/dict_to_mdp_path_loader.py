@@ -1,28 +1,14 @@
-from collections import OrderedDict
-import pickle
+import glob
 import numpy as np
-import torch
-import torch.optim as optim
-from torch import nn as nn
-import torch.nn.functional as F
-import copy
-import rlkit.torch.pytorch_util as ptu
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
 
+from rlkit.data_management.path_builder import PathBuilder
+from rlkit.torch.core import np_to_pytorch_batch
 from rlkit.util.io import (
-    load_local_or_remote_file, sync_down_folder, get_absolute_path, sync_down
+    load_local_or_remote_file,
+    sync_down_folder,
+    get_absolute_path
 )
 
-import random
-from rlkit.torch.core import np_to_pytorch_batch
-from rlkit.data_management.path_builder import PathBuilder
-
-from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
-
-from rlkit.core import logger
-
-import glob
 
 class DictToMDPPathLoader:
     """
@@ -36,7 +22,7 @@ class DictToMDPPathLoader:
             replay_buffer,
             demo_train_buffer,
             demo_test_buffer,
-            demo_paths=None, # list of dicts
+            demo_paths=None,  # list of dicts
             demo_train_split=0.9,
             demo_data_split=1,
             add_demos_to_replay_buffer=True,
@@ -52,7 +38,8 @@ class DictToMDPPathLoader:
             obs_key=None,
             load_terminals=True,
             delete_after_loading=False,
-            data_filter_fn=lambda x: True, # Return true to add path, false to ignore it
+            # Return true to add path, false to ignore it
+            data_filter_fn=lambda x: True,
             **kwargs
     ):
         self.trainer = trainer
@@ -82,29 +69,31 @@ class DictToMDPPathLoader:
 
     def load_path(self, path, replay_buffer, obs_dict=None):
         # Filter data #
-        if not self.data_filter_fn(path): return
+        if not self.data_filter_fn(path):
+            return
 
         rewards = []
         path_builder = PathBuilder()
 
-        print("loading path, length", len(path["observations"]), len(path["actions"]))
-        H = min(len(path["observations"]), len(path["actions"]))
-        print("actions", np.min(path["actions"]), np.max(path["actions"]))
+        print('loading path, length', len(
+            path['observations']), len(path['actions']))
+        H = min(len(path['observations']), len(path['actions']))
+        print('actions', np.min(path['actions']), np.max(path['actions']))
 
         for i in range(H):
             if obs_dict:
-                ob = path["observations"][i][self.obs_key]
-                next_ob = path["next_observations"][i][self.obs_key]
+                ob = path['observations'][i][self.obs_key]
+                next_ob = path['next_observations'][i][self.obs_key]
             else:
-                ob = path["observations"][i]
-                next_ob = path["next_observations"][i]
-            action = path["actions"][i]
-            reward = path["rewards"][i]
-            terminal = path["terminals"][i]
+                ob = path['observations'][i]
+                next_ob = path['next_observations'][i]
+            action = path['actions'][i]
+            reward = path['rewards'][i]
+            terminal = path['terminals'][i]
             if not self.load_terminals:
                 terminal = np.zeros(terminal.shape)
-            agent_info = path["agent_infos"][i]
-            env_info = path["env_infos"][i]
+            agent_info = path['agent_infos'][i]
+            env_info = path['env_infos'][i]
 
             if self.recompute_reward:
                 reward = self.env.compute_reward(
@@ -127,7 +116,7 @@ class DictToMDPPathLoader:
         self.demo_trajectory_rewards.append(rewards)
         path = path_builder.get_all_stacked()
         replay_buffer.add_path(path)
-        print("path sum rewards", sum(rewards), len(rewards))
+        print('path sum rewards', sum(rewards), len(rewards))
 
     def load_demos(self):
         # Off policy
@@ -137,8 +126,15 @@ class DictToMDPPathLoader:
     # Parameterize which demo is being tested (and all jitter variants)
     # If is_demo is False, we only add the demos to the
     # replay buffer, and not to the demo_test or demo_train buffers
-    def load_demo_path(self, path, is_demo, obs_dict, train_split=None, data_split=None, sync_dir=None, use_latents=True):
-        print("loading off-policy path", path)
+    def load_demo_path(self,
+                       path,
+                       is_demo,
+                       obs_dict,
+                       train_split=None,
+                       data_split=None,
+                       sync_dir=None,
+                       use_latents=True):
+        print('loading off-policy path', path)
 
         if sync_dir is not None:
             sync_down_folder(sync_dir)
@@ -148,7 +144,8 @@ class DictToMDPPathLoader:
 
         data = []
         for filename in paths:
-            data.extend(list(load_local_or_remote_file(filename, delete_after_loading=self.delete_after_loading)))
+            data.extend(list(load_local_or_remote_file(
+                filename, delete_after_loading=self.delete_after_loading)))
 
         # if not is_demo:
             # data = [data]
@@ -162,19 +159,29 @@ class DictToMDPPathLoader:
 
         M = int(len(data) * train_split * data_split)
         N = int(len(data) * data_split)
-        print("using", N, "paths for training")
+        print('using', N, 'paths for training')
 
         if self.add_demos_to_replay_buffer:
             for path in data[:M]:
-                self.load_path(path, self.replay_buffer, obs_dict=obs_dict, use_latents=use_latents)
+                self.load_path(path,
+                               self.replay_buffer,
+                               obs_dict=obs_dict,
+                               use_latents=use_latents)
 
         if is_demo:
             if self.demo_train_buffer:
                 for path in data[:M]:
-                    self.load_path(path, self.demo_train_buffer, obs_dict=obs_dict, use_latents=use_latents)
+                    self.load_path(path,
+                                   self.demo_train_buffer,
+                                   obs_dict=obs_dict,
+                                   use_latents=use_latents)
+
             if self.demo_test_buffer:
                 for path in data[M:N]:
-                    self.load_path(path, self.demo_test_buffer, obs_dict=obs_dict, use_latents=use_latents)
+                    self.load_path(path,
+                                   self.demo_test_buffer,
+                                   obs_dict=obs_dict,
+                                   use_latents=use_latents)
 
     def get_batch_from_buffer(self, replay_buffer):
         batch = replay_buffer.random_batch(self.bc_batch_size)

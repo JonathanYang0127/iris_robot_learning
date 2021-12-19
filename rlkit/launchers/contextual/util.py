@@ -42,6 +42,7 @@ def get_gym_env(
         env_kwargs = {}
 
     assert env_id or env_class
+
     if env_id:
         import gym
         import multiworld
@@ -49,6 +50,8 @@ def get_gym_env(
         env = gym.make(env_id)
     else:
         env = env_class(**env_kwargs)
+
     if isinstance(env, TimeLimit) and unwrap_timed_envs:
         env = env.env
+
     return env

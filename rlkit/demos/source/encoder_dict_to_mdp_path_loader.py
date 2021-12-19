@@ -1,26 +1,14 @@
-from collections import OrderedDict
-import pickle
-import numpy as np
-import torch
-import torch.optim as optim
-from torch import nn as nn
-import torch.nn.functional as F
 import copy
-import rlkit.torch.pytorch_util as ptu
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
-from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
-from rlkit.util.io import (
-    load_local_or_remote_file, sync_down_folder, get_absolute_path, sync_down
-)
 
-import random
-from rlkit.torch.core import np_to_pytorch_batch
+import numpy as np
+
+import rlkit.torch.pytorch_util as ptu
+from rlkit.demos.source.dict_to_mdp_path_loader import DictToMDPPathLoader
+from rlkit.util.io import load_local_or_remote_file
 from rlkit.data_management.path_builder import PathBuilder
-from rlkit.launchers.config import LOCAL_LOG_DIR, AWS_S3_PATH
-from rlkit.core import logger
-import glob
+
 from roboverse.bullet.misc import quat_to_deg
+
 
 class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
@@ -34,7 +22,7 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             model_path=None,
             reward_fn=None,
             env=None,
-            demo_paths=[], # list of dicts
+            demo_paths=[],  # list of dicts
             normalize=False,
             demo_train_split=0.9,
             demo_data_split=1,
@@ -53,36 +41,41 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             obs_key=None,
             load_terminals=True,
             delete_after_loading=False,
-            data_filter_fn=lambda x: True, # Return true to add path, false to ignore it
+            # Return true to add path, false to ignore it
+            data_filter_fn=lambda x: True,
             **kwargs
     ):
         super().__init__(trainer,
-            replay_buffer,
-            demo_train_buffer,
-            demo_test_buffer,
-            demo_paths,
-            demo_train_split,
-            demo_data_split,
-            add_demos_to_replay_buffer,
-            bc_num_pretrain_steps,
-            bc_batch_size,
-            bc_weight,
-            rl_weight,
-            q_num_pretrain_steps,
-            weight_decay,
-            eval_policy,
-            recompute_reward,
-            env_info_key,
-            obs_key,
-            load_terminals,
-            delete_after_loading,
-            data_filter_fn,
-            **kwargs)
-       
+                         replay_buffer,
+                         demo_train_buffer,
+                         demo_test_buffer,
+                         demo_paths,
+                         demo_train_split,
+                         demo_data_split,
+                         add_demos_to_replay_buffer,
+                         bc_num_pretrain_steps,
+                         bc_batch_size,
+                         bc_weight,
+                         rl_weight,
+                         q_num_pretrain_steps,
+                         weight_decay,
+                         eval_policy,
+                         recompute_reward,
+                         env_info_key,
+                         obs_key,
+                         load_terminals,
+                         delete_after_loading,
+                         data_filter_fn,
+                         **kwargs)
+
         if model is None:
-            self.model = load_local_or_remote_file(model_path, delete_after_loading=delete_after_loading)
+            assert model_path is not None
+            self.model = load_local_or_remote_file(
+                model_path, delete_after_loading=delete_after_loading)
         else:
+            assert model_path is None
             self.model = model
+
         self.condition_encoding = condition_encoding
         self.reward_fn = reward_fn
         self.normalize = normalize
@@ -91,8 +84,15 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
     def preprocess(self, observation, use_latents=True):
         observation = copy.deepcopy(observation)
-        images = np.stack([observation[i]['image_observation'] for i in range(len(observation))])
-        gripper_states = np.stack([np.concatenate((observation[i]['state_observation'][:3], quat_to_deg(observation[i]['state_observation'][3:7])/360.0), axis=0) for i in range(len(observation))])
+        images = np.stack([observation[i]['image_observation']
+                          for i in range(len(observation))])
+        gripper_states = np.stack([
+            np.concatenate(
+                (observation[i]['state_observation'][:3],
+                 quat_to_deg(observation[i]['state_observation'][3:7]) / 360.),
+                axis=0)
+            for i in range(len(observation))
+        ])
 
         if self.normalize:
             images = images / 255.0
@@ -104,18 +104,21 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
             latents = self.model.encode_np(images)
 
         for i in range(len(observation)):
-            observation[i]["initial_latent_state"] = latents[0]
-            observation[i]["latent_observation"] = latents[i]
-            observation[i]["latent_achieved_goal"] = latents[i]
-            observation[i]["latent_desired_goal"] = latents[-1]
-            observation[i]["gripper_state_observation"] = gripper_states[i]
-            observation[i]["gripper_state_desired_goal"] = gripper_states[-1]
+            observation[i]['initial_latent_state'] = latents[0]
+            observation[i]['latent_observation'] = latents[i]
+            observation[i]['latent_achieved_goal'] = latents[i]
+            observation[i]['latent_desired_goal'] = latents[-1]
+            observation[i]['gripper_state_observation'] = gripper_states[i]
+            observation[i]['gripper_state_desired_goal'] = gripper_states[-1]
             if use_latents:
                 del observation[i]['image_observation']
             else:
-                observation[i]["initial_image_observation"] = observation[0]['image_observation']
-                observation[i]["image_achieved_goal"] = observation[i]['image_observation']
-                observation[i]["image_desired_goal"] = observation[-1]['image_observation']
+                observation[i]['initial_image_observation'] = (
+                    observation[0]['image_observation'])
+                observation[i]['image_achieved_goal'] = (
+                    observation[i]['image_observation'])
+                observation[i]['image_desired_goal'] = (
+                    observation[-1]['image_observation'])
 
         return observation
 
@@ -127,34 +130,40 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
     def encode(self, obs):
         if self.normalize:
-            return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
+            return ptu.get_numpy(
+                self.model.encode(ptu.from_numpy(obs) / 255.0))
         return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs)))
 
     def load_path(self, path, replay_buffer, obs_dict=None, use_latents=True):
         # Filter data #
-        if not self.data_filter_fn(path): return
+        if not self.data_filter_fn(path):
+            return
 
         rewards = []
         path_builder = PathBuilder()
 
-        H = min(len(path["observations"]), len(path["actions"]))
+        H = min(len(path['observations']), len(path['actions']))
         if obs_dict:
-            traj_obs = self.preprocess(path["observations"], use_latents=use_latents)
-            next_traj_obs = self.preprocess(path["next_observations"], use_latents=use_latents)
+            traj_obs = self.preprocess(
+                path['observations'], use_latents=use_latents)
+            next_traj_obs = self.preprocess(
+                path['next_observations'], use_latents=use_latents)
         else:
-            traj_obs = self.preprocess_array_obs(path["observations"])
-            next_traj_obs = self.preprocess_array_obs(path["next_observations"])
+            traj_obs = self.preprocess_array_obs(
+                path['observations'])
+            next_traj_obs = self.preprocess_array_obs(
+                path['next_observations'])
 
         for i in range(H):
             ob = traj_obs[i]
             next_ob = next_traj_obs[i]
-            action = path["actions"][i] 
-            reward = path["rewards"][i]
-            terminal = path["terminals"][i]
+            action = path['actions'][i]
+            reward = path['rewards'][i]
+            terminal = path['terminals'][i]
             if not self.load_terminals:
                 terminal = np.zeros(terminal.shape)
-            agent_info = path["agent_infos"][i]
-            env_info = path["env_infos"][i]
+            agent_info = path['agent_infos'][i]
+            env_info = path['env_infos'][i]
             if self.recompute_reward:
                 reward = self.reward_fn(ob, action, next_ob, next_ob)
 
@@ -173,10 +182,12 @@ class EncoderDictToMDPPathLoader(DictToMDPPathLoader):
         self.demo_trajectory_rewards.append(rewards)
         path = path_builder.get_all_stacked()
         replay_buffer.add_path(path)
-        print("rewards", np.min(rewards), np.max(rewards))
-        print("loading path, length", len(path["observations"]), len(path["actions"]))
-        print("actions", np.min(path["actions"]), np.max(path["actions"]))
-        print("path sum rewards", sum(rewards), len(rewards))
+        print('rewards', np.min(rewards), np.max(rewards))
+        print('loading path, length', len(
+            path['observations']), len(path['actions']))
+        print('actions', np.min(path['actions']), np.max(path['actions']))
+        print('path sum rewards', sum(rewards), len(rewards))
+
 
 class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
@@ -192,7 +203,7 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
             input_model_path=None,
             reward_fn=None,
             env=None,
-            demo_paths=[], # list of dicts
+            demo_paths=[],  # list of dicts
             normalize=False,
             demo_train_split=0.9,
             demo_data_split=1,
@@ -211,39 +222,42 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
             obs_key=None,
             load_terminals=True,
             delete_after_loading=False,
-            data_filter_fn=lambda x: True, # Return true to add path, false to ignore it
+            # Return true to add path, false to ignore it
+            data_filter_fn=lambda x: True,
             **kwargs
     ):
         super().__init__(trainer,
-            replay_buffer,
-            demo_train_buffer,
-            demo_test_buffer,
-            demo_paths,
-            demo_train_split,
-            demo_data_split,
-            add_demos_to_replay_buffer,
-            bc_num_pretrain_steps,
-            bc_batch_size,
-            bc_weight,
-            rl_weight,
-            q_num_pretrain_steps,
-            weight_decay,
-            eval_policy,
-            recompute_reward,
-            env_info_key,
-            obs_key,
-            load_terminals,
-            delete_after_loading,
-            data_filter_fn,
-            **kwargs)
-       
+                         replay_buffer,
+                         demo_train_buffer,
+                         demo_test_buffer,
+                         demo_paths,
+                         demo_train_split,
+                         demo_data_split,
+                         add_demos_to_replay_buffer,
+                         bc_num_pretrain_steps,
+                         bc_batch_size,
+                         bc_weight,
+                         rl_weight,
+                         q_num_pretrain_steps,
+                         weight_decay,
+                         eval_policy,
+                         recompute_reward,
+                         env_info_key,
+                         obs_key,
+                         load_terminals,
+                         delete_after_loading,
+                         data_filter_fn,
+                         **kwargs)
+
         if model is None:
-            self.model = load_local_or_remote_file(model_path, delete_after_loading=delete_after_loading)
+            self.model = load_local_or_remote_file(
+                model_path, delete_after_loading=delete_after_loading)
         else:
             self.model = model
 
         if input_model is None:
-            self.input_model = load_local_or_remote_file(input_model_path, delete_after_loading=delete_after_loading)
+            self.input_model = load_local_or_remote_file(
+                input_model_path, delete_after_loading=delete_after_loading)
         else:
             self.input_model = input_model
         self.condition_input_encoding = condition_input_encoding
@@ -254,7 +268,8 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
     def preprocess(self, observation):
         observation = copy.deepcopy(observation)
-        images = np.stack([observation[i]['image_observation'] for i in range(len(observation))])
+        images = np.stack([observation[i]['image_observation']
+                          for i in range(len(observation))])
 
         if self.normalize:
             images = images / 255.0
@@ -268,11 +283,11 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
         latents = self.model.encode_np(images)
 
         for i in range(len(observation)):
-            observation[i]["initial_latent_state"] = latents[0]
-            observation[i]["latent_observation"] = latents[i]
-            observation[i]["latent_achieved_goal"] = latents[i]
-            observation[i]["input_latent"] = input_latents[i]
-            observation[i]["latent_desired_goal"] = latents[-1]
+            observation[i]['initial_latent_state'] = latents[0]
+            observation[i]['latent_observation'] = latents[i]
+            observation[i]['latent_achieved_goal'] = latents[i]
+            observation[i]['input_latent'] = input_latents[i]
+            observation[i]['latent_desired_goal'] = latents[-1]
             del observation[i]['image_observation']
 
         return observation
@@ -285,34 +300,37 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
 
     def encode(self, obs):
         if self.normalize:
-            return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs) / 255.0))
+            return ptu.get_numpy(
+                self.model.encode(ptu.from_numpy(obs) / 255.0))
         return ptu.get_numpy(self.model.encode(ptu.from_numpy(obs)))
 
     def load_path(self, path, replay_buffer, obs_dict=None):
         # Filter data #
-        if not self.data_filter_fn(path): return
+        if not self.data_filter_fn(path):
+            return
 
         rewards = []
         path_builder = PathBuilder()
 
-        H = min(len(path["observations"]), len(path["actions"]))
+        H = min(len(path['observations']), len(path['actions']))
         if obs_dict:
-            traj_obs = self.preprocess(path["observations"])
-            next_traj_obs = self.preprocess(path["next_observations"])
+            traj_obs = self.preprocess(path['observations'])
+            next_traj_obs = self.preprocess(path['next_observations'])
         else:
-            traj_obs = self.preprocess_array_obs(path["observations"])
-            next_traj_obs = self.preprocess_array_obs(path["next_observations"])
+            traj_obs = self.preprocess_array_obs(path['observations'])
+            next_traj_obs = self.preprocess_array_obs(
+                path['next_observations'])
 
         for i in range(H):
             ob = traj_obs[i]
             next_ob = next_traj_obs[i]
-            action = path["actions"][i]
-            reward = path["rewards"][i]
-            terminal = path["terminals"][i]
+            action = path['actions'][i]
+            reward = path['rewards'][i]
+            terminal = path['terminals'][i]
             if not self.load_terminals:
                 terminal = np.zeros(terminal.shape)
-            agent_info = path["agent_infos"][i]
-            env_info = path["env_infos"][i]
+            agent_info = path['agent_infos'][i]
+            env_info = path['env_infos'][i]
             if self.recompute_reward:
                 reward = self.reward_fn(ob, action, next_ob, next_ob)
 
@@ -331,7 +349,8 @@ class DualEncoderDictToMDPPathLoader(DictToMDPPathLoader):
         self.demo_trajectory_rewards.append(rewards)
         path = path_builder.get_all_stacked()
         replay_buffer.add_path(path)
-        print("rewards", np.min(rewards), np.max(rewards))
-        print("loading path, length", len(path["observations"]), len(path["actions"]))
-        print("actions", np.min(path["actions"]), np.max(path["actions"]))
-        print("path sum rewards", sum(rewards), len(rewards))
+        print('rewards', np.min(rewards), np.max(rewards))
+        print('loading path, length', len(
+            path['observations']), len(path['actions']))
+        print('actions', np.min(path['actions']), np.max(path['actions']))
+        print('path sum rewards', sum(rewards), len(rewards))

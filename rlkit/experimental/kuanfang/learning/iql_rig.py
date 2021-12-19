@@ -1,5 +1,6 @@
 import os.path as osp
-from collections import OrderedDict
+from collections import OrderedDict  # NOQA
+
 import numpy as np
 import torch
 
@@ -15,25 +16,39 @@ from rlkit.data_management.online_offline_split_replay_buffer import (
 )
 from rlkit.envs.contextual import ContextualEnv
 from rlkit.envs.contextual.goal_conditioned import (
-    GoalDictDistributionFromMultitaskEnv,
-    AddImageDistribution,
-    PresampledPathDistribution,
-    NotDonePresampledPathDistribution,
-    MultipleGoalsNotDonePresampledPathDistribution,
-    TwoDistributions,
-)
+    PresampledPathDistribution)
+# from rlkit.envs.contextual.goal_conditioned import (
+#     GoalDictDistributionFromMultitaskEnv)
+# from rlkit.envs.contextual.goal_conditioned import (
+#     AddImageDistribution)
+# from rlkit.envs.contextual.goal_conditioned import (
+#     NotDonePresampledPathDistribution)
+# from rlkit.envs.contextual.goal_conditioned import (
+#     MultipleGoalsNotDonePresampledPathDistribution)
+# from rlkit.envs.contextual.goal_conditioned import (
+#     TwoDistributions)
+
 from rlkit.envs.contextual.latent_distributions import (
-    AmortizedConditionalPriorDistribution,
-    PresampledPriorDistribution,
-    ConditionalPriorDistribution,
-    AmortizedPriorDistribution,
-    AddDecodedImageDistribution,
-    AddLatentDistribution,
-    AddGripperStateDistribution,
-    AddConditionalLatentDistribution,
-    PriorDistribution,
-    PresamplePriorDistribution,
-)
+    AddLatentDistribution)
+from rlkit.envs.contextual.latent_distributions import (
+    ConditionalPriorDistribution)
+from rlkit.envs.contextual.latent_distributions import (
+    PresamplePriorDistribution)
+from rlkit.envs.contextual.latent_distributions import (
+    AddDecodedImageDistribution)
+from rlkit.envs.contextual.latent_distributions import (
+    AddGripperStateDistribution)
+from rlkit.envs.contextual.latent_distributions import (
+    AddConditionalLatentDistribution)
+# from rlkit.envs.contextual.latent_distributions import (
+#     AmortizedConditionalPriorDistribution)
+# from rlkit.envs.contextual.latent_distributions import (
+#     PresampledPriorDistribution)
+# from rlkit.envs.contextual.latent_distributions import (
+#     AmortizedPriorDistribution)
+# from rlkit.envs.contextual.latent_distributions import (
+#     PriorDistribution)
+
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
 from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.envs.gripper_state_wrapper import GripperStateWrappedEnv
@@ -314,15 +329,19 @@ def iql_rig_experiment(  # NOQA
         presampled_goals_kwargs,
     ):
         state_env = get_gym_env(
-            env_id,
+            env_id,  # Is usually None.
             env_class=env_class,
             env_kwargs=env_kwargs)
+
         renderer = EnvRenderer(
             init_camera=init_camera,
             **renderer_kwargs)
+
+        # Add environment wrappers.
         img_env = InsertImageEnv(
             state_env,
             renderer=renderer)
+
         encoded_env = encoder_wrapper(
             img_env,
             model,
@@ -337,46 +356,32 @@ def iql_rig_experiment(  # NOQA
                 step_keys_map=dict(
                     gripper_state_observation='gripper_state_observation')
             )
-        if goal_sampling_mode == 'vae_prior':
-            latent_goal_distribution = PriorDistribution(
-                model.representation_size,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-            )
-            diagnostics = StateImageGoalDiagnosticsFn({}, )
 
-        elif goal_sampling_mode == 'amortized_vae_prior':
-            latent_goal_distribution = AmortizedPriorDistribution(
-                model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-                num_presample=num_presample,
-            )
-            diagnostics = StateImageGoalDiagnosticsFn({}, )
+        # Desired goal key.
+        if desired_goal_key_reward_fn is not None:
+            desired_goal_key = desired_goal_key_reward_fn
+        else:
+            desired_goal_key = desired_goal_key
+
+        # Goal sampling distributions.
+        if goal_sampling_mode is None:
+            raise ValueError
 
         elif goal_sampling_mode == 'conditional_vae_prior':
             latent_goal_distribution = ConditionalPriorDistribution(
                 model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key)
+                desired_goal_key,
             )
+
             if image:
                 latent_goal_distribution = AddDecodedImageDistribution(
                     latent_goal_distribution,
-                    (desired_goal_key_reward_fn
-                     if desired_goal_key_reward_fn else desired_goal_key),
+                    desired_goal_key,
                     image_goal_key,
                     model,
                 )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
-        elif goal_sampling_mode == 'amortized_conditional_vae_prior':
-            latent_goal_distribution = AmortizedConditionalPriorDistribution(
-                model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-                num_presample=num_presample,
-            )
-            diagnostics = StateImageGoalDiagnosticsFn({}, )
+
         elif goal_sampling_mode == 'presampled_images':
             diagnostics = state_env.get_contextual_diagnostics
             image_goal_distribution = PresampledPathDistribution(
@@ -386,165 +391,193 @@ def iql_rig_experiment(  # NOQA
 
             # Representation Check
             if ccvae_or_cbigan_exp:
-                add_distrib = AddConditionalLatentDistribution
+                add_distrib_fn = AddConditionalLatentDistribution
             else:
-                add_distrib = AddLatentDistribution
+                add_distrib_fn = AddLatentDistribution
 
             # AddLatentDistribution
-            latent_goal_distribution = add_distrib(
+            latent_goal_distribution = add_distrib_fn(
                 image_goal_distribution,
                 image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-                model,
-            )
-        elif goal_sampling_mode == 'not_done_presampled_images':
-            diagnostics = state_env.get_contextual_diagnostics
-            image_goal_distribution = NotDonePresampledPathDistribution(
-                presampled_goals_path,
-                model.representation_size,
-                encoded_env,
-            )
-
-            # Representation Check
-            if ccvae_or_cbigan_exp:
-                add_distrib = AddConditionalLatentDistribution
-            else:
-                add_distrib = AddLatentDistribution
-
-            # AddLatentDistribution
-            latent_goal_distribution = add_distrib(
-                image_goal_distribution,
-                image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-                model,
-            )
-        elif goal_sampling_mode == 'conditional_vae_prior_and_not_done_presampled_images':  # NOQA
-            cvp_latent_goal_distribution = ConditionalPriorDistribution(
-                model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key)
-            )
-            if image:
-                cvp_latent_goal_distribution = AddDecodedImageDistribution(
-                    cvp_latent_goal_distribution,
-                    (desired_goal_key_reward_fn
-                     if desired_goal_key_reward_fn else desired_goal_key),
-                    image_goal_key,
-                    model,
-                )
-
-            ndpi_image_goal_distribution = NotDonePresampledPathDistribution(
-                presampled_goals_path,
-                model.representation_size,
-                encoded_env,
-            )
-
-            # Representation Check
-            if ccvae_or_cbigan_exp:
-                add_distrib = AddConditionalLatentDistribution
-            else:
-                add_distrib = AddLatentDistribution
-
-            # AddLatentDistribution
-            ndpi_latent_goal_distribution = add_distrib(
-                ndpi_image_goal_distribution,
-                image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                desired_goal_key,
                 model,
             )
 
-            latent_goal_distribution = TwoDistributions(
-                cvp_latent_goal_distribution,
-                ndpi_latent_goal_distribution,
-                presampled_goals_kwargs['affordance_sampling_prob'],
-            )
-
-            def state_env_null_wrapper(f):
-                global check_state_env_null
-
-                def check_state_env_null(paths, contexts):
-                    if 'state_observation' not in paths[0]['observations'][-1].keys() or 'state_desired_goal' not in contexts[0].keys():  # NOQA
-                        return OrderedDict()
-                    else:
-                        return f(paths, contexts)
-                return check_state_env_null
-
-            diagnostics = [
-                StateImageGoalDiagnosticsFn({}, ),
-                state_env_null_wrapper(state_env.get_contextual_diagnostics)]
-
-        elif goal_sampling_mode == 'multiple_goals_not_done_presampled_images':
-            diagnostics = state_env.get_contextual_diagnostics
-            image_goal_distribution = MultipleGoalsNotDonePresampledPathDistribution(  # NOQA
-                presampled_goals_path,
-                model.representation_size,
-                encoded_env,
-                multiple_goals_eval_seeds,
-            )
-
-            # Representation Check
-            if ccvae_or_cbigan_exp:
-                add_distrib = AddConditionalLatentDistribution
-            else:
-                add_distrib = AddLatentDistribution
-
-            # AddLatentDistribution
-            latent_goal_distribution = add_distrib(
-                image_goal_distribution,
-                image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-                model,
-            )
         elif goal_sampling_mode == 'presample_latents':
             diagnostics = StateImageGoalDiagnosticsFn({}, )
             # diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                desired_goal_key,
                 state_env,
                 num_presample=num_presample,
             )
             if image:
                 latent_goal_distribution = AddDecodedImageDistribution(
                     latent_goal_distribution,
-                    (desired_goal_key_reward_fn
-                     if desired_goal_key_reward_fn else desired_goal_key),
+                    desired_goal_key,
                     image_goal_key,
                     model,
                 )
-        elif goal_sampling_mode == 'presampled_latents':
-            diagnostics = state_env.get_contextual_diagnostics
-            latent_goal_distribution = PresampledPriorDistribution(
-                presampled_goals_path,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-            )
-        elif goal_sampling_mode == 'reset_of_env':
-            state_goal_env = get_gym_env(
-                env_id, env_class=env_class, env_kwargs=env_kwargs)
-            state_goal_distribution = GoalDictDistributionFromMultitaskEnv(
-                state_goal_env,
-                desired_goal_keys=[state_goal_key],
-            )
-            image_goal_distribution = AddImageDistribution(
-                env=state_env,
-                base_distribution=state_goal_distribution,
-                image_goal_key=image_goal_key,
-                renderer=renderer,
-            )
-            latent_goal_distribution = AddLatentDistribution(
-                image_goal_distribution,
-                image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
-                model,
-            )
-            diagnostics = state_goal_env.get_contextual_diagnostics
+
+        # elif goal_sampling_mode == 'vae_prior':
+        #     latent_goal_distribution = PriorDistribution(
+        #         model.representation_size,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #     )
+        #     diagnostics = StateImageGoalDiagnosticsFn({}, )
+        #
+        # elif goal_sampling_mode == 'amortized_vae_prior':
+        #     latent_goal_distribution = AmortizedPriorDistribution(
+        #         model,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #         num_presample=num_presample,
+        #     )
+        #     diagnostics = StateImageGoalDiagnosticsFn({}, )
+        #
+        # elif goal_sampling_mode == 'presampled_latents':
+        #     diagnostics = state_env.get_contextual_diagnostics
+        #     latent_goal_distribution = PresampledPriorDistribution(
+        #         presampled_goals_path,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #     )
+        #
+        # elif goal_sampling_mode == 'amortized_conditional_vae_prior':
+        #     latent_goal_distribution = AmortizedConditionalPriorDistribution(
+        #         model,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #         num_presample=num_presample,
+        #     )
+        #     diagnostics = StateImageGoalDiagnosticsFn({}, )
+        #
+        # elif goal_sampling_mode == 'not_done_presampled_images':
+        #     diagnostics = state_env.get_contextual_diagnostics
+        #     image_goal_distribution = NotDonePresampledPathDistribution(
+        #         presampled_goals_path,
+        #         model.representation_size,
+        #         encoded_env,
+        #     )
+        #
+        #     # Representation Check
+        #     if ccvae_or_cbigan_exp:
+        #         add_distrib_fn = AddConditionalLatentDistribution
+        #     else:
+        #         add_distrib_fn = AddLatentDistribution
+        #
+        #     # AddLatentDistribution
+        #     latent_goal_distribution = add_distrib_fn(
+        #         image_goal_distribution,
+        #         image_goal_key,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #         model,
+        #     )
+        # elif goal_sampling_mode == 'conditional_vae_prior_and_not_done_presampled_images':  # NOQA
+        #     cvp_latent_goal_distribution = ConditionalPriorDistribution(
+        #         model,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key)
+        #     )
+        #     if image:
+        #         cvp_latent_goal_distribution = AddDecodedImageDistribution(
+        #             cvp_latent_goal_distribution,
+        #             (desired_goal_key_reward_fn
+        #              if desired_goal_key_reward_fn else desired_goal_key),
+        #             image_goal_key,
+        #             model,
+        #         )
+        #
+        #     ndpi_image_goal_distribution = NotDonePresampledPathDistribution(
+        #         presampled_goals_path,
+        #         model.representation_size,
+        #         encoded_env,
+        #     )
+        #
+        #     # Representation Check
+        #     if ccvae_or_cbigan_exp:
+        #         add_distrib_fn = AddConditionalLatentDistribution
+        #     else:
+        #         add_distrib_fn = AddLatentDistribution
+        #
+        #     # AddLatentDistribution
+        #     ndpi_latent_goal_distribution = add_distrib_fn(
+        #         ndpi_image_goal_distribution,
+        #         image_goal_key,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #         model,
+        #     )
+        #
+        #     latent_goal_distribution = TwoDistributions(
+        #         cvp_latent_goal_distribution,
+        #         ndpi_latent_goal_distribution,
+        #         presampled_goals_kwargs['affordance_sampling_prob'],
+        #     )
+        #
+        #     def state_env_null_wrapper(f):
+        #         global check_state_env_null
+        #
+        #         def check_state_env_null(paths, contexts):
+        #             if 'state_observation' not in paths[0]['observations'][-1].keys() or 'state_desired_goal' not in contexts[0].keys():  # NOQA
+        #                 return OrderedDict()
+        #             else:
+        #                 return f(paths, contexts)
+        #         return check_state_env_null
+        #
+        #     diagnostics = [
+        #         StateImageGoalDiagnosticsFn({}, ),
+        #         state_env_null_wrapper(state_env.get_contextual_diagnostics)]
+        #
+        # elif goal_sampling_mode == 'multiple_goals_not_done_presampled_images':  # NOQA
+        #     diagnostics = state_env.get_contextual_diagnostics
+        #     image_goal_distribution = MultipleGoalsNotDonePresampledPathDistribution(  # NOQA
+        #         presampled_goals_path,
+        #         model.representation_size,
+        #         encoded_env,
+        #         multiple_goals_eval_seeds,
+        #     )
+        #
+        #     # Representation Check
+        #     if ccvae_or_cbigan_exp:
+        #         add_distrib_fn = AddConditionalLatentDistribution
+        #     else:
+        #         add_distrib_fn = AddLatentDistribution
+        #
+        #     # AddLatentDistribution
+        #     latent_goal_distribution = add_distrib_fn(
+        #         image_goal_distribution,
+        #         image_goal_key,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #         model,
+        #     )
+        #
+        # elif goal_sampling_mode == 'reset_of_env':
+        #     state_goal_env = get_gym_env(
+        #         env_id, env_class=env_class, env_kwargs=env_kwargs)
+        #     state_goal_distribution = GoalDictDistributionFromMultitaskEnv(
+        #         state_goal_env,
+        #         desired_goal_keys=[state_goal_key],
+        #     )
+        #     image_goal_distribution = AddImageDistribution(
+        #         env=state_env,
+        #         base_distribution=state_goal_distribution,
+        #         image_goal_key=image_goal_key,
+        #         renderer=renderer,
+        #     )
+        #     latent_goal_distribution = AddLatentDistribution(
+        #         image_goal_distribution,
+        #         image_goal_key,
+        #         (desired_goal_key_reward_fn
+        #          if desired_goal_key_reward_fn else desired_goal_key),
+        #         model,
+        #     )
+        #     diagnostics = state_goal_env.get_contextual_diagnostics
+
         else:
             raise ValueError
 
@@ -582,7 +615,7 @@ def iql_rig_experiment(  # NOQA
         ccvae_or_cbigan_exp = True
         path_loader_kwargs['condition_encoding'] = True
         encoder_wrapper = ConditionalEncoderWrappedEnv
-        exploration_goal_sampling_mode = 'conditional_vae_prior'
+        assert exploration_goal_sampling_mode == 'conditional_vae_prior'
 
     # Environment Definitions
     expl_env_kwargs = env_kwargs.copy()

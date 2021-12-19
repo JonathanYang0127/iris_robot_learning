@@ -4,6 +4,7 @@ from gym import Space
 
 
 class DictDistribution(object, metaclass=abc.ABCMeta):
+
     @abc.abstractmethod
     def sample(self, batch_size: int):
         pass
@@ -19,12 +20,14 @@ class DictDistribution(object, metaclass=abc.ABCMeta):
 
 
 class DictDistributionGenerator(DictDistribution, metaclass=abc.ABCMeta):
+
     def __call__(self, *args, **kwargs) -> DictDistribution:
         raise NotImplementedError
 
 
 class DictDistributionClosure(DictDistributionGenerator):
     """Fills in args to a DictDistribution"""
+
     def __init__(self, clz, *args, **kwargs):
         self.clz = clz
         self.args = args
