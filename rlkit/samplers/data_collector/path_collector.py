@@ -79,7 +79,7 @@ class MdpPathCollector(PathCollector):
             )
             if not expl_reset_free:
                 # switch to opposite task
-                if self._env.env.is_reset_task():
+                if self._env.is_reset_task():
                     opp_task = self._env.env.task_idx - self._env.num_tasks
                 else:
                     opp_task = self._env.env.task_idx + self._env.num_tasks
@@ -87,13 +87,9 @@ class MdpPathCollector(PathCollector):
             else:
                 # switch to opposite task only if successful
                 self._env.reset_robot_only()
-                info = self._env.env.get_info()
-                if info['reset_success_target']:
-                    opp_task = self._env.env.task_idx - self._env.num_tasks
-                    self._env.reset_task(opp_task)
-                if info['place_success_target']:
-                    opp_task = self._env.env.task_idx + self._env.num_tasks
-                    self._env.reset_task(opp_task)
+                new_task_idx = self._env.get_new_task_idx()
+                self._env.reset_task(new_task_idx)
+
 
             if object_detector is not None:
                 from widowx_envs.scripts.label_pickplace_rewards import (
@@ -213,6 +209,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             epochs_per_reset=1,
             exploration_task=0,
             do_cem_update=True,
+            relabel_rewards=False,
             **kwargs
     ):
         '''
@@ -227,6 +224,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         self._epochs_per_reset = epochs_per_reset
         self._exploration_task = exploration_task
         self._do_cem_update = do_cem_update
+        self._relabel_rewards = relabel_rewards
         self._epoch = 0
 
     def collect_new_paths(
@@ -236,13 +234,14 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
     ):
         def exploration_rollout(*args, **kwargs):
             # determine which task we're in
-            self._reverse = self._env.env.is_reset_task()
+            self._reverse = self._env.is_reset_task()
 
             embedding = self._exploration_strategy.sample_embedding(reverse=self._reverse)
             rollout = fixed_contextual_rollout(*args,
                 observation_keys=self._observation_keys,
                 context=embedding,
                 expl_reset_free=self._expl_reset_free,
+                relabel_rewards=self._relabel_rewards,
                 **kwargs)
             success = rollout['rewards'][-1] > 0
             post_trajectory_kwargs = {'reverse': self._reverse,
@@ -254,11 +253,11 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             return rollout
         self._rollout_fn = exploration_rollout
 
-        if self._epoch % self._epochs_per_reset == 0:
+        if self._epochs_per_reset != 0 and self._epoch % self._epochs_per_reset == 0:
             self._env.reset_task(self._exploration_task)
             # alternate which task we reset to
             if (self._epoch // self._epochs_per_reset) % 2 == 0:
-                if self._env.env.is_reset_task():
+                if self._env.is_reset_task():
                     opp_task = self._env.env.task_idx - self._env.num_tasks
                 else:
                     opp_task = self._env.env.task_idx + self._env.num_tasks

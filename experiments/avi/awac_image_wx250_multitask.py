@@ -15,8 +15,7 @@ from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplay
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
-from rlkit.misc.roboverse_utils import add_data_to_buffer, VideoSaveFunctionBullet
-from rlkit.misc.wx250_utils import (add_multitask_data_to_singletask_buffer_real_robot, 
+from rlkit.misc.wx250_utils import (add_multitask_data_to_singletask_buffer_real_robot,
     add_multitask_data_to_multitask_buffer_real_robot, DummyEnv)
 from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, TransformerEncoderDecoderNet
 
@@ -102,7 +101,7 @@ def experiment(variant):
         net.load_state_dict(torch.load(variant['task_encoder_checkpoint']))
         net.to(ptu.device)
         task_encoder = net.encoder_net
-        
+
     else:
         task_encoder = None
     replay_buffer = ObsDictMultiTaskReplayBuffer(
@@ -114,7 +113,7 @@ def experiment(variant):
         observation_keys=observation_keys
     )
     buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
-    add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer, 
+    add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
             task_encoder=task_encoder, embedding_mode=variant['embedding_mode'],
             encoder_type=variant['task_encoder_type'])
 
