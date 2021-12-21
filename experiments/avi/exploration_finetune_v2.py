@@ -40,7 +40,7 @@ class EmbeddingWrapper(gym.Env, Serializable):
         self.num_tasks = env.num_tasks
 
     def is_reset_task(self):
-        return super().is_reset_task()
+        return self.env.is_reset_task()
 
     def get_task_embedding(self, task_idx):
         if task_idx >= 2 * self.num_tasks:
@@ -71,9 +71,11 @@ class EmbeddingWrapper(gym.Env, Serializable):
         '''
         info = self.env.get_info()
         if info['reset_success_target']:
-            new_task_idx = self.env.task_idx - self._env.num_tasks
-        if info['place_success_target']:
-            new_task_idx = self.env.task_idx + self._env.num_tasks
+            new_task_idx = self.env.task_idx - self.env.num_tasks
+        elif info['place_success_target']:
+            new_task_idx = self.env.task_idx + self.env.num_tasks
+        else:
+            new_task_idx = self.env.task_idx
         return new_task_idx
 
 
@@ -255,7 +257,11 @@ def experiment(variant):
             q_function=qf1, n_components=10)
     elif variant['exploration_strategy'] == 'cem':
         exploration_strategy = CEMExplorationStrategy(task_embeddings_batch,
-            update_frequency=variant['exploration_update_frequency'], n_components=num_tasks)
+            update_frequency=variant['exploration_update_frequency'], n_components=num_tasks,
+            update_window=variant['cem_update_window'])
+    elif variant['exploration_strategy'] == 'closest':
+        exploration_strategy = ClosestExplorationStrategy(task_embeddings_batch, 
+        exploration_period=variant['closest_expl_period'])
     elif variant['exploration_strategy'] == 'fast':
         exploration_strategy = FastExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=10)
@@ -331,7 +337,7 @@ if __name__ == '__main__':
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument('--expl-reset-free', action='store_true', default=False)
     parser.add_argument('-e', '--exploration-strategy', type=str,
-        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast'))
+        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast', 'closest'))
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -365,6 +371,8 @@ if __name__ == '__main__':
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
         epochs_per_reset = 1,
+        cem_update_window = 25,
+        closest_expl_period = 10,
 
         trainer_kwargs=dict(
             discount=0.9666,
