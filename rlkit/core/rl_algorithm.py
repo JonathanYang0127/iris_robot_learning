@@ -203,7 +203,8 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
             import os
             import psutil
             process = psutil.Process(os.getpid())
-            algo_log['RAM Usage (Mb)'] = int(process.memory_info().rss / 1000000)
+            algo_log['RAM Usage (Mb)'] = int(
+                process.memory_info().rss / 1000000)
         except ImportError:
             pass
         timer.stop_timer('logging')

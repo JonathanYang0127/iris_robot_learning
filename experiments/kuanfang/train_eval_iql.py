@@ -108,7 +108,8 @@ if __name__ == '__main__':  # NOQA
             fraction_distribution_context=0.1,
         ),
         reward_kwargs=dict(
-            reward_type='sparse',
+            # reward_type='sparse',
+            reward_type='progress',  # TODO
             epsilon=1.0,
             use_pretrained_reward_classifier_path=False,
             pretrained_reward_classifier_path=reward_classifier,

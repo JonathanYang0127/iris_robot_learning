@@ -8,6 +8,7 @@ from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from rlkit.envs.contextual import ContextualRewardFn
 from rlkit import pythonplusplus as ppp
 
+
 class SampleContextFromObsDictFn(object, metaclass=abc.ABCMeta):
     """Interface definer, but you can also just pass in a function.
 
@@ -30,6 +31,10 @@ class RemapKeyFn(SampleContextFromObsDictFn):
         return new_obs
 
 
+def concat(*x):
+    return np.concatenate(x, axis=0)
+
+
 class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
     """
     Save goals from the same trajectory into the replay buffer.
@@ -48,7 +53,8 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             max_size,
             env,
             context_keys,
-            observation_keys_to_save,  # TODO: rename as observation_keys_to_save
+            # TODO: rename as observation_keys_to_save
+            observation_keys_to_save,
             sample_context_from_obs_dict_fn: SampleContextFromObsDictFn,
             reward_fn: ContextualRewardFn,
             context_distribution: DictDistribution,
@@ -65,7 +71,8 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             **kwargs
     ):
         if observation_key is not None and observation_keys is not None:
-            raise ValueError('Only specify observation_key or observation_keys')
+            raise ValueError(
+                'Only specify observation_key or observation_keys')
         if observation_key is None and observation_keys is None:
             raise ValueError(
                 'Specify either observation_key or observation_keys'
@@ -100,7 +107,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
                 fraction_future_context,
                 fraction_distribution_context,
             ))
-        self._context_keys = context_keys 
+        self._context_keys = context_keys
         self._context_distribution = context_distribution
         for k in context_keys:
             distribution_keys = set(self._context_distribution.spaces.keys())
@@ -118,15 +125,23 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         self._fraction_replay_buffer_context = fraction_replay_buffer_context
 
         def composed_post_process_batch_fn(
-                batch, replay_buffer, obs_dict, next_obs_dict, new_contexts, 
+            batch,
+            replay_buffer,
+            obs_dict,
+            next_obs_dict,
+            new_contexts,
         ):
             new_batch = batch
+
             if post_process_batch_fn:
                 new_batch = post_process_batch_fn(
                     new_batch,
                     replay_buffer,
-                    obs_dict, next_obs_dict, new_contexts
+                    obs_dict,
+                    next_obs_dict,
+                    new_contexts
                 )
+
             if self._reward_fn:
                 new_batch['rewards'] = self._reward_fn(
                     obs_dict,
@@ -134,8 +149,10 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
                     next_obs_dict,
                     new_contexts,
                 )
+
             if len(new_batch['rewards'].shape) == 1:
                 new_batch['rewards'] = new_batch['rewards'].reshape(-1, 1)
+
             return new_batch
 
         self._post_process_batch_fn = composed_post_process_batch_fn
@@ -149,8 +166,8 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         num_distrib_contexts = int(
             batch_size * self._fraction_distribution_context)
         num_rollout_contexts = (
-                batch_size - num_future_contexts - num_distrib_contexts
-                - num_next_contexts - num_replay_buffer_contexts
+            batch_size - num_future_contexts - num_distrib_contexts
+            - num_next_contexts - num_replay_buffer_contexts
         )
         indices = self._sample_indices(batch_size)
         obs_dict = self._batch_obs_dict(indices)
@@ -162,8 +179,10 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
 
         if num_distrib_contexts > 0:
             curr_obs = {
-                k: next_obs_dict[k][num_rollout_contexts:num_rollout_contexts + num_distrib_contexts]
-                for k in self.ob_keys_to_save #self.observation_keys
+                k: next_obs_dict[k][
+                    num_rollout_contexts:
+                    num_rollout_contexts + num_distrib_contexts]
+                for k in self.ob_keys_to_save  # self.observation_keys
             }
             sampled_contexts = self._context_distribution(
                 context=curr_obs).sample(num_distrib_contexts, )
@@ -194,11 +213,10 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
 
         actions = self._actions[indices]
 
-        def concat(*x):
-            return np.concatenate(x, axis=0)
-
-        new_contexts = ppp.treemap(concat, *tuple(contexts),
-                                   atomic_type=np.ndarray)
+        new_contexts = ppp.treemap(
+            concat,
+            *tuple(contexts),
+            atomic_type=np.ndarray)
 
         if len(self.observation_keys) == 1:
             obs = obs_dict[self.observation_keys[0]]
@@ -218,7 +236,9 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         new_batch = self._post_process_batch_fn(
             batch,
             self,
-            obs_dict, next_obs_dict, new_contexts,
+            obs_dict,
+            next_obs_dict,
+            new_contexts,
         )
         return new_batch
 

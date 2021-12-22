@@ -1,10 +1,7 @@
-from functools import partial
 import os.path as osp
 
 import numpy as np
 
-from torch.utils import data
-import rlkit.samplers.rollout_functions as rf
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.contextual_replay_buffer import (
     ContextualRelabelingReplayBuffer,
@@ -13,7 +10,6 @@ from rlkit.data_management.contextual_replay_buffer import (
 from rlkit.envs.contextual import ContextualEnv
 from rlkit.envs.contextual.goal_conditioned import (
     GoalDictDistributionFromMultitaskEnv,
-    ContextualRewardFnFromMultitaskEnv,
     AddImageDistribution,
     GoalConditionedDiagnosticsToContextualDiagnostics,
 )
@@ -26,7 +22,7 @@ from rlkit.launchers.rl_exp_launcher_util import create_exploration_policy
 from rlkit.samplers.data_collector.contextual_path_collector import (
     ContextualPathCollector
 )
-from rlkit.visualization.video import dump_video, VideoSaveFunction, RIGVideoSaveFunction
+from rlkit.visualization.video import dump_video, RIGVideoSaveFunction
 from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.sac.policies import MakeDeterministic
 from rlkit.torch.sac.policies import TanhGaussianPolicy
@@ -34,14 +30,10 @@ from rlkit.torch.sac.sac import SACTrainer
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.core import logger
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
-from rlkit.envs.vae_wrappers import VAEWrappedEnv
 from rlkit.util.io import load_local_or_remote_file
 from rlkit.core.eval_util import create_stats_ordered_dict
 
 from collections import OrderedDict
-
-from multiworld.core.image_env import ImageEnv, unormalize_image
-import multiworld
 
 from rlkit.launchers.contextual.rig.model_train_launcher import train_vae
 
@@ -118,7 +110,8 @@ def rig_experiment(
     def contextual_env_distrib_and_reward(
             env_id, env_class, env_kwargs, goal_sampling_mode
     ):
-        state_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
+        state_env = get_gym_env(
+            env_id, env_class=env_class, env_kwargs=env_kwargs)
 
         renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
         img_env = InsertImageEnv(state_env, renderer=renderer)
@@ -135,7 +128,8 @@ def rig_experiment(
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
         elif goal_sampling_mode == "reset_of_env":
-            state_goal_env = get_gym_env(env_id, env_class=env_class, env_kwargs=env_kwargs)
+            state_goal_env = get_gym_env(
+                env_id, env_class=env_class, env_kwargs=env_kwargs)
             state_goal_distribution = GoalDictDistributionFromMultitaskEnv(
                 state_goal_env,
                 desired_goal_keys=[state_goal_key],
@@ -153,10 +147,12 @@ def rig_experiment(
                 model,
             )
             if hasattr(state_goal_env, 'goal_conditioned_diagnostics'):
-                diagnostics = GoalConditionedDiagnosticsToContextualDiagnostics(
-                    state_goal_env.goal_conditioned_diagnostics,
-                    desired_goal_key=state_goal_key,
-                    observation_key=state_observation_key,
+                diagnostics = (
+                    GoalConditionedDiagnosticsToContextualDiagnostics(
+                        state_goal_env.goal_conditioned_diagnostics,
+                        desired_goal_key=state_goal_key,
+                        observation_key=state_observation_key,
+                    )
                 )
             else:
                 state_goal_env.get_contextual_diagnostics
@@ -183,19 +179,24 @@ def rig_experiment(
     if pretrained_vae_path:
         model = load_local_or_remote_file(pretrained_vae_path)
     else:
-        model = train_vae(train_vae_kwargs, env_kwargs, env_id, env_class, imsize, init_camera)
+        model = train_vae(train_vae_kwargs, env_kwargs,
+                          env_id, env_class, imsize, init_camera)
 
-    expl_env, expl_context_distrib, expl_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, exploration_goal_sampling_mode
+    expl_env, expl_context_distrib, expl_reward = (
+        contextual_env_distrib_and_reward(
+            env_id, env_class, env_kwargs, exploration_goal_sampling_mode
+        )
     )
-    eval_env, eval_context_distrib, eval_reward = contextual_env_distrib_and_reward(
-        env_id, env_class, env_kwargs, evaluation_goal_sampling_mode
+    eval_env, eval_context_distrib, eval_reward = (
+        contextual_env_distrib_and_reward(
+            env_id, env_class, env_kwargs, evaluation_goal_sampling_mode
+        )
     )
     context_key = desired_goal_key
 
     obs_dim = (
-            expl_env.observation_space.spaces[observation_key].low.size
-            + expl_env.observation_space.spaces[context_key].low.size
+        expl_env.observation_space.spaces[observation_key].low.size
+        + expl_env.observation_space.spaces[context_key].low.size
     )
     action_dim = expl_env.action_space.low.size
 
@@ -221,7 +222,8 @@ def rig_experiment(
         next_obs = batch['next_observations']
         context = batch[context_key]
         batch['observations'] = np.concatenate([obs, context], axis=1)
-        batch['next_observations'] = np.concatenate([next_obs, context], axis=1)
+        batch['next_observations'] = np.concatenate(
+            [next_obs, context], axis=1)
         return batch
     replay_buffer = ContextualRelabelingReplayBuffer(
         env=eval_env,
@@ -229,7 +231,8 @@ def rig_experiment(
         observation_keys_to_save=[observation_key],
         observation_key=observation_key,
         context_distribution=expl_context_distrib,
-        sample_context_from_obs_dict_fn=RemapKeyFn({context_key: observation_key}),
+        sample_context_from_obs_dict_fn=RemapKeyFn(
+            {context_key: observation_key}),
         reward_fn=eval_reward,
         post_process_batch_fn=concat_context_to_obs,
         **replay_buffer_kwargs

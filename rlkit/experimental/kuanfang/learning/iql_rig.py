@@ -17,16 +17,6 @@ from rlkit.data_management.online_offline_split_replay_buffer import (
 from rlkit.envs.contextual import ContextualEnv
 from rlkit.envs.contextual.goal_conditioned import (
     PresampledPathDistribution)
-# from rlkit.envs.contextual.goal_conditioned import (
-#     GoalDictDistributionFromMultitaskEnv)
-# from rlkit.envs.contextual.goal_conditioned import (
-#     AddImageDistribution)
-# from rlkit.envs.contextual.goal_conditioned import (
-#     NotDonePresampledPathDistribution)
-# from rlkit.envs.contextual.goal_conditioned import (
-#     MultipleGoalsNotDonePresampledPathDistribution)
-# from rlkit.envs.contextual.goal_conditioned import (
-#     TwoDistributions)
 
 from rlkit.envs.contextual.latent_distributions import (
     AddLatentDistribution)
@@ -40,24 +30,17 @@ from rlkit.envs.contextual.latent_distributions import (
     AddGripperStateDistribution)
 from rlkit.envs.contextual.latent_distributions import (
     AddConditionalLatentDistribution)
-# from rlkit.envs.contextual.latent_distributions import (
-#     AmortizedConditionalPriorDistribution)
-# from rlkit.envs.contextual.latent_distributions import (
-#     PresampledPriorDistribution)
-# from rlkit.envs.contextual.latent_distributions import (
-#     AmortizedPriorDistribution)
-# from rlkit.envs.contextual.latent_distributions import (
-#     PriorDistribution)
 
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
 from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.envs.gripper_state_wrapper import GripperStateWrappedEnv
 from rlkit.envs.images import EnvRenderer
 from rlkit.envs.images import InsertImageEnv
-from rlkit.demos.source.mdp_path_loader import MDPPathLoader
+from rlkit.demos.source.mdp_path_loader import MDPPathLoader  # NOQA
+from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader  # NOQA
 from rlkit.torch.grill.common import train_vae
-from rlkit.torch.gan.bigan import CVBiGAN
-from rlkit.torch.networks import ConcatMlp, Mlp
+from rlkit.torch.networks import Mlp
+from rlkit.torch.networks import ConcatMlp
 from rlkit.torch.networks.cnn import ConcatCNN
 from rlkit.torch.sac.policies import TanhGaussianPolicy
 from rlkit.torch.sac.policies import MakeDeterministic
@@ -76,6 +59,7 @@ from roboverse.bullet.misc import quat_to_deg
 
 
 class RewardFn:
+
     def __init__(self,
                  env,
                  obs_type='latent',
@@ -118,6 +102,12 @@ class RewardFn:
         elif self.reward_type == 'sparse':
             success = np.linalg.norm(s - c, axis=1) < self.epsilon
             reward = success - 1
+        elif self.reward_type == 'progress':
+            # TODO(kuanfang)
+            s_tm1 = self.process(states[self.observation_key])
+            reward = (
+                np.square(np.linalg.norm(s_tm1 - c, axis=1)) -
+                np.square(np.linalg.norm(s - c, axis=1)))
         elif self.reward_type == 'wrapped_env':
             reward = self.env.compute_reward(states, actions, next_states,
                                              contexts)
@@ -132,25 +122,8 @@ class RewardFn:
                     pred > self.reward_classifier_threshold, 0, -1)
         else:
             raise ValueError(self.reward_type)
+
         return reward
-
-
-# def compute_hand_sparse_reward(next_obs, reward, done, info):
-#     return info['goal_achieved'] - 1
-
-
-# def resume(variant):
-#     data = load_local_or_remote_file(variant.get(
-#         'pretrained_algorithm_path'), map_location='cuda')
-#     algo = data['algorithm']
-#
-#     algo.num_epochs = variant['num_epochs']
-#
-#     post_pretrain_hyperparams = variant['trainer_kwargs'].get(
-#         'post_pretrain_hyperparams', {})
-#     algo.trainer.set_algorithm_weights(**post_pretrain_hyperparams)
-#
-#     algo.train()
 
 
 def process_args(variant):
@@ -183,6 +156,12 @@ def process_args(variant):
             variant['path_loader_kwargs']['demo_paths'] = [demo_paths[0]]
 
 
+def process_gripper_state(gripper_state):
+    gripper_pos = gripper_state[:3]
+    gripper_ori = quat_to_deg(gripper_state[3:7]) / 360.0
+    return np.concatenate([gripper_pos, gripper_ori], axis=0)
+
+
 def gripper_state_contextual_rollout(
     env,
     agent,
@@ -196,25 +175,17 @@ def gripper_state_contextual_rollout(
 
     for i in range(paths['observations'].shape[0]):
         d = paths['observations'][i]
-        d['gripper_state_observation'] = np.concatenate(
-            (d['state_observation'][:3],
-             quat_to_deg(d['state_observation'][3:7]) / 360.0),
-            axis=0)
-        d['gripper_state_desired_goal'] = np.concatenate(
-            (d['state_desired_goal'][:3],
-             quat_to_deg(d['state_desired_goal'][3:7]) / 360.0),
-            axis=0)
+        d['gripper_state_observation'] = process_gripper_state(
+            d['state_observation'])
+        d['gripper_state_desired_goal'] = process_gripper_state(
+            d['state_desired_goal'])
 
     for i in range(paths['next_observations'].shape[0]):
         d = paths['next_observations'][i]
-        d['gripper_state_observation'] = np.concatenate(
-            (d['state_observation'][:3],
-             quat_to_deg(d['state_observation'][3:7]) / 360.0),
-            axis=0)
-        d['gripper_state_desired_goal'] = np.concatenate(
-            (d['state_desired_goal'][:3],
-             quat_to_deg(d['state_desired_goal'][3:7]) / 360.0),
-            axis=0)
+        d['gripper_state_observation'] = process_gripper_state(
+            d['state_observation'])
+        d['gripper_state_desired_goal'] = process_gripper_state(
+            d['state_desired_goal'])
 
     return paths
 
@@ -250,7 +221,7 @@ def iql_rig_experiment(  # NOQA
         reset_keys_map=None,
         gripper_observation=False,
 
-        path_loader_class=MDPPathLoader,
+        path_loader_class=EncoderDictToMDPPathLoader,
         demo_replay_buffer_kwargs=None,
         path_loader_kwargs=None,
         env_demo_path='',
@@ -367,23 +338,7 @@ def iql_rig_experiment(  # NOQA
         if goal_sampling_mode is None:
             raise ValueError
 
-        elif goal_sampling_mode == 'conditional_vae_prior':
-            latent_goal_distribution = ConditionalPriorDistribution(
-                model,
-                desired_goal_key,
-            )
-
-            if image:
-                latent_goal_distribution = AddDecodedImageDistribution(
-                    latent_goal_distribution,
-                    desired_goal_key,
-                    image_goal_key,
-                    model,
-                )
-            diagnostics = StateImageGoalDiagnosticsFn({}, )
-
         elif goal_sampling_mode == 'presampled_images':
-            diagnostics = state_env.get_contextual_diagnostics
             image_goal_distribution = PresampledPathDistribution(
                 presampled_goals_path,
                 model.representation_size,
@@ -403,15 +358,16 @@ def iql_rig_experiment(  # NOQA
                 model,
             )
 
+            diagnostics = state_env.get_contextual_diagnostics
+
         elif goal_sampling_mode == 'presample_latents':
-            diagnostics = StateImageGoalDiagnosticsFn({}, )
-            # diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
                 desired_goal_key,
                 state_env,
                 num_presample=num_presample,
             )
+
             if image:
                 latent_goal_distribution = AddDecodedImageDistribution(
                     latent_goal_distribution,
@@ -420,163 +376,23 @@ def iql_rig_experiment(  # NOQA
                     model,
                 )
 
-        # elif goal_sampling_mode == 'vae_prior':
-        #     latent_goal_distribution = PriorDistribution(
-        #         model.representation_size,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #     )
-        #     diagnostics = StateImageGoalDiagnosticsFn({}, )
-        #
-        # elif goal_sampling_mode == 'amortized_vae_prior':
-        #     latent_goal_distribution = AmortizedPriorDistribution(
-        #         model,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #         num_presample=num_presample,
-        #     )
-        #     diagnostics = StateImageGoalDiagnosticsFn({}, )
-        #
-        # elif goal_sampling_mode == 'presampled_latents':
-        #     diagnostics = state_env.get_contextual_diagnostics
-        #     latent_goal_distribution = PresampledPriorDistribution(
-        #         presampled_goals_path,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #     )
-        #
-        # elif goal_sampling_mode == 'amortized_conditional_vae_prior':
-        #     latent_goal_distribution = AmortizedConditionalPriorDistribution(
-        #         model,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #         num_presample=num_presample,
-        #     )
-        #     diagnostics = StateImageGoalDiagnosticsFn({}, )
-        #
-        # elif goal_sampling_mode == 'not_done_presampled_images':
-        #     diagnostics = state_env.get_contextual_diagnostics
-        #     image_goal_distribution = NotDonePresampledPathDistribution(
-        #         presampled_goals_path,
-        #         model.representation_size,
-        #         encoded_env,
-        #     )
-        #
-        #     # Representation Check
-        #     if ccvae_or_cbigan_exp:
-        #         add_distrib_fn = AddConditionalLatentDistribution
-        #     else:
-        #         add_distrib_fn = AddLatentDistribution
-        #
-        #     # AddLatentDistribution
-        #     latent_goal_distribution = add_distrib_fn(
-        #         image_goal_distribution,
-        #         image_goal_key,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #         model,
-        #     )
-        # elif goal_sampling_mode == 'conditional_vae_prior_and_not_done_presampled_images':  # NOQA
-        #     cvp_latent_goal_distribution = ConditionalPriorDistribution(
-        #         model,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key)
-        #     )
-        #     if image:
-        #         cvp_latent_goal_distribution = AddDecodedImageDistribution(
-        #             cvp_latent_goal_distribution,
-        #             (desired_goal_key_reward_fn
-        #              if desired_goal_key_reward_fn else desired_goal_key),
-        #             image_goal_key,
-        #             model,
-        #         )
-        #
-        #     ndpi_image_goal_distribution = NotDonePresampledPathDistribution(
-        #         presampled_goals_path,
-        #         model.representation_size,
-        #         encoded_env,
-        #     )
-        #
-        #     # Representation Check
-        #     if ccvae_or_cbigan_exp:
-        #         add_distrib_fn = AddConditionalLatentDistribution
-        #     else:
-        #         add_distrib_fn = AddLatentDistribution
-        #
-        #     # AddLatentDistribution
-        #     ndpi_latent_goal_distribution = add_distrib_fn(
-        #         ndpi_image_goal_distribution,
-        #         image_goal_key,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #         model,
-        #     )
-        #
-        #     latent_goal_distribution = TwoDistributions(
-        #         cvp_latent_goal_distribution,
-        #         ndpi_latent_goal_distribution,
-        #         presampled_goals_kwargs['affordance_sampling_prob'],
-        #     )
-        #
-        #     def state_env_null_wrapper(f):
-        #         global check_state_env_null
-        #
-        #         def check_state_env_null(paths, contexts):
-        #             if 'state_observation' not in paths[0]['observations'][-1].keys() or 'state_desired_goal' not in contexts[0].keys():  # NOQA
-        #                 return OrderedDict()
-        #             else:
-        #                 return f(paths, contexts)
-        #         return check_state_env_null
-        #
-        #     diagnostics = [
-        #         StateImageGoalDiagnosticsFn({}, ),
-        #         state_env_null_wrapper(state_env.get_contextual_diagnostics)]
-        #
-        # elif goal_sampling_mode == 'multiple_goals_not_done_presampled_images':  # NOQA
-        #     diagnostics = state_env.get_contextual_diagnostics
-        #     image_goal_distribution = MultipleGoalsNotDonePresampledPathDistribution(  # NOQA
-        #         presampled_goals_path,
-        #         model.representation_size,
-        #         encoded_env,
-        #         multiple_goals_eval_seeds,
-        #     )
-        #
-        #     # Representation Check
-        #     if ccvae_or_cbigan_exp:
-        #         add_distrib_fn = AddConditionalLatentDistribution
-        #     else:
-        #         add_distrib_fn = AddLatentDistribution
-        #
-        #     # AddLatentDistribution
-        #     latent_goal_distribution = add_distrib_fn(
-        #         image_goal_distribution,
-        #         image_goal_key,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #         model,
-        #     )
-        #
-        # elif goal_sampling_mode == 'reset_of_env':
-        #     state_goal_env = get_gym_env(
-        #         env_id, env_class=env_class, env_kwargs=env_kwargs)
-        #     state_goal_distribution = GoalDictDistributionFromMultitaskEnv(
-        #         state_goal_env,
-        #         desired_goal_keys=[state_goal_key],
-        #     )
-        #     image_goal_distribution = AddImageDistribution(
-        #         env=state_env,
-        #         base_distribution=state_goal_distribution,
-        #         image_goal_key=image_goal_key,
-        #         renderer=renderer,
-        #     )
-        #     latent_goal_distribution = AddLatentDistribution(
-        #         image_goal_distribution,
-        #         image_goal_key,
-        #         (desired_goal_key_reward_fn
-        #          if desired_goal_key_reward_fn else desired_goal_key),
-        #         model,
-        #     )
-        #     diagnostics = state_goal_env.get_contextual_diagnostics
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
+
+        elif goal_sampling_mode == 'conditional_vae_prior':
+            latent_goal_distribution = ConditionalPriorDistribution(
+                model,
+                desired_goal_key,
+            )
+
+            if image:
+                latent_goal_distribution = AddDecodedImageDistribution(
+                    latent_goal_distribution,
+                    desired_goal_key,
+                    image_goal_key,
+                    model,
+                )
+
+            diagnostics = StateImageGoalDiagnosticsFn({}, )
 
         else:
             raise ValueError
@@ -592,6 +408,7 @@ def iql_rig_experiment(  # NOQA
             state_env,
             **reward_kwargs
         )
+
         env = ContextualEnv(
             encoded_env,
             context_distribution=latent_goal_distribution,
@@ -611,7 +428,7 @@ def iql_rig_experiment(  # NOQA
         path_loader_kwargs['model'] = model
 
     # Representation Check
-    if isinstance(model, CCVAE) or isinstance(model, CVBiGAN):
+    if isinstance(model, CCVAE):
         ccvae_or_cbigan_exp = True
         path_loader_kwargs['condition_encoding'] = True
         encoder_wrapper = ConditionalEncoderWrappedEnv
@@ -636,7 +453,7 @@ def iql_rig_experiment(  # NOQA
             presampled_goal_kwargs['expl_goals_kwargs'],
         ))
 
-    training_env, training_context_distrib, training_reward = (
+    _, training_context_distrib, _ = (
         contextual_env_distrib_and_reward(
             env_id,
             env_class,
@@ -712,16 +529,21 @@ def iql_rig_experiment(  # NOQA
         obs = batch['observations']
         if type(obs) is tuple:
             obs = np.concatenate(obs, axis=1)
+
         next_obs = batch['next_observations']
         if type(next_obs) is tuple:
             next_obs = np.concatenate(next_obs, axis=1)
+
         if len(new_contexts.keys()) > 1:
             context = np.concatenate(tuple(new_contexts.values()), axis=1)
         else:
             context = batch[context_key]
-        batch['observations'] = np.concatenate([obs, context], axis=1)
+
+        batch['observations'] = np.concatenate(
+            [obs, context], axis=1)
         batch['next_observations'] = np.concatenate(
             [next_obs, context], axis=1)
+
         return batch
 
     if online_offline_split:
@@ -819,42 +641,49 @@ def iql_rig_experiment(  # NOQA
         )
 
     # Path Collectors
-    path_collector_observation_keys = [
-        observation_key, ] if observation_keys is None else observation_keys
-    path_collector_context_keys_for_policy = (
-        [context_key, ] if not gripper_observation
-        else [context_key, gripper_goal_key])
+    if observation_keys is None:
+        path_collector_observation_keys = [observation_key]
+    else:
+        path_collector_observation_keys = observation_keys
+
+    if not gripper_observation:
+        path_collector_context_keys_for_policy = [context_key]
+    else:
+        path_collector_context_keys_for_policy = [
+            context_key, gripper_goal_key]
 
     def obs_processor(o):
         combined_obs = []
+
         for k in path_collector_observation_keys:
             if k == gripper_observation_key:
-                combined_obs.append(
-                    np.concatenate(
-                        (o['state_observation'][:3],
-                         quat_to_deg(o['state_observation'][3:7]) / 360.0),
-                        axis=0))
+                gripper_state = process_gripper_state(
+                    o['state_observation'])
+                combined_obs.append(gripper_state)
             else:
                 combined_obs.append(o[k])
+
         for k in path_collector_context_keys_for_policy:
             if k == gripper_goal_key:
-                combined_obs.append(
-                    np.concatenate(
-                        (o['state_desired_goal'][:3],
-                         quat_to_deg(o['state_desired_goal'][3:7]) / 360.0),
-                        axis=0))
+                gripper_state = process_gripper_state(
+                    o['state_desired_goal'])
+                combined_obs.append(gripper_state)
             else:
                 combined_obs.append(o[k])
+
         return np.concatenate(combined_obs, axis=0)
 
     if gripper_observation:
         rollout = gripper_state_contextual_rollout
     else:
+        # The contextual_rollout basically uses obs_processor to combine
+        # the observation with the context.
         rollout = contextual_rollout
 
+    eval_policy = MakeDeterministic(policy)
     eval_path_collector = ContextualPathCollector(
         eval_env,
-        MakeDeterministic(policy),
+        eval_policy,
         observation_keys=path_collector_observation_keys,
         context_keys_for_policy=path_collector_context_keys_for_policy,
         obs_processor=obs_processor,
@@ -953,7 +782,7 @@ def iql_rig_experiment(  # NOQA
         )
         algorithm.post_train_funcs.append(eval_video_func)
 
-    # IQL CODE
+    # IQL
     if save_paths:
         algorithm.post_train_funcs.append(save_paths)
 
