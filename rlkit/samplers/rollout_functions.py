@@ -103,7 +103,8 @@ def rollout(
         full_o_postprocess_func=None,
         full_next_o_postprocess_func=None,
         reset_callback=None,
-        expl_reset_free=False
+        expl_reset_free=False,
+        relabel_rewards=False
 ):
     if render_kwargs is None:
         render_kwargs = {}
@@ -125,8 +126,6 @@ def rollout(
     if not expl_reset_free:
         o = env.reset()
     else:
-        # TODO (homer): temp fix to ensure embedding matches env task idx matches object positions
-        # env.reset_robot_only()
         o = env.get_observation()
     if reset_callback:
         reset_callback(env, agent, o)
@@ -171,7 +170,7 @@ def rollout(
     rewards = np.array(rewards)
     if len(rewards.shape) == 1:
         rewards = rewards.reshape(-1, 1)
-    return dict(
+    rollout_data = dict(
         observations=observations,
         actions=actions,
         rewards=rewards,
@@ -182,6 +181,9 @@ def rollout(
         full_observations=raw_obs,
         full_next_observations=raw_obs,
     )
+    if relabel_rewards:
+        rollout_data = relabel_rewards(rollout_data)
+    return rollout_data
 
 
 def deprecated_rollout(

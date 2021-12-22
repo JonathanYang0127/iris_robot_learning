@@ -924,4 +924,3 @@ class AWACTrainer(TorchTrainer):
             target_qf2=self.qf2,
             buffer_policy=self.buffer_policy,
         )
-

@@ -2,70 +2,75 @@ import argparse
 import time
 import os
 import gym
-from roboverse.bullet.serializable import Serializable
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.iql_trainer import IQLTrainer
 from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import ConcatCNN
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from rlkit.data_management.multitask_replay_buffer import ObsDictMultiTaskReplayBuffer
-from rlkit.samplers.data_collector import ObsDictPathCollector
+from rlkit.samplers.data_collector import ObsDictPathCollector, EmbeddingExplorationObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
-from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v2, \
-    add_multitask_data_to_multitask_buffer_v2, \
-    VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer, \
-    add_data_to_buffer_multitask_v2
+from rlkit.misc.wx250_utils import (add_multitask_data_to_singletask_buffer_real_robot,
+    add_multitask_data_to_multitask_buffer_real_robot, DummyEnv)
+from rlkit.exploration_strategies import *
+from widowx_envs.widowx.widowx_grasp_env import GraspWidowXResetFreeEnv
+from widowx_envs.widowx.env_wrappers import NormalizedBoxEnv
+from widowx_envs.utils.params import *
 
-import roboverse
+
 import numpy as np
 from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
-
-BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06_1000.npy'
-
-
-class EmbeddingWrapper(gym.Env, Serializable):
-
-    def __init__(self, env, embeddings):
-        self.env = env
-        self.action_space = env.action_space
-        self.observation_space = env.observation_space
-        self.embeddings = embeddings
-
-    def step(self, action):
-        obs, rew, done, info = self.env.step(action)
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs, rew, done, info
-
-    def reset(self):
-        obs = self.env.reset()
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs
-
-    def reset_task(self, task_idx):
-        self.env.reset_task(task_idx)
-
+import torch
 
 def experiment(variant):
     num_tasks = variant['num_tasks']
-    env_num_tasks = num_tasks
-    if args.reset_free:
-        env_num_tasks = env_num_tasks // 2
-    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
+    eval_env = NormalizedBoxEnv(GraspWidowXResetFreeEnv(
+        variant['num_tasks'],
+        variant['task_key'],
+        variant['object_key'],
+        image_save_directory='object_detector_images',
+        env_params = {'transpose_image_to_chw': True,
+         'wait_time': 0.2,
+         'return_full_image': True,
+         'override_workspace_boundaries': WORKSPACE_BOUNDARIES,
+         'action_mode': '3trans1rot'}
+    ))
 
-    with open(variant['buffer'], 'rb') as fl:
-        data = np.load(fl, allow_pickle=True)
-    num_transitions = get_buffer_size(data)
-    max_replay_buffer_size = num_transitions + 10
+    """
+    Set forward exploration task to be idx num_tasks
+    Set reverse exploration task to be idx num_tasks + 1
+    """
+    variant['exploration_task'] = variant['num_tasks']
+    opp_task = variant['exploration_task'] + 1
 
-    if variant['use_task_embedding']:
+
+    if variant['buffer'] != "":
+        with open(variant['buffer'], 'rb') as fl:
+            data = np.load(fl, allow_pickle=True)
+        num_transitions = get_buffer_size(data)
+        max_replay_buffer_size = num_transitions + 10
+    else:
+        num_transitions = int(2e5)
+        max_replay_buffer_size = num_transitions + 10
+
+    if variant['use_task_embedding'] and variant['buffer'] != "":
+        '''
+        Get task embeddings from data
+        '''
         num_traj_total = len(data)
+        if not 'task_embedding' in data[0]['observations'][0].keys():
+            for j in range(num_traj_total):
+                for k in range(len(data[j]['observations'])):
+                    data[j]['observations'][k]['task_embedding'] = \
+                        data[j]['observations'][k]['one_hot_task_id']
+                    data[j]['next_observations'][k]['task_embedding'] = \
+                        data[j]['next_observations'][k]['one_hot_task_id']
         latent_dim = data[0]['observations'][0]['task_embedding'].shape[0]
         task_embeddings = dict()
         for i in range(variant['num_tasks']):
@@ -85,27 +90,38 @@ def experiment(variant):
                 high=np.array([100] * latent_dim),
             )})
         eval_env = EmbeddingWrapper(eval_env, embeddings=task_embeddings)
+
+        # Get task embeddings from data for exploration strategy
+        for i in range(len(data)):
+            for j in range(len(data[i]['observations'])):
+                task_embeddings_batch.append(data[i]['observations'][j]['task_embedding'])
+        task_embeddings_batch = np.array(task_embeddings_batch)
     else:
+        '''
+        Use one-hot task embeddings with dim num_tasks
+        '''
         eval_env.observation_space.spaces.update(
-            {'one_hot_task_id': spaces.Box(
+            {'task_embedding': spaces.Box(
                 low=np.array([0] * num_tasks),
                 high=np.array([1] * num_tasks),
             )})
 
+        # Task embeddings are just 1 hot vectors (for exploration strategy)
+        task_embeddings_batch = np.zeros((args.num_tasks, 1, args.num_tasks))
+        for i in range(args.num_tasks):
+            one_hot_embedding = np.zeros(args.num_tasks)
+            one_hot_embedding[i] = 1
+            task_embeddings_batch[i][0] = one_hot_embedding
+
     expl_env = eval_env
+    expl_env.reset()
 
     action_dim = eval_env.action_space.low.size
-    observation_keys = ['image',]
-
-    if variant['use_task_embedding']:
-        observation_keys.append('task_embedding')
-    else:
-        observation_keys.append('one_hot_task_id')
-
     if variant['use_robot_state']:
-        observation_keys.append('state')
+        observation_keys = ['image', 'state', 'task_embedding']
         state_observation_dim = eval_env.observation_space.spaces['state'].low.size
     else:
+        observation_keys = ['image', 'task_embedding']
         state_observation_dim = 0
 
     cnn_params = variant['cnn_params']
@@ -139,41 +155,43 @@ def experiment(variant):
         )
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
-    qf1 = ConcatCNN(**cnn_params)
-    qf2 = ConcatCNN(**cnn_params)
-    target_qf1 = ConcatCNN(**cnn_params)
-    target_qf2 = ConcatCNN(**cnn_params)
 
+    ext = os.path.splitext(args.checkpoint)[-1]
+    with open(args.checkpoint, 'rb') as handle:
+        if ext == ".pt":
+            params = torch.load(handle)
+            policy = params['trainer/policy']
+            eval_policy = MakeDeterministic(policy)
+            qf1 = params['trainer/qf1']
+            qf2 = params['trainer/qf2']
+            target_qf1 = params['trainer/target_qf1']
+            target_qf2 = params['trainer/target_qf2']
+        elif ext == ".pkl":
+            policy = pickle.load(handle)
+            eval_policy = MakeDeterministic(policy)
+
+
+    # we need to add room for an exploration tasks
+    num_buffer_tasks = num_tasks * 2
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
         expl_env,
-        np.arange(num_tasks),
+        np.arange(num_buffer_tasks),
         use_next_obs_in_context=False,
         sparse_rewards=False,
         observation_keys=observation_keys
     )
 
-    add_multitask_data_to_multitask_buffer_v2(data, replay_buffer, observation_keys, num_tasks)
-
-    # if len(data[0]['observations'][0]['image'].shape) > 1:
-    #     add_data_to_buffer(data, replay_buffer, observation_keys)
-    # else:
-    #     add_data_to_buffer_new(data, replay_buffer, observation_keys)
+    if variant['buffer'] != "":
+        add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
+                                               observation_keys, num_tasks)
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
 
-    if 'AWAC' in variant['algorithm']:
-        trainer_class = AWACTrainer 
-    elif 'IQL' in variant['algorithm']:
-        cnn_params['added_fc_input_size'] -= action_dim
-        vf = ConcatCNN(**cnn_params)
-        variant['trainer_kwargs']['vf'] = vf 
-        trainer_class = IQLTrainer
-
-    trainer = trainer_class(
+    trainer = AWACTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
@@ -185,16 +203,41 @@ def experiment(variant):
         **variant['trainer_kwargs']
     )
 
+    if variant['exploration_strategy'] == 'gaussian':
+        exploration_strategy = GaussianExplorationStrategy(task_embeddings_batch, policy=eval_policy,
+            q_function=qf1, n_components=10)
+    elif variant['exploration_strategy'] == 'gaussian_filtered':
+        exploration_strategy = GaussianExplorationStrategy(task_embeddings_batch, policy=eval_policy,
+            q_function=qf1, n_components=10)
+    elif variant['exploration_strategy'] == 'cem':
+        exploration_strategy = CEMExplorationStrategy(task_embeddings_batch,
+            update_frequency=variant['exploration_update_frequency'], n_components=num_tasks)
+    elif variant['exploration_strategy'] == 'fast':
+        exploration_strategy = FastExplorationStrategy(task_embeddings_batch,
+            update_frequency=variant['exploration_update_frequency'], n_components=10)
+    else:
+        raise NotImplementedError
+
     eval_policy = MakeDeterministic(policy)
-    expl_path_collector = ObsDictPathCollector(
+    expl_path_collector = EmbeddingExplorationObsDictPathCollector(
+        exploration_strategy,
         expl_env,
         policy,
         observation_keys=observation_keys,
+        expl_reset_free=args.expl_reset_free,
+        epochs_per_reset=variant['epochs_per_reset'],
+        exploration_task=variant['exploration_task']
     )
-    eval_path_collector = ObsDictPathCollector(
-        eval_env,
-        eval_policy,
+    eval_path_collector = EmbeddingExplorationObsDictPathCollector(
+        exploration_strategy,
+        expl_env,
+        policy,
         observation_keys=observation_keys,
+        expl_reset_free=False,
+        epochs_per_reset=variant['epochs_per_reset'],
+        exploration_task=variant['exploration_task'],
+        do_cem_update=False,
+        relabel_rewards=True
     )
 
     algorithm = TorchBatchRLAlgorithm(
@@ -213,12 +256,15 @@ def experiment(variant):
         num_trains_per_train_loop=variant['num_trains_per_train_loop'],
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
-        train_tasks=np.arange(num_tasks),
-        eval_tasks=np.arange(num_tasks),
+        exploration_task=variant['exploration_task'],
+        train_tasks=[variant['exploration_task'], opp_task],
+        eval_tasks=[variant['exploration_task']],
+        log_keys_to_remove=["exploration/env", "evaluation/env"]
     )
 
-    video_func = VideoSaveFunctionBullet(variant)
-    algorithm.post_train_funcs.append(video_func)
+    # TODO: Add video saving functionality
+    #video_func = VideoSaveFunctionBullet(variant)
+    #algorithm.post_train_funcs.append(video_func)
 
     algorithm.to(ptu.device)
     algorithm.train()
@@ -232,46 +278,54 @@ def enable_gpus(gpu_str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0')
+    parser.add_argument("-c", "--checkpoint", type=str, required=True)
     parser.add_argument("--num-tasks", type=int, default=32)
-    parser.add_argument("--buffer", type=str, default=BUFFER)
+    parser.add_argument("--task-key", type=str, default='pinktrayleft', choices=('pinktrayleft',
+        'redplateright'))
+    parser.add_argument("--object-key", type=str, required=True)
+    parser.add_argument("--buffer", type=str, default="")
     parser.add_argument("--beta", type=float, default=0.1)
-    parser.add_argument('--use-task-embedding', action='store_true', default=False)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-    parser.add_argument("--max-path-len", type=int, default=30)
-    parser.add_argument('--reset-free', action='store_true', default=False)
+    parser.add_argument('--expl-reset-free', action='store_true', default=False)
+    parser.add_argument('-e', '--exploration-strategy', type=str,
+        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast'))
     parser.add_argument("--gpu", default='0', type=str)
-    parser.add_argument('--offline-alg', type=str, choices=('AWAC', 'IQL'))
-    parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
 
     variant = dict(
-        algorithm="{}-Pixel".format(args.offline_alg),
+        algorithm="AWAC-Pixel",
 
         num_epochs=3000,
         batch_size=64,
-        meta_batch_size=8,
-        max_path_length=args.max_path_len,
+        meta_batch_size=4,
+        max_path_length=15,
         num_trains_per_train_loop=1000,
-        # num_eval_steps_per_epoch=0,
-        num_eval_steps_per_epoch=120,
-        num_expl_steps_per_train_loop=0,
-        min_num_steps_before_training=0,
+        num_eval_steps_per_epoch=40 *40,
+        num_expl_steps_per_train_loop=40 * 40,
+        min_num_steps_before_training=100 * 40,
 
         dump_video_kwargs=dict(
             save_video_period=1,
         ),
 
-        env=args.env,
         num_tasks=args.num_tasks,
+        task_key=args.task_key,
+        object_key=args.object_key,
+        checkpoint=args.checkpoint,
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
-        use_task_embedding=args.use_task_embedding,
-        seed=args.seed,
+        use_task_embedding=False,
+
+        exploration_task = args.num_tasks,
+        exploration_strategy = args.exploration_strategy,
+        exploration_update_frequency=10,
+        expl_reset_free = args.expl_reset_free,
+        epochs_per_reset = 0,
+
         trainer_kwargs=dict(
             discount=0.9666,
             soft_target_tau=5e-3,
@@ -280,6 +334,7 @@ if __name__ == '__main__':
             qf_lr=3E-4,
             reward_scale=1,
             beta=args.beta,
+            use_automatic_entropy_tuning=False,
             alpha=0,
             compute_bc=False,
             awr_min_q=True,
@@ -326,8 +381,8 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-{}-image-{}'.format(time.strftime("%y-%m-%d"), args.offline_alg, args.env)
+    exp_prefix = '{}-exploration-awac-image-real-robot'.format(time.strftime("%y-%m-%d"))
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
+                 snapshot_mode='gap_and_last', snapshot_gap=10, )
 
     experiment(variant)

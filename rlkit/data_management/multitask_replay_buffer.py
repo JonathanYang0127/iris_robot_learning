@@ -7,6 +7,7 @@ from rlkit.data_management.simple_replay_buffer import (
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from gym.spaces import Box, Discrete, Tuple
+from collections import OrderedDict
 
 
 class MultiTaskReplayBuffer(ReplayBuffer):
@@ -96,6 +97,11 @@ class MultiTaskReplayBuffer(ReplayBuffer):
         for path in paths:
             self.task_buffers[task].add_path(path)
 
+    def add_multitask_paths(self, paths):
+        for path in paths:
+            task = path['env_infos'][0]['task_idx']
+            self.task_buffers[task].add_path(path)
+
     def clear_buffer(self, task):
         self.task_buffers[task].clear()
 
@@ -131,7 +137,7 @@ class MultiTaskReplayBuffer(ReplayBuffer):
             'next_observations': next_obs,
             'terminals': terms,
         }
-    
+
     def sample_batch_of_trajectories(self, indices, batch_size):
         """
         sample batch of trajectories from a list of tasks
@@ -201,6 +207,10 @@ class MultiTaskReplayBuffer(ReplayBuffer):
 
     def get_snapshot(self):
         return dict()
+
+    def get_diagnostics(self):
+        return OrderedDict([("task " + str(i) + " size", self.num_steps_can_sample(i)) \
+                             for i in self.task_indices])
 
 
 class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):
