@@ -1,10 +1,16 @@
-import Dict
+# import Dict
 
 import numpy as np
-from gym.spaces import Box
+from gym.spaces import Box, Dict
 
 from rlkit.envs.wrappers import ProxyEnv
 from roboverse.bullet.misc import quat_to_deg
+
+
+def process_gripper_state(gripper_state):
+    gripper_pos = gripper_state[:3]
+    gripper_ori = quat_to_deg(gripper_state[3:7]) / 360.0
+    return np.concatenate([gripper_pos, gripper_ori], axis=0)
 
 
 class GripperStateWrappedEnv(ProxyEnv):
@@ -38,8 +44,8 @@ class GripperStateWrappedEnv(ProxyEnv):
     def _update_obs(self, obs):
         for key in self.step_keys_map:
             value = self.step_keys_map[key]
-            gripper_pos = obs[self.state_key][:3]
-            gripper_deg = quat_to_deg(obs[self.state_key][3:7]) / 360.
-            obs[value] = np.concatenate((gripper_pos, gripper_deg), axis=0)
+            gripper_state = obs[self.state_key]
+            process_gripper_state(gripper_state)
+            obs[value] = process_gripper_state(gripper_state)
         obs = {**obs, **self.reset_obs}
         return obs

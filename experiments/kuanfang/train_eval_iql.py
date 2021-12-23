@@ -1,21 +1,90 @@
+from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
+from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0
+from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
+from roboverse.envs.sawyer_rig_affordances_v1 import SawyerRigAffordancesV1
+
 import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader  # NOQA
-from rlkit.launchers.experiments.ashvin.iql_rig import iql_rig_experiment
-from rlkit.launchers.experiments.ashvin.iql_rig import process_args
+# from rlkit.launchers.experiments.ashvin.iql_rig import iql_rig_experiment
+# from rlkit.launchers.experiments.ashvin.iql_rig import process_args
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.grill.common import train_vqvae
 from rlkit.torch.networks import Clamp
 from rlkit.torch.sac.policies import GaussianPolicy
 from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
+import rlkit.torch.pytorch_util as ptu
 
+from rlkit.experimental.kuanfang.learning.iql_rig import iql_rig_experiment
+from rlkit.experimental.kuanfang.learning.iql_rig import process_args
+
+# dataset = 'val'
+# dataset = 'combined'
 dataset = 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free'
+# dataset = 'antialias-rotated-top-drawer-reset-free'
 
 # VAL Data
 if dataset is None:
     raise ValueError
+elif dataset == 'val':
+    VAL_DATA_PATH = '/home/kuanfang/projects/reset-free-learning/data/combined/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl', obs_dict=True, is_demo=True),  # NOQA
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl',
+                       obs_dict=True, is_demo=True),
+
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl',
+                       obs_dict=True, is_demo=True),
+
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl',
+                       obs_dict=True, is_demo=True),
+
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl',
+                       obs_dict=True, is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl',
+                       obs_dict=True, is_demo=True),
+                  ]
+    vqvae = VAL_DATA_PATH + 'best_vqvae.pt'
+
+elif dataset == 'antialias-rotated-top-drawer-reset-free':
+    VAL_DATA_PATH = 'data/antialias_reset_free_v5_rotated_top_drawer/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
+    vqvae = VAL_DATA_PATH + 'best_vqvae.pt'
+
+elif dataset == 'combined':
+    VAL_DATA_PATH = '/home/kuanfang/projects/reset-free-learning/data/combined/'
+    demo_paths = [
+        dict(
+            path=VAL_DATA_PATH + 'drawer_demos_{}.pkl'.format(
+                str(i)),
+            obs_dict=True,
+            is_demo=True,
+            use_latents=True)
+        for i in range(6)]
+    vqvae = VAL_DATA_PATH + 'best_vqvae.pt'
+
 elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':
-    VAL_DATA_PATH = 'data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
+    VAL_DATA_PATH = '/home/kuanfang/data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
     demo_paths = [
         dict(
             path=VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(
@@ -24,12 +93,15 @@ elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-fr
             is_demo=True,
             use_latents=True)
         for i in range(32)]
+    vqvae = VAL_DATA_PATH + 'best_vqvae_run29.pt'
+
 else:
     assert False
 
-vqvae = VAL_DATA_PATH + 'best_vqvae_run29.pt'
-reward_classifier = VAL_DATA_PATH + 'best_reward_classifier.pt'
-pretrained_rl_path = VAL_DATA_PATH + 'run155_id3_itr_-1.pt'
+# vqvae = None  # VAL_DATA_PATH + 'best_vqvae_run29.pt'
+# vqvae = '/home/kuanfang/data/train_eval_iql_2021_12_22_23_26_25_id000--s0/itr_100.pt'
+reward_classifier = None  # VAL_DATA_PATH + 'best_reward_classifier.pt'
+pretrained_rl_path = None  # VAL_DATA_PATH + 'run155_id3_itr_-1.pt'
 image_train_data = VAL_DATA_PATH + 'combined_images.npy'
 image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
@@ -108,8 +180,8 @@ if __name__ == '__main__':  # NOQA
             fraction_distribution_context=0.1,
         ),
         reward_kwargs=dict(
-            # reward_type='sparse',
-            reward_type='progress',  # TODO
+            reward_type='sparse',
+            # reward_type='progress',  # TODO
             epsilon=1.0,
             use_pretrained_reward_classifier_path=False,
             pretrained_reward_classifier_path=reward_classifier,
@@ -275,10 +347,11 @@ if __name__ == '__main__':  # NOQA
         'trainer_kwargs.anneal_beta_stop_at': [.0001],
 
         # If True, use pretrained reward classifier. If False, use epsilon.
-        'reward_kwargs.use_pretrained_reward_classifier_path': [True],
-        'reward_kwargs.reward_classifier_threshold': [
-            .995, .99, .98, .97, .96, .95, .94, .93, .92, .91, .90,
-            .8, .7, .6, .5],
+        # TODO(kuanfang)
+        # 'reward_kwargs.use_pretrained_reward_classifier_path': [False],
+        # 'reward_kwargs.reward_classifier_threshold': [
+        #     .995, .99, .98, .97, .96, .95, .94, .93, .92, .91, .90,
+        #     .8, .7, .6, .5],
         'reward_kwargs.epsilon': [3.0],
         'trainer_kwargs.quantile': [0.9],
 
@@ -320,7 +393,8 @@ if __name__ == '__main__':  # NOQA
     }
 
     sweeper = hyp.DeterministicHyperparameterSweeper(
-        search_space, default_parameters=default_variant,
+        search_space,
+        default_parameters=default_variant,
     )
 
     variants = []
@@ -393,10 +467,49 @@ if __name__ == '__main__':  # NOQA
 
         if dataset is None:
             raise ValueError
-        elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':  # NOQA
-            variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
-            variant['env_kwargs']['new_view'] = True
-            variant['env_kwargs']['close_view'] = True
+        elif dataset == 'val':
+            if env_type in ['top_drawer', 'bottom_drawer']:
+                variant['env_class'] = SawyerRigAffordancesV0
+                variant['env_kwargs']['env_type'] = env_type
+            if env_type == 'tray':
+                variant['env_class'] = SawyerRigMultiobjTrayV0
+            if env_type == 'pnp':
+                variant['env_class'] = SawyerRigMultiobjV0
+        elif dataset == 'combined':  # NOQA
+            # TODO(kuanfang)
+            variant['env_class'] = SawyerRigAffordancesV1
+            variant['env_kwargs']['downsample'] = True
+            variant['env_kwargs']['env_obs_img_dim'] = 196
+
+            variant['env_kwargs']['fix_drawer_orientation_semicircle'] = False
+            variant['env_kwargs']['new_view'] = False
+            variant['env_kwargs']['close_view'] = False
+        # elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':  # NOQA
+        #     variant['env_class'] = SawyerRigAffordancesV1
+        #     variant['env_kwargs']['downsample'] = True
+        #     variant['env_kwargs']['env_obs_img_dim'] = 196
+        #
+        #     variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+        #     variant['env_kwargs']['new_view'] = True
+        #     variant['env_kwargs']['close_view'] = True
+        elif dataset in [
+            'antialias-rotated-top-drawer-reset-free',
+            'antialias-right-top-drawer-reset-free',
+            'antialias-rotated-semicircle-top-drawer-reset-free',
+            'new-view-antialias-rotated-semicircle-top-drawer-reset-free',
+            'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large',
+            'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free',
+        ]:
+            variant['env_class'] = SawyerRigAffordancesV1
+            variant['env_kwargs']['downsample'] = True
+            variant['env_kwargs']['env_obs_img_dim'] = 196
+            if dataset == 'antialias-right-top-drawer-reset-free':
+                variant['env_kwargs']['fix_drawer_orientation'] = True
+            elif dataset == 'antialias-rotated-semicircle-top-drawer-reset-free':
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+            elif dataset in ['new-view-antialias-rotated-semicircle-top-drawer-reset-free', 'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large']:
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+                variant['env_kwargs']['new_view'] = True
         else:
             assert False
 
@@ -410,6 +523,12 @@ if __name__ == '__main__':  # NOQA
                 'latent_observation', 'gripper_state_observation']
 
         variants.append(variant)
+
+        # TODO(kuanfang)
+        break
+
+    ptu.set_gpu_mode(mode=True, gpu_id=0)
+    print('Device: %r' % (ptu.device))
 
     run_variants(iql_rig_experiment,
                  variants,

@@ -7,10 +7,10 @@ from rlkit.torch.sac.policies import GaussianPolicy
 from rlkit.torch.sac.policies import GaussianCNNPolicy
 from rlkit.torch.networks.cnn import CNN
 from rlkit.torch.networks.cnn import ConcatCNN
-# from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
-# from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0  # NOQA
-# from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
-# from roboverse.envs.sawyer_rig_affordances_v1 import SawyerRigAffordancesV1
+from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
+from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0  # NOQA
+from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
+from roboverse.envs.sawyer_rig_affordances_v1 import SawyerRigAffordancesV1
 from rlkit.torch.networks import Clamp
 from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
@@ -115,7 +115,8 @@ if dataset is None:
 #     demo_paths = [dict(path=VAL_DATA_PATH + 'new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_large_demos_{}.pkl'.format(
 #         str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(32)]
 elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':
-    VAL_DATA_PATH = 'data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
+    # VAL_DATA_PATH = 'data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
+    VAL_DATA_PATH = '/home/kuanfang/data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
     demo_paths = [
         dict(
             path=VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(
@@ -485,36 +486,36 @@ if __name__ == '__main__':  # NOQA
 
         if dataset is None:
             raise ValueError
-        # elif dataset == 'val':
-        #     if env_type in ['top_drawer', 'bottom_drawer']:
-        #         variant['env_class'] = SawyerRigAffordancesV0
-        #         variant['env_kwargs']['env_type'] = env_type
-        #     if env_type == 'tray':
-        #         variant['env_class'] = SawyerRigMultiobjTrayV0
-        #     if env_type == 'pnp':
-        #         variant['env_class'] = SawyerRigMultiobjV0
-        # elif dataset in ['reset-free', 'tray-reset-free', 'tray-test-reset-free']:
-        #     variant['env_class'] = SawyerRigAffordancesV0
-        #     variant['env_kwargs']['env_type'] = env_type
-        # elif dataset in ['rotated-top-drawer-reset-free', 'reconstructed-rotated-top-drawer-reset-free']:
-        #     variant['env_class'] = SawyerRigAffordancesV1
-        # elif dataset in [
-        #     'antialias-rotated-top-drawer-reset-free', 'antialias-right-top-drawer-reset-free',
-        #     'antialias-rotated-semicircle-top-drawer-reset-free',
-        #     'new-view-antialias-rotated-semicircle-top-drawer-reset-free',
-        #     'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large',
-        #     'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free',
-        # ]:
-        #     variant['env_class'] = SawyerRigAffordancesV1
-        #     variant['env_kwargs']['downsample'] = True
-        #     variant['env_kwargs']['env_obs_img_dim'] = 196
-        #     if dataset == 'antialias-right-top-drawer-reset-free':
-        #         variant['env_kwargs']['fix_drawer_orientation'] = True
-        #     elif dataset == 'antialias-rotated-semicircle-top-drawer-reset-free':
-        #         variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
-        #     elif dataset in ['new-view-antialias-rotated-semicircle-top-drawer-reset-free', 'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large']:
-        #         variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
-        #         variant['env_kwargs']['new_view'] = True
+        elif dataset == 'val':
+            if env_type in ['top_drawer', 'bottom_drawer']:
+                variant['env_class'] = SawyerRigAffordancesV0
+                variant['env_kwargs']['env_type'] = env_type
+            if env_type == 'tray':
+                variant['env_class'] = SawyerRigMultiobjTrayV0
+            if env_type == 'pnp':
+                variant['env_class'] = SawyerRigMultiobjV0
+        elif dataset in ['reset-free', 'tray-reset-free', 'tray-test-reset-free']:
+            variant['env_class'] = SawyerRigAffordancesV0
+            variant['env_kwargs']['env_type'] = env_type
+        elif dataset in ['rotated-top-drawer-reset-free', 'reconstructed-rotated-top-drawer-reset-free']:
+            variant['env_class'] = SawyerRigAffordancesV1
+        elif dataset in [
+            'antialias-rotated-top-drawer-reset-free', 'antialias-right-top-drawer-reset-free',
+            'antialias-rotated-semicircle-top-drawer-reset-free',
+            'new-view-antialias-rotated-semicircle-top-drawer-reset-free',
+            'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large',
+            'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free',
+        ]:
+            variant['env_class'] = SawyerRigAffordancesV1
+            variant['env_kwargs']['downsample'] = True
+            variant['env_kwargs']['env_obs_img_dim'] = 196
+            if dataset == 'antialias-right-top-drawer-reset-free':
+                variant['env_kwargs']['fix_drawer_orientation'] = True
+            elif dataset == 'antialias-rotated-semicircle-top-drawer-reset-free':
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+            elif dataset in ['new-view-antialias-rotated-semicircle-top-drawer-reset-free', 'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large']:
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+                variant['env_kwargs']['new_view'] = True
         elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':
             variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
             variant['env_kwargs']['new_view'] = True

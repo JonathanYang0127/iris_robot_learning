@@ -224,6 +224,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
         else:
             obs = tuple(obs_dict[k] for k in self.observation_keys)
             next_obs = tuple(next_obs_dict[k] for k in self.observation_keys)
+
         batch = {
             'observations': obs,
             'actions': actions,
@@ -233,6 +234,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             'indices': np.array(indices).reshape(-1, 1),
             **new_contexts
         }
+
         new_batch = self._post_process_batch_fn(
             batch,
             self,
@@ -240,6 +242,7 @@ class ContextualRelabelingReplayBuffer(ObsDictReplayBuffer):
             next_obs_dict,
             new_contexts,
         )
+
         return new_batch
 
     def _get_replay_buffer_contexts(self, batch_size):

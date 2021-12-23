@@ -34,6 +34,7 @@ from rlkit.envs.contextual.latent_distributions import (
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
 from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.envs.gripper_state_wrapper import GripperStateWrappedEnv
+from rlkit.envs.gripper_state_wrapper import process_gripper_state
 from rlkit.envs.images import EnvRenderer
 from rlkit.envs.images import InsertImageEnv
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader  # NOQA
@@ -54,8 +55,6 @@ from rlkit.util.io import load_local_or_remote_file
 from rlkit.visualization.video import RIGVideoSaveFunction
 from rlkit.samplers.data_collector.contextual_path_collector import ContextualPathCollector  # NOQA
 from rlkit.samplers.rollout_functions import contextual_rollout
-
-from roboverse.bullet.misc import quat_to_deg
 
 
 class RewardFn:
@@ -154,12 +153,6 @@ def process_args(variant):
         demo_paths = variant['path_loader_kwargs'].get('demo_paths', [])
         if len(demo_paths) > 1:
             variant['path_loader_kwargs']['demo_paths'] = [demo_paths[0]]
-
-
-def process_gripper_state(gripper_state):
-    gripper_pos = gripper_state[:3]
-    gripper_ori = quat_to_deg(gripper_state[3:7]) / 360.0
-    return np.concatenate([gripper_pos, gripper_ori], axis=0)
 
 
 def gripper_state_contextual_rollout(
@@ -289,6 +282,10 @@ def iql_rig_experiment(  # NOQA
     # Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
 
+    # Desired goal key.
+    if desired_goal_key_reward_fn is None:
+        desired_goal_key_reward_fn = desired_goal_key
+
     def contextual_env_distrib_and_reward(
         env_id,
         env_class,
@@ -328,12 +325,6 @@ def iql_rig_experiment(  # NOQA
                     gripper_state_observation='gripper_state_observation')
             )
 
-        # Desired goal key.
-        if desired_goal_key_reward_fn is not None:
-            desired_goal_key = desired_goal_key_reward_fn
-        else:
-            desired_goal_key = desired_goal_key
-
         # Goal sampling distributions.
         if goal_sampling_mode is None:
             raise ValueError
@@ -354,7 +345,7 @@ def iql_rig_experiment(  # NOQA
             latent_goal_distribution = add_distrib_fn(
                 image_goal_distribution,
                 image_goal_key,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
                 model,
             )
 
@@ -363,7 +354,7 @@ def iql_rig_experiment(  # NOQA
         elif goal_sampling_mode == 'presample_latents':
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
                 state_env,
                 num_presample=num_presample,
             )
@@ -371,7 +362,7 @@ def iql_rig_experiment(  # NOQA
             if image:
                 latent_goal_distribution = AddDecodedImageDistribution(
                     latent_goal_distribution,
-                    desired_goal_key,
+                    desired_goal_key_reward_fn,
                     image_goal_key,
                     model,
                 )
@@ -381,13 +372,13 @@ def iql_rig_experiment(  # NOQA
         elif goal_sampling_mode == 'conditional_vae_prior':
             latent_goal_distribution = ConditionalPriorDistribution(
                 model,
-                desired_goal_key,
+                desired_goal_key_reward_fn,
             )
 
             if image:
                 latent_goal_distribution = AddDecodedImageDistribution(
                     latent_goal_distribution,
-                    desired_goal_key,
+                    desired_goal_key_reward_fn,
                     image_goal_key,
                     model,
                 )
