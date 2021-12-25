@@ -1,6 +1,4 @@
 import os.path as osp
-# from absl import app
-# from absl import flags
 from collections import OrderedDict  # NOQA
 
 import numpy as np
@@ -18,9 +16,7 @@ from rlkit.data_management.online_offline_split_replay_buffer import (
 )
 from rlkit.envs.contextual import ContextualEnv
 from rlkit.envs.contextual.goal_conditioned import (
-    PresampledPathDistribution,
-    NotDonePresampledPathDistribution,
-)
+    PresampledPathDistribution)
 
 from rlkit.envs.contextual.latent_distributions import (
     AddLatentDistribution)
@@ -59,8 +55,6 @@ from rlkit.util.io import load_local_or_remote_file
 from rlkit.visualization.video import RIGVideoSaveFunction
 from rlkit.samplers.data_collector.contextual_path_collector import ContextualPathCollector  # NOQA
 from rlkit.samplers.rollout_functions import contextual_rollout
-
-from rlkit.experimental.kuanfang.utils.logging import logger as logging
 
 
 class RewardFn:
@@ -274,10 +268,8 @@ def iql_rig_experiment(  # NOQA
     if demo_replay_buffer_kwargs is None:
         demo_replay_buffer_kwargs = {}
     if presampled_goal_kwargs is None:
-        presampled_goal_kwargs = {
-            'eval_goals': '',
-            'expl_goals': '',
-            'training_goals': ''}
+        presampled_goal_kwargs = \
+            {'eval_goals': '', 'expl_goals': '', 'training_goals': ''}
     if path_loader_kwargs is None:
         path_loader_kwargs = {}
     if not expl_save_video_kwargs:
@@ -288,7 +280,6 @@ def iql_rig_experiment(  # NOQA
         renderer_kwargs = {}
 
     # Enviorment Wrapping
-    logging.info('Creating the environments...')
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
 
     # Desired goal key.
@@ -360,51 +351,6 @@ def iql_rig_experiment(  # NOQA
 
             diagnostics = state_env.get_contextual_diagnostics
 
-        elif goal_sampling_mode == 'not_done_presampled_images':
-            diagnostics = state_env.get_contextual_diagnostics
-            image_goal_distribution = NotDonePresampledPathDistribution(
-                presampled_goals_path,
-                model.representation_size,
-                encoded_env,
-            )
-
-            # Representation Check
-            if ccvae_or_cbigan_exp:
-                add_distrib = AddConditionalLatentDistribution
-            else:
-                add_distrib = AddLatentDistribution
-
-            # AddLatentDistribution
-            latent_goal_distribution = add_distrib(
-                image_goal_distribution,
-                image_goal_key,
-                desired_goal_key_reward_fn,
-                model,
-            )
-
-        elif goal_sampling_mode == 'multiple_goals_not_done_presampled_images':
-            diagnostics = state_env.get_contextual_diagnostics
-            image_goal_distribution = MultipleGoalsNotDonePresampledPathDistribution(  # NOQA
-                presampled_goals_path,
-                model.representation_size,
-                encoded_env,
-                multiple_goals_eval_seeds,
-            )
-
-            # Representation Check
-            if ccvae_or_cbigan_exp:
-                add_distrib = AddConditionalLatentDistribution
-            else:
-                add_distrib = AddLatentDistribution
-
-            # AddLatentDistribution
-            latent_goal_distribution = add_distrib(
-                image_goal_distribution,
-                image_goal_key,
-                desired_goal_key_reward_fn,
-                model,
-            )
-
         elif goal_sampling_mode == 'presample_latents':
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
@@ -465,7 +411,6 @@ def iql_rig_experiment(  # NOQA
 
         return env, latent_goal_distribution, reward_fn
 
-    logging.info('Preparing the VAE models...')
     if pretrained_vae_path:
         model = load_local_or_remote_file(pretrained_vae_path)
         path_loader_kwargs['model_path'] = pretrained_vae_path
@@ -481,7 +426,6 @@ def iql_rig_experiment(  # NOQA
         assert exploration_goal_sampling_mode == 'conditional_vae_prior'
 
     # Environment Definitions
-    logging.info('Preparing contextual_env_distrib_and_reward...')
     expl_env_kwargs = env_kwargs.copy()
     expl_env_kwargs['expl'] = True
 
@@ -525,8 +469,6 @@ def iql_rig_experiment(  # NOQA
         ))
     path_loader_kwargs['env'] = eval_env
 
-    # logging.info('Done with contextual_env_distrib_and_reward...')
-
     # IQL Code
     if add_env_demos:
         path_loader_kwargs['demo_paths'].append(env_demo_path)
@@ -569,8 +511,6 @@ def iql_rig_experiment(  # NOQA
     mapper = RemapKeyFn(mapper_dict)
 
     # Replay Buffer
-
-    logging.info('Setting up the replay buffers...')
 
     def concat_context_to_obs(batch,
                               replay_buffer,
@@ -691,8 +631,7 @@ def iql_rig_experiment(  # NOQA
             **policy_kwargs,
         )
 
-    # Path Collectors and policies.
-    logging.info('Setting up the path collectors and policies...')
+    # Path Collectors
     if observation_keys is None:
         path_collector_observation_keys = [observation_key]
     else:
@@ -759,8 +698,7 @@ def iql_rig_experiment(  # NOQA
         if algo_kwargs['start_epoch'] == 0:
             trainer_kwargs['beta'] = trainer_kwargs['beta_online']
 
-    # RL
-    logging.info('Start training IQL...')
+    # Algorithm
     trainer = IQLTrainer(
         env=eval_env,
         policy=policy,
@@ -803,7 +741,6 @@ def iql_rig_experiment(  # NOQA
 
     # Video Saving
     if save_video:
-        logging.info('Preparing the video saving functions...')
         expl_video_func = RIGVideoSaveFunction(
             model,
             expl_path_collector,
@@ -836,6 +773,7 @@ def iql_rig_experiment(  # NOQA
         )
         algorithm.post_train_funcs.append(eval_video_func)
 
+    # IQL
     if save_paths:
         algorithm.post_train_funcs.append(save_paths)
 
@@ -843,7 +781,6 @@ def iql_rig_experiment(  # NOQA
         replay_buffer.set_online_mode(False)
 
     if load_demos:
-        logging.info('Loading the demos...')
         demo_train_buffer = None
         demo_test_buffer = None
         path_loader = path_loader_class(trainer,
@@ -856,7 +793,6 @@ def iql_rig_experiment(  # NOQA
         path_loader.load_demos()
 
     if save_pretrained_algorithm:
-        logging.info('Saving the pretrained algorithm...')
         p_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.p')
         pt_path = osp.join(logger.get_snapshot_dir(), 'pretrain_algorithm.pt')
         data = algorithm._get_snapshot()
@@ -867,5 +803,4 @@ def iql_rig_experiment(  # NOQA
     if online_offline_split:
         replay_buffer.set_online_mode(True)
 
-    logging.info('Training the RL agent.')
     algorithm.train()

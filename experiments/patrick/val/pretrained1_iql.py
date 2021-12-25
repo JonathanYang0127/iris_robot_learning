@@ -484,6 +484,7 @@ if __name__ == '__main__':  # NOQA
                 if variant['evaluation_goal_sampling_mode'] == 'presampled_images':
                     variant['evaluation_goal_sampling_mode'] = 'not_done_presampled_images'
 
+        # print('dataset: ', dataset)
         if dataset is None:
             raise ValueError
         elif dataset == 'val':
@@ -516,12 +517,14 @@ if __name__ == '__main__':  # NOQA
             elif dataset in ['new-view-antialias-rotated-semicircle-top-drawer-reset-free', 'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large']:
                 variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
                 variant['env_kwargs']['new_view'] = True
-        elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':
-            variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
-            variant['env_kwargs']['new_view'] = True
-            variant['env_kwargs']['close_view'] = True
+            elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':
+                variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+                variant['env_kwargs']['new_view'] = True
+                variant['env_kwargs']['close_view'] = True
+                # print('new_view: ', variant['env_kwargs']['new_view'])
         else:
             assert False
+        # input()
 
         if 'eval_seeds' in variant.keys():
             variant['env_kwargs']['test_env_seed'] = variant['eval_seeds']

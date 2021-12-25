@@ -1,193 +1,165 @@
 import os
+import random
+from absl import app
+from absl import flags
+from absl import logging  # NOQA
 
 import rlkit.util.hyperparameter as hyp
 from rlkit.demos.source.encoder_dict_to_mdp_path_loader import EncoderDictToMDPPathLoader  # NOQA
-# from rlkit.launchers.experiments.ashvin.iql_rig import iql_rig_experiment
-# from rlkit.launchers.experiments.ashvin.iql_rig import process_args
 from rlkit.launchers.arglauncher import run_variants
 from rlkit.torch.sac.policies import GaussianPolicy
 from rlkit.torch.sac.policies import GaussianCNNPolicy
 from rlkit.torch.networks.cnn import CNN
 from rlkit.torch.networks.cnn import ConcatCNN
+from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
+from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0  # NOQA
+from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
+from roboverse.envs.sawyer_rig_affordances_v1 import SawyerRigAffordancesV1
 from rlkit.torch.networks import Clamp
 from rlkit.torch.vae.vq_vae import VQ_VAE
 from rlkit.torch.vae.vq_vae_trainer import VQ_VAETrainer
 from rlkit.torch.grill.common import train_vqvae
 
-from rlkit.experimental.kuanfang.learning.iql_rig import iql_rig_experiment
-from rlkit.experimental.kuanfang.learning.iql_rig import process_args
+from rlkit.launchers.experiments.ashvin.iql_rig_lite import iql_rig_experiment
+from rlkit.launchers.experiments.ashvin.iql_rig_lite import process_args
 
-from roboverse.envs.sawyer_rig_multiobj_v0 import SawyerRigMultiobjV0
-from roboverse.envs.sawyer_rig_multiobj_tray_v0 import SawyerRigMultiobjTrayV0  # NOQA
-from roboverse.envs.sawyer_rig_affordances_v0 import SawyerRigAffordancesV0
-from roboverse.envs.sawyer_rig_affordances_v1 import SawyerRigAffordancesV1
 
-DATASETS = [
-    'val',
-    'reset-free',
-    'tray-reset-free',
-    'tray-test-reset-free',
-    'rotated-top-drawer-reset-free',
-    'reconstructed-rotated-top-drawer-reset-free',
-    'antialias-rotated-top-drawer-reset-free',
-    'antialias-right-top-drawer-reset-free',
-    'antialias-rotated-semicircle-top-drawer-reset-free',
-    'new-view-antialias-rotated-semicircle-top-drawer-reset-free',
-    'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large',
-    'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free',
-]
+flags.DEFINE_string('root_dir', os.getenv('TEST_UNDECLARED_OUTPUTS_DIR'),
+                    'Root directory for writing logs/summaries/checkpoints.')
+flags.DEFINE_string('data_dir', None, 'Path to the data.')
+flags.DEFINE_string('vqvae', None, 'Path to the pretrained vqvae.')
+flags.DEFINE_integer('delta_t', 1, 'Step size to sample goals.')
+flags.DEFINE_multi_string(
+    'gin_file', None, 'Path to the trainer config files.')
+flags.DEFINE_multi_string('gin_param', None, 'Gin binding to pass through.')
+flags.DEFINE_integer('seed', None, 'Random seed.')
+
+FLAGS = flags.FLAGS
+
 
 dataset = 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free'
-assert dataset in DATASETS
 
 # VAL Data
 if dataset is None:  # NOQA
     raise ValueError
 elif dataset == 'val':
-    DATA_PATH = 'data/combined/'
-    demo_paths = [dict(path=DATA_PATH + 'drawer_demos_0.pkl',
+    VAL_DATA_PATH = 'data/combined/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'drawer_demos_0.pkl',
                        obs_dict=True,
                        is_demo=True),  # NOQA
-                  dict(path=DATA_PATH + 'drawer_demos_1.pkl',
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_1.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'pnp_demos_0.pkl',
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_0.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'tray_demos_0.pkl',
-                       obs_dict=True,
-                       is_demo=True),
-
-                  dict(path=DATA_PATH + 'drawer_demos_2.pkl',
-                       obs_dict=True,
-                       is_demo=True),
-                  dict(path=DATA_PATH + 'drawer_demos_3.pkl',
-                       obs_dict=True,
-                       is_demo=True),
-                  dict(path=DATA_PATH + 'pnp_demos_1.pkl',
-                       obs_dict=True,
-                       is_demo=True),
-                  dict(path=DATA_PATH + 'tray_demos_1.pkl',
+                  dict(path=VAL_DATA_PATH + 'tray_demos_0.pkl',
                        obs_dict=True,
                        is_demo=True),
 
-                  dict(path=DATA_PATH + 'drawer_demos_4.pkl',
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_2.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'drawer_demos_5.pkl',
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_3.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'pnp_demos_2.pkl',
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_1.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'tray_demos_2.pkl',
+                  dict(path=VAL_DATA_PATH + 'tray_demos_1.pkl',
                        obs_dict=True,
                        is_demo=True),
 
-                  dict(path=DATA_PATH + 'drawer_demos_6.pkl',
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_4.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'drawer_demos_7.pkl',
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_5.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'pnp_demos_3.pkl',
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_2.pkl',
                        obs_dict=True,
                        is_demo=True),
-                  dict(path=DATA_PATH + 'tray_demos_3.pkl',
+                  dict(path=VAL_DATA_PATH + 'tray_demos_2.pkl',
+                       obs_dict=True,
+                       is_demo=True),
+
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_6.pkl',
+                       obs_dict=True,
+                       is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'drawer_demos_7.pkl',
+                       obs_dict=True,
+                       is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'pnp_demos_3.pkl',
+                       obs_dict=True,
+                       is_demo=True),
+                  dict(path=VAL_DATA_PATH + 'tray_demos_3.pkl',
                        obs_dict=True,
                        is_demo=True),
                   ]
 # Reset-Free Data
 elif dataset == 'reset-free':
-    DATA_PATH = 'data/combined_reset_free_v5/'
+    VAL_DATA_PATH = 'data/combined_reset_free_v5/'
     demo_paths = [
-        dict(path=os.path.join(DATA_PATH, 'combined_reset_free_v5_demos_{}.pkl'.format(str(i))),  # NOQA
+        dict(path=VAL_DATA_PATH +
+             'combined_reset_free_v5_demos_{}.pkl'.format(str(i)),
              obs_dict=True,
              is_demo=True,
              use_latents=True)
         for i in range(16)]
 # Tray Reset-Free Data (with distractors)
 elif dataset == 'tray-reset-free':
-    DATA_PATH = 'data/combined_reset_free_v5_tray_only/'
+    VAL_DATA_PATH = 'data/combined_reset_free_v5_tray_only/'
     demo_paths = [
-        dict(path=os.path.join(DATA_PATH, 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i))),  # NOQA
+        dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_only_demos_{}.pkl'.format(str(i)),
              obs_dict=True,
              is_demo=True,
              use_latents=True)
         for i in range(16)]
 # Tray Reset-Free Data (without distractors)
 elif dataset == 'tray-test-reset-free':
-    DATA_PATH = 'data/combined_reset_free_v5_tray_test_env_only/'
+    VAL_DATA_PATH = 'data/combined_reset_free_v5_tray_test_env_only/'
     demo_paths = [
-        dict(path=os.path.join(DATA_PATH, 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i))),  # NOQA
+        dict(path=VAL_DATA_PATH + 'reset_free_v5_tray_test_env_only_demos_{}.pkl'.format(str(i)),
              obs_dict=True,
              is_demo=True,
              use_latents=True)
         for i in range(16)]
 # Rotated Drawer Reset-Free Data
 elif dataset == 'rotated-top-drawer-reset-free':
-    DATA_PATH = 'data/reset_free_v5_rotated_top_drawer/'
-    demo_paths = [
-        dict(path=DATA_PATH + 'reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)),  # NOQA
-             obs_dict=True,
-             is_demo=True,
-             use_latents=True)
-        for i in range(16)]
+    VAL_DATA_PATH = 'data/reset_free_v5_rotated_top_drawer/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 # Rotated Drawer Reset-Free Data Reconstructed With VQ-VAE
 elif dataset == 'reconstructed-rotated-top-drawer-reset-free':
-    DATA_PATH = 'data/reconstructed_reset_free_v5_rotated_top_drawer/'
-    demo_paths = [
-        dict(path=DATA_PATH + 'reconstructed_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)),  # NOQA
-             obs_dict=True,
-             is_demo=True,
-             use_latents=True)
-        for i in range(16)]
+    VAL_DATA_PATH = 'data/reconstructed_reset_free_v5_rotated_top_drawer/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'reconstructed_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 # Anti-aliased Rotated Drawer Reset-Free Data
 elif dataset == 'antialias-rotated-top-drawer-reset-free':
-    DATA_PATH = 'data/antialias_reset_free_v5_rotated_top_drawer/'
-    demo_paths = [
-        dict(path=DATA_PATH + 'antialias_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(str(i)),  # NOQA
-             obs_dict=True,
-             is_demo=True,
-             use_latents=True)
-        for i in range(16)]
+    VAL_DATA_PATH = 'data/antialias_reset_free_v5_rotated_top_drawer/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_rotated_top_drawer_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 elif dataset == 'antialias-right-top-drawer-reset-free':
-    DATA_PATH = 'data/antialias_reset_free_v5_right_top_drawer/'
-    demo_paths = [
-        dict(path=DATA_PATH + 'antialias_reset_free_v5_right_top_drawer_demos_{}.pkl'.format(str(i)),  # NOQA
-             obs_dict=True,
-             is_demo=True,
-             use_latents=True)
-        for i in range(16)]
+    VAL_DATA_PATH = 'data/antialias_reset_free_v5_right_top_drawer/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_right_top_drawer_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 elif dataset == 'antialias-rotated-semicircle-top-drawer-reset-free':
-    DATA_PATH = 'data/antialias_reset_free_v5_rotated_semicircle_top_drawer/'
-    demo_paths = [
-        dict(path=DATA_PATH + 'antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(str(i)),  # NOQA
-             obs_dict=True,
-             is_demo=True,
-             use_latents=True)
-        for i in range(16)]
+    VAL_DATA_PATH = 'data/antialias_reset_free_v5_rotated_semicircle_top_drawer/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(16)]
 elif dataset == 'new-view-antialias-rotated-semicircle-top-drawer-reset-free':
-    DATA_PATH = 'data/new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'  # NOQA
+    VAL_DATA_PATH = 'data/new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(8)]
+elif dataset == 'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large':
+    VAL_DATA_PATH = 'data/new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_large/'
+    demo_paths = [dict(path=VAL_DATA_PATH + 'new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_large_demos_{}.pkl'.format(
+        str(i)), obs_dict=True, is_demo=True, use_latents=True) for i in range(32)]
+elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':
+    # VAL_DATA_PATH = 'data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
+    VAL_DATA_PATH = '/home/kuanfang/data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'
     demo_paths = [
-        dict(path=DATA_PATH + 'new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(str(i)),  # NOQA
-             obs_dict=True,
-             is_demo=True,
-             use_latents=True)
-        for i in range(8)]
-elif dataset == 'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large':  # NOQA
-    DATA_PATH = 'data/new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_large/'  # NOQA
-    demo_paths = [
-        dict(path=DATA_PATH + 'new_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_large_demos_{}.pkl'.format(str(i)),  # NOQA
-             obs_dict=True,
-             is_demo=True,
-             use_latents=True)
-        for i in range(32)]
-elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':  # NOQA
-    # DATA_PATH = 'data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'  # NOQA
-    DATA_PATH = '/home/kuanfang/data/new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer/'  # NOQA
-    demo_paths = [
-        dict(path=DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(str(i)),  # NOQA
+        dict(path=VAL_DATA_PATH + 'new_close_view_antialias_reset_free_v5_rotated_semicircle_top_drawer_demos_{}.pkl'.format(str(i)),
              obs_dict=True,
              is_demo=True,
              use_latents=True)
@@ -195,11 +167,12 @@ elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-fr
 else:
     assert False
 
-vqvae = os.path.join(DATA_PATH, 'best_vqvae.pt')
-reward_classifier = None
-pretrained_rl_path = None
-image_train_data = os.path.join(DATA_PATH, 'combined_images.npy')
-image_test_data = os.path.join(DATA_PATH, 'combined_test_images.npy')
+# VAL_DATA_PATH + 'best_vqvae_run18_epoch3.pt'
+vqvae = VAL_DATA_PATH + 'best_vqvae_run29.pt'
+reward_classifier = VAL_DATA_PATH + 'best_reward_classifier.pt'
+pretrained_rl_path = None  # VAL_DATA_PATH + 'run155_id3_itr_-1.pt'
+image_train_data = VAL_DATA_PATH + 'combined_images.npy'
+image_test_data = VAL_DATA_PATH + 'combined_test_images.npy'
 
 
 default_variant = dict(
@@ -385,7 +358,7 @@ default_variant = dict(
     ),
     train_model_func=train_vqvae,
     presampled_goal_kwargs=dict(
-        eval_goals='',  # HERE
+        eval_goals='',
         eval_goals_kwargs={},
         expl_goals='',
         expl_goals_kwargs={},
@@ -394,10 +367,11 @@ default_variant = dict(
     ),
     launcher_config=dict(
         unpack_variant=True,
-        region='us-west-1',  # HERE
+        region='us-west-1',
     ),
     pretrained_rl_path=pretrained_rl_path,
 )
+
 
 ########################################
 # Search Space
@@ -445,11 +419,8 @@ search_space = {
     'trainer_kwargs.anneal_beta_stop_at': [.0001],
 
     # If True, use pretrained reward classifier. If False, use epsilon.
-    # TODO(kuanfang)
     'reward_kwargs.use_pretrained_reward_classifier_path': [False],
-    'reward_kwargs.reward_classifier_threshold': [
-        .995,
-    ],
+    'reward_kwargs.reward_classifier_threshold': [.995],
     'reward_kwargs.epsilon': [3.0],
     'trainer_kwargs.quantile': [0.9],
 
@@ -481,71 +452,59 @@ search_space = {
     'full_open_close_goal': [False],
 
     # Relabeling
-    'online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_distribution_context': [0.0],  # NOQA
+    # 'online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_distribution_context': [0.0],
+    # 'online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_future_context': [.8, 1.0],
+    'online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.fraction_replay_buffer_context': [0.0, 0.2],
+
+    # 'online_offline_split_replay_buffer_kwargs.online_replay_buffer_kwargs.preallocate_arrays': [True],
+    # 'online_offline_split_replay_buffer_kwargs.offline_replay_buffer_kwargs.preallocate_arrays': [True],
 }
 
 
-def process_variant(variant):  # NOQA
+def process_variant(variant):
     # Error checking
-    assert variant['algo_kwargs']['start_epoch'] % variant['algo_kwargs']['eval_epoch_freq'] == 0  # NOQA
+    assert variant['algo_kwargs']['start_epoch'] % variant['algo_kwargs']['eval_epoch_freq'] == 0
     if variant['algo_kwargs']['start_epoch'] < 0:
-        assert variant['algo_kwargs']['start_epoch'] % variant['algo_kwargs']['offline_expl_epoch_freq'] == 0  # NOQA
+        assert variant['algo_kwargs']['start_epoch'] % variant['algo_kwargs']['offline_expl_epoch_freq'] == 0
     if variant['use_pretrained_rl_path']:
         assert variant['algo_kwargs']['start_epoch'] == 0
     if variant['trainer_kwargs']['use_online_beta']:
-        assert variant['trainer_kwargs']['use_anneal_beta'] is False
+        assert variant['trainer_kwargs']['use_anneal_beta'] == False
     if variant['multiple_goals_eval_seeds']:
-        assert variant['only_not_done_goals'], (
-            'multiple goals without filtering out bad goals not '
-            'implemented yet')
-        assert not variant['gripper_observation'], (
-            'multiple goals with gripper observation not implemented yet')
+        assert variant['only_not_done_goals'], 'multiple goals without filtering out bad goals not implemented yet'
+        assert not variant['gripper_observation'], 'multiple goals with gripper observation not implemented yet'
 
     env_type = variant['env_type']
     if dataset != 'val' and env_type == 'pnp':
         env_type = 'obj'
 
-    ########################################
-    # Set the eval_goals.
-    ########################################
-    if variant['full_open_close_goal']:
-        full_open_close_str = 'full_open_close_'
-    else:
-        full_open_close_str = ''
-
+    full_open_close_str = 'full_open_close_' if variant['full_open_close_goal'] else ''
     if variant['env_kwargs']['use_multiple_goals']:
         eval_goals = []
         for eval_seed in variant['multiple_goals_eval_seeds']:
             eval_seed_str = f'_seed{eval_seed}'
-            eval_goal_path = os.path.join(DATA_PATH, f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl')  # NOQA  # TODO(kuanfang)
-            eval_goals.append(eval_goal_path)
+            eval_goals.append(
+                VAL_DATA_PATH + f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl')
     else:
-        if 'eval_seeds' in variant.keys():
-            eval_seed_str = f"_seed{variant['eval_seeds']}"
-        else:
-            eval_seed_str = ''
-        eval_goal_path = os.path.join(DATA_PATH, f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl')  # NOQA  # TODO(kuanfang)
-        eval_goals = eval_goal_path
+        eval_seed_str = f"_seed{variant['eval_seeds']}" if 'eval_seeds' in variant.keys(
+        ) else ''
+        eval_goals = VAL_DATA_PATH + \
+            f'{full_open_close_str}{env_type}_goals{eval_seed_str}.pkl'
 
-    ########################################
-    # Goal sampling modes.
-    ########################################
     variant['presampled_goal_kwargs']['eval_goals'] = eval_goals
 
-    variant['path_loader_kwargs']['demo_paths'] = (
-        variant['path_loader_kwargs']['demo_paths'][:variant['num_demos']])
-    variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'] = min(  # NOQA
+    variant['path_loader_kwargs']['demo_paths'] = variant['path_loader_kwargs']['demo_paths'][:variant['num_demos']]
+    variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size'] = min(
         int(6E5), int(500*75*variant['num_demos']))
-    variant['online_offline_split_replay_buffer_kwargs']['online_replay_buffer_kwargs']['max_size'] = min(  # NOQA
+    variant['online_offline_split_replay_buffer_kwargs']['online_replay_buffer_kwargs']['max_size'] = min(
         int(4/6 * 500*75*variant['num_demos']),
-        int(1E6 - variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size']))  # NOQA
+        int(1E6 - variant['online_offline_split_replay_buffer_kwargs']['offline_replay_buffer_kwargs']['max_size']))
 
     if variant['use_both_ground_truth_and_affordance_expl_goals']:
-        variant['exploration_goal_sampling_mode'] = (
-            'conditional_vae_prior_and_not_done_presampled_images')
+        variant['exploration_goal_sampling_mode'] = 'conditional_vae_prior_and_not_done_presampled_images'
         variant['training_goal_sampling_mode'] = 'presample_latents'
         variant['presampled_goal_kwargs']['expl_goals'] = eval_goals
-        variant['presampled_goal_kwargs']['expl_goals_kwargs']['affordance_sampling_prob'] = variant['affordance_sampling_prob']  # NOQA
+        variant['presampled_goal_kwargs']['expl_goals_kwargs']['affordance_sampling_prob'] = variant['affordance_sampling_prob']
     elif variant['ground_truth_expl_goals']:
         # 'presample_latents'
         variant['exploration_goal_sampling_mode'] = 'presampled_images'
@@ -555,25 +514,20 @@ def process_variant(variant):  # NOQA
 
     if variant['only_not_done_goals']:
         if variant['env_kwargs']['use_multiple_goals']:
-            # Convert all 'presampled_images' to
-            # 'multiple_goals_not_done_presampled_images'
-            _old_mode = 'presampled_images'
-            _new_mode = 'multiple_goals_not_done_presampled_images'
+            if variant['training_goal_sampling_mode'] == 'presampled_images':
+                variant['training_goal_sampling_mode'] = 'multiple_goals_not_done_presampled_images'
+            if variant['exploration_goal_sampling_mode'] == 'presampled_images':
+                variant['exploration_goal_sampling_mode'] = 'multiple_goals_not_done_presampled_images'
+            if variant['evaluation_goal_sampling_mode'] == 'presampled_images':
+                variant['evaluation_goal_sampling_mode'] = 'multiple_goals_not_done_presampled_images'
         else:
-            # Convert all 'presampled_images' to 'not_done_presampled_images'
-            _old_mode = 'presampled_images'
-            _new_mode = 'not_done_presampled_images'
+            if variant['training_goal_sampling_mode'] == 'presampled_images':
+                variant['training_goal_sampling_mode'] = 'not_done_presampled_images'
+            if variant['exploration_goal_sampling_mode'] == 'presampled_images':
+                variant['exploration_goal_sampling_mode'] = 'not_done_presampled_images'
+            if variant['evaluation_goal_sampling_mode'] == 'presampled_images':
+                variant['evaluation_goal_sampling_mode'] = 'not_done_presampled_images'
 
-        if variant['training_goal_sampling_mode'] == _old_mode:
-            variant['training_goal_sampling_mode'] = _new_mode
-        if variant['exploration_goal_sampling_mode'] == _old_mode:
-            variant['exploration_goal_sampling_mode'] = _new_mode
-        if variant['evaluation_goal_sampling_mode'] == _old_mode:
-            variant['evaluation_goal_sampling_mode'] = _new_mode
-
-    ########################################
-    # Environments.
-    ########################################
     if dataset is None:
         raise ValueError
     elif dataset == 'val':
@@ -587,12 +541,10 @@ def process_variant(variant):  # NOQA
     elif dataset in ['reset-free', 'tray-reset-free', 'tray-test-reset-free']:
         variant['env_class'] = SawyerRigAffordancesV0
         variant['env_kwargs']['env_type'] = env_type
-    elif dataset in ['rotated-top-drawer-reset-free',
-                     'reconstructed-rotated-top-drawer-reset-free']:
+    elif dataset in ['rotated-top-drawer-reset-free', 'reconstructed-rotated-top-drawer-reset-free']:
         variant['env_class'] = SawyerRigAffordancesV1
     elif dataset in [
-        'antialias-rotated-top-drawer-reset-free',
-        'antialias-right-top-drawer-reset-free',
+        'antialias-rotated-top-drawer-reset-free', 'antialias-right-top-drawer-reset-free',
         'antialias-rotated-semicircle-top-drawer-reset-free',
         'new-view-antialias-rotated-semicircle-top-drawer-reset-free',
         'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large',
@@ -605,32 +557,26 @@ def process_variant(variant):  # NOQA
             variant['env_kwargs']['fix_drawer_orientation'] = True
         elif dataset == 'antialias-rotated-semicircle-top-drawer-reset-free':
             variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
-        elif dataset in [
-                'new-view-antialias-rotated-semicircle-top-drawer-reset-free',  # NOQA
-                'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large']:    # NOQA
+        elif dataset in ['new-view-antialias-rotated-semicircle-top-drawer-reset-free', 'new-view-antialias-rotated-semicircle-top-drawer-reset-free-large']:
             variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
             variant['env_kwargs']['new_view'] = True
-        elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':  # NOQA
-            variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
-            variant['env_kwargs']['new_view'] = True
-            variant['env_kwargs']['close_view'] = True
-        else:
-            assert False
+    elif dataset == 'new-close-view-antialias-rotated-semicircle-top-drawer-reset-free':
+        variant['env_kwargs']['fix_drawer_orientation_semicircle'] = True
+        variant['env_kwargs']['new_view'] = True
+        variant['env_kwargs']['close_view'] = True
+    else:
+        assert False
 
     if 'eval_seeds' in variant.keys():
-        variant['env_kwargs']['test_env_seed'] = (
-            variant['eval_seeds'])
+        variant['env_kwargs']['test_env_seed'] = variant['eval_seeds']
     if variant['env_kwargs']['use_multiple_goals']:
-        variant['env_kwargs']['test_env_seeds'] = (
-            variant['multiple_goals_eval_seeds'])
+        variant['env_kwargs']['test_env_seeds'] = variant['multiple_goals_eval_seeds']
 
     if variant['gripper_observation']:
         variant['observation_keys'] = [
             'latent_observation', 'gripper_state_observation']
 
-    ########################################
-    # Image.
-    ########################################
+    # Image
     if variant['image']:
         assert 'gripper_observation' not in variant or not variant[
             'gripper_observation'], 'image-based not implemented yet'
@@ -684,7 +630,6 @@ def process_variant(variant):  # NOQA
             pool_strides=[2, 2, 1],
             pool_paddings=[0, 0, 0],
         )
-
         # Keys used by reward function for reward calculation
         variant['observation_key_reward_fn'] = 'latent_observation'
         variant['desired_goal_key_reward_fn'] = 'latent_desired_goal'
