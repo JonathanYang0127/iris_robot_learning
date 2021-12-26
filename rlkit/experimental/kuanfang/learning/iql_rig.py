@@ -36,6 +36,7 @@ from rlkit.envs.contextual.latent_distributions import (
 from rlkit.envs.encoder_wrappers import EncoderWrappedEnv
 from rlkit.envs.encoder_wrappers import ConditionalEncoderWrappedEnv
 from rlkit.envs.gripper_state_wrapper import GripperStateWrappedEnv
+from rlkit.envs.gripper_state_wrapper import process_gripper_state
 from rlkit.envs.images import EnvRenderer
 from rlkit.envs.images import InsertImageEnv
 from rlkit.demos.source.mdp_path_loader import MDPPathLoader
@@ -55,8 +56,6 @@ from rlkit.util.io import load_local_or_remote_file
 from rlkit.visualization.video import RIGVideoSaveFunction
 from rlkit.samplers.data_collector.contextual_path_collector import ContextualPathCollector  # NOQA
 from rlkit.samplers.rollout_functions import contextual_rollout
-
-from roboverse.bullet.misc import quat_to_deg
 
 
 class RewardFn:
@@ -180,25 +179,17 @@ def gripper_state_contextual_rollout(
 
     for i in range(paths['observations'].shape[0]):
         d = paths['observations'][i]
-        d['gripper_state_observation'] = np.concatenate(
-            (d['state_observation'][:3],
-             quat_to_deg(d['state_observation'][3:7]) / 360.0),
-            axis=0)
-        d['gripper_state_desired_goal'] = np.concatenate(
-            (d['state_desired_goal'][:3],
-             quat_to_deg(d['state_desired_goal'][3:7]) / 360.0),
-            axis=0)
+        d['gripper_state_observation'] = process_gripper_state(
+            d['state_observation'])
+        d['gripper_state_desired_goal'] = process_gripper_state(
+            d['state_desired_goal'])
 
     for i in range(paths['next_observations'].shape[0]):
         d = paths['next_observations'][i]
-        d['gripper_state_observation'] = np.concatenate(
-            (d['state_observation'][:3],
-             quat_to_deg(d['state_observation'][3:7]) / 360.0),
-            axis=0)
-        d['gripper_state_desired_goal'] = np.concatenate(
-            (d['state_desired_goal'][:3],
-             quat_to_deg(d['state_desired_goal'][3:7]) / 360.0),
-            axis=0)
+        d['gripper_state_observation'] = process_gripper_state(
+            d['state_observation'])
+        d['gripper_state_desired_goal'] = process_gripper_state(
+            d['state_desired_goal'])
 
     return paths
 
@@ -302,6 +293,11 @@ def iql_rig_experiment(  # NOQA
     # Enviorment Wrapping
     renderer = EnvRenderer(init_camera=init_camera, **renderer_kwargs)
 
+    if desired_goal_key_reward_fn is not None:
+        distrib_desired_goal_key = desired_goal_key_reward_fn
+    else:
+        distrib_desired_goal_key = desired_goal_key
+
     def contextual_env_distrib_and_reward(
         env_id,
         env_class,
@@ -339,16 +335,14 @@ def iql_rig_experiment(  # NOQA
         if goal_sampling_mode == 'vae_prior':
             latent_goal_distribution = PriorDistribution(
                 model.representation_size,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                desired_goal_key,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
 
         elif goal_sampling_mode == 'amortized_vae_prior':
             latent_goal_distribution = AmortizedPriorDistribution(
                 model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
@@ -356,14 +350,12 @@ def iql_rig_experiment(  # NOQA
         elif goal_sampling_mode == 'conditional_vae_prior':
             latent_goal_distribution = ConditionalPriorDistribution(
                 model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key)
+                distrib_desired_goal_key,
             )
             if image:
                 latent_goal_distribution = AddDecodedImageDistribution(
                     latent_goal_distribution,
-                    (desired_goal_key_reward_fn
-                     if desired_goal_key_reward_fn else desired_goal_key),
+                    distrib_desired_goal_key,
                     image_goal_key,
                     model,
                 )
@@ -371,8 +363,7 @@ def iql_rig_experiment(  # NOQA
         elif goal_sampling_mode == 'amortized_conditional_vae_prior':
             latent_goal_distribution = AmortizedConditionalPriorDistribution(
                 model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 num_presample=num_presample,
             )
             diagnostics = StateImageGoalDiagnosticsFn({}, )
@@ -393,8 +384,7 @@ def iql_rig_experiment(  # NOQA
             latent_goal_distribution = add_distrib(
                 image_goal_distribution,
                 image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 model,
             )
         elif goal_sampling_mode == 'not_done_presampled_images':
@@ -415,21 +405,18 @@ def iql_rig_experiment(  # NOQA
             latent_goal_distribution = add_distrib(
                 image_goal_distribution,
                 image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 model,
             )
         elif goal_sampling_mode == 'conditional_vae_prior_and_not_done_presampled_images':  # NOQA
             cvp_latent_goal_distribution = ConditionalPriorDistribution(
                 model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key)
+                distrib_desired_goal_key,
             )
             if image:
                 cvp_latent_goal_distribution = AddDecodedImageDistribution(
                     cvp_latent_goal_distribution,
-                    (desired_goal_key_reward_fn
-                     if desired_goal_key_reward_fn else desired_goal_key),
+                    distrib_desired_goal_key,
                     image_goal_key,
                     model,
                 )
@@ -450,8 +437,7 @@ def iql_rig_experiment(  # NOQA
             ndpi_latent_goal_distribution = add_distrib(
                 ndpi_image_goal_distribution,
                 image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 model,
             )
 
@@ -494,8 +480,7 @@ def iql_rig_experiment(  # NOQA
             latent_goal_distribution = add_distrib(
                 image_goal_distribution,
                 image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 model,
             )
         elif goal_sampling_mode == 'presample_latents':
@@ -503,16 +488,14 @@ def iql_rig_experiment(  # NOQA
             # diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresamplePriorDistribution(
                 model,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 state_env,
                 num_presample=num_presample,
             )
             if image:
                 latent_goal_distribution = AddDecodedImageDistribution(
                     latent_goal_distribution,
-                    (desired_goal_key_reward_fn
-                     if desired_goal_key_reward_fn else desired_goal_key),
+                    distrib_desired_goal_key,
                     image_goal_key,
                     model,
                 )
@@ -520,8 +503,7 @@ def iql_rig_experiment(  # NOQA
             diagnostics = state_env.get_contextual_diagnostics
             latent_goal_distribution = PresampledPriorDistribution(
                 presampled_goals_path,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
             )
         elif goal_sampling_mode == 'reset_of_env':
             state_goal_env = get_gym_env(
@@ -539,8 +521,7 @@ def iql_rig_experiment(  # NOQA
             latent_goal_distribution = AddLatentDistribution(
                 image_goal_distribution,
                 image_goal_key,
-                (desired_goal_key_reward_fn
-                 if desired_goal_key_reward_fn else desired_goal_key),
+                distrib_desired_goal_key,
                 model,
             )
             diagnostics = state_goal_env.get_contextual_diagnostics
@@ -793,24 +774,23 @@ def iql_rig_experiment(  # NOQA
 
     def obs_processor(o):
         combined_obs = []
+
         for k in path_collector_observation_keys:
             if k == gripper_observation_key:
-                combined_obs.append(
-                    np.concatenate(
-                        (o['state_observation'][:3],
-                         quat_to_deg(o['state_observation'][3:7]) / 360.0),
-                        axis=0))
+                gripper_state = process_gripper_state(
+                    o['state_observation'])
+                combined_obs.append(gripper_state)
             else:
                 combined_obs.append(o[k])
+
         for k in path_collector_context_keys_for_policy:
             if k == gripper_goal_key:
-                combined_obs.append(
-                    np.concatenate(
-                        (o['state_desired_goal'][:3],
-                         quat_to_deg(o['state_desired_goal'][3:7]) / 360.0),
-                        axis=0))
+                gripper_state = process_gripper_state(
+                    o['state_desired_goal'])
+                combined_obs.append(gripper_state)
             else:
                 combined_obs.append(o[k])
+
         return np.concatenate(combined_obs, axis=0)
 
     if gripper_observation:
