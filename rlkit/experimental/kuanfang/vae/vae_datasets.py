@@ -23,6 +23,22 @@ class VaeDataset(Dataset):
         # Load the data and the encoding.
         logging.info('Loading the dataset from %s...', data_path)
         data = np.load(data_path, allow_pickle=True)
+
+        if is_val_format:
+            print('data_path: ', data_path)
+            # print(data.keys())
+            # data = data['observations']
+            data = data.item()
+            data = data['observations']
+            # print('data_shape: ', data.shape)
+            # print(data)
+
+            num_samples = data.shape[0]
+            num_steps = data.shape[1]
+            data = np.reshape(
+                data, [num_samples, num_steps, 3, 48, 48])
+            data = np.transpose(data, [0, 1, 4, 3, 2])
+
         assert data.shape[-1] == 3, 'The shape of the data: %r' % (data.shape)
 
         if encoding_path is None:
@@ -53,11 +69,6 @@ class VaeDataset(Dataset):
             else:
                 self.data = data['test']
                 self.encoding = encoding['test']
-
-        if is_val_format:
-            self.data = np.reshape(self.data,
-                                   [num_samples, num_steps, 3, 48, 48])
-            self.data = np.transpose(self.data, [0, 1, 4, 3, 2])  # TODO
 
         # Preprocess the data.
         if crop is not None:
@@ -104,7 +115,9 @@ class VaeGoalDataset(VaeDataset):
                  crop=None,
                  preprocess_image=True,
                  delta_t=1,
-                 channel_first=True):
+                 channel_first=True,
+                 is_val_format=False,
+                 ):
         super(VaeGoalDataset, self).__init__(
             data_path=data_path,
             encoding_path=encoding_path,
@@ -113,7 +126,9 @@ class VaeGoalDataset(VaeDataset):
             transform=transform,
             crop=crop,
             preprocess_image=preprocess_image,
-            channel_first=channel_first)
+            channel_first=channel_first,
+            is_val_format=is_val_format,
+        )
 
         assert len(self.data.shape) == 5
         self.num_steps = self.data.shape[1]
@@ -152,7 +167,9 @@ class VaeContrastiveGoalDataset(VaeDataset):
                  crop=None,
                  preprocess_image=True,
                  delta_t=1,
-                 channel_first=True):
+                 channel_first=True,
+                 is_val_format=False,
+                 ):
         super(VaeContrastiveGoalDataset, self).__init__(
             data_path=data_path,
             encoding_path=encoding_path,
@@ -160,7 +177,9 @@ class VaeContrastiveGoalDataset(VaeDataset):
             transform=transform,
             crop=crop,
             preprocess_image=preprocess_image,
-            channel_first=channel_first)
+            channel_first=channel_first,
+            is_val_format=is_val_format,
+        )
 
         assert len(self.data.shape) == 5
         self.num_steps = self.data.shape[1]
@@ -210,7 +229,9 @@ class VaeMultistepDataset(VaeDataset):
                  preprocess_image=True,
                  delta_t=1,
                  num_goals=5,
-                 channel_first=True):
+                 channel_first=True,
+                 is_val_format=False,
+                 ):
         super(VaeMultistepDataset, self).__init__(
             data_path=data_path,
             encoding_path=encoding_path,
@@ -218,7 +239,9 @@ class VaeMultistepDataset(VaeDataset):
             transform=transform,
             crop=crop,
             preprocess_image=preprocess_image,
-            channel_first=channel_first)
+            channel_first=channel_first,
+            is_val_format=is_val_format,
+        )
 
         assert len(self.data.shape) == 5
         self.num_steps = self.data.shape[1]

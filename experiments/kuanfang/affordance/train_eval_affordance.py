@@ -24,6 +24,7 @@ flags.DEFINE_string('root_dir', os.getenv('TEST_UNDECLARED_OUTPUTS_DIR'),
 flags.DEFINE_string('data_dir', None, 'Path to the data.')
 flags.DEFINE_string('vqvae', None, 'Path to the pretrained vqvae.')
 flags.DEFINE_integer('delta_t', 1, 'Step size to sample goals.')
+flags.DEFINE_integer('is_val_format', 0, 'Whether to load the VAL format.')
 flags.DEFINE_multi_string(
     'gin_file', None, 'Path to the trainer config files.')
 flags.DEFINE_multi_string('gin_param', None, 'Gin binding to pass through.')
@@ -42,6 +43,7 @@ def train_eval(
         save_interval=100,
         trainer_kwargs=None,
         delta_t=None,
+        is_val_format=False,
         num_train_batches_per_epoch=100,
         num_test_batches_per_epoch=1,
         dump_samples=False,
@@ -109,6 +111,7 @@ def train_eval(
         transform=None,
         crop=[48, 48],
         delta_t=delta_t,
+        is_val_format=is_val_format,
     )
     train_dataset = datasets['train']
     test_dataset = datasets['test']
@@ -192,6 +195,7 @@ def main(_):
                data_dir=FLAGS.data_dir,
                pretrained_vqvae_dir=FLAGS.vqvae,
                delta_t=FLAGS.delta_t,
+               is_val_format=FLAGS.is_val_format,
                )
 
 

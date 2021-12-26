@@ -13,6 +13,7 @@ def load_datasets(data_dir,
                   dataset_ctor=None,
                   keys=['train', 'test'],
                   vqvae_mode='zi',
+                  is_val_format=False,
                   **kwargs,
                   ):
     if dataset_ctor is None:
@@ -20,7 +21,15 @@ def load_datasets(data_dir,
 
     datasets = {}
     for key in keys:
-        data_path = os.path.join(data_dir, '%s_data.npy' % (key))
+        if is_val_format:
+            if key == 'train':
+                data_path = os.path.join(data_dir, 'combined_images.npy')
+            elif key == 'test':
+                data_path = os.path.join(data_dir, 'combined_test_images.npy')
+            else:
+                raise ValueError
+        else:
+            data_path = os.path.join(data_dir, '%s_data.npy' % (key))
 
         if encoding_dir is None:
             encoding_path = None
@@ -37,6 +46,7 @@ def load_datasets(data_dir,
         dataset = dataset_ctor(
             data_path,
             encoding_path,
+            is_val_format=is_val_format,
             **kwargs,
         )
 
