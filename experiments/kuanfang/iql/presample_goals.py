@@ -60,6 +60,7 @@ def presample_goal(args, test_env_seed):
     imlength = env.obs_img_dim * env.obs_img_dim * 3
 
     dataset = {
+        'test_env_seed': test_env_seed,
         'initial_latent_state': np.zeros(
             (args.num_trajectories * args.num_timesteps, 720),
             dtype=np.float),
