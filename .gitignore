@@ -2,6 +2,7 @@ MUJOCO_LOG.TXT
 railrl.egg-info/
 data
 data/
+outputs/
 logs/
 *.pyc
 *.swp

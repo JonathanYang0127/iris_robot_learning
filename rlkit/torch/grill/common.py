@@ -8,6 +8,7 @@ import numpy as np
 
 from torch.utils import data
 
+
 def full_experiment_variant_preprocess(variant):
     train_vae_variant = variant['train_vae_variant']
     grill_variant = variant['grill_variant']
@@ -52,7 +53,7 @@ def train_vae_and_update_variant(variant):
             'model_progress.csv', relative_to_snapshot_dir=True
         )
         vae, vae_train_data, vae_test_data = train_fn(train_vae_variant,
-                                                       return_data=True)
+                                                      return_data=True)
         if grill_variant.get('save_vae_data', False):
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
@@ -74,11 +75,30 @@ def train_vae_and_update_variant(variant):
             grill_variant['vae_train_data'] = vae_train_data
             grill_variant['vae_test_data'] = vae_test_data
 
+
+def train_reward_classifier(variant):
+    from rlkit.torch.networks.mlp import Mlp
+    import rlkit.torch.pytorch_util as ptu
+    from rlkit.launchers.experiments.patrick.reward_classifier_launcher import train_classifier
+
+    classifier_class = variant.get('reward_classifier_class', Mlp)
+    classifier = classifier_class(**variant['reward_classifier_kwargs'])
+    classifier.to(ptu.device)
+
+    train_classifier_kwargs = variant.get('train_classifier_kwargs', {})
+    classifier = train_classifier(
+        classifier=classifier,
+        **train_classifier_kwargs
+    )
+    return classifier
+
+
 def train_vqvae(variant):
     from rlkit.launchers.experiments.ashvin.pixelcnn_launcher import train_pixelcnn
     vqvae = train_vae(variant)
     dataset_path = variant['generate_vae_dataset_kwargs']['dataset_path']
-    data_filter_fn = variant['generate_vae_dataset_kwargs'].get('data_filter_fn', lambda x: x)
+    data_filter_fn = variant['generate_vae_dataset_kwargs'].get(
+        'data_filter_fn', lambda x: x)
     train_pixelcnn_kwargs = variant.get('train_pixelcnn_kwargs', {})
     vqvae = train_pixelcnn(
         vqvae=vqvae,
@@ -87,6 +107,7 @@ def train_vqvae(variant):
         **train_pixelcnn_kwargs
     )
     return vqvae
+
 
 def train_vae(variant, return_data=False):
     from rlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
@@ -105,7 +126,7 @@ def train_vae(variant, return_data=False):
     import gym
     beta = variant["beta"]
     representation_size = variant.get("representation_size",
-        variant.get("latent_sizes", variant.get("embedding_dim", None)))
+                                      variant.get("latent_sizes", variant.get("embedding_dim", None)))
     use_linear_dynamics = variant.get('use_linear_dynamics', False)
     variant['algo_kwargs']['num_epochs'] = variant['num_epochs']
     generate_vae_dataset_fctn = variant.get('generate_vae_data_fctn',
@@ -145,25 +166,31 @@ def train_vae(variant, return_data=False):
     variant['vae_kwargs']['imsize'] = variant.get('imsize')
 
     if variant['algo_kwargs'].get('is_auto_encoder', False):
-        model = AutoEncoder(representation_size, decoder_output_activation=decoder_activation,**variant['vae_kwargs'])
+        model = AutoEncoder(
+            representation_size, decoder_output_activation=decoder_activation, **variant['vae_kwargs'])
     elif variant.get('use_spatial_auto_encoder', False):
-        model = SpatialAutoEncoder(representation_size, decoder_output_activation=decoder_activation,**variant['vae_kwargs'])
+        model = SpatialAutoEncoder(
+            representation_size, decoder_output_activation=decoder_activation, **variant['vae_kwargs'])
     elif variant.get('only_kwargs', False):
         vae_class = variant.get('vae_class', ConvVAE)
         model = vae_class(**variant['vae_kwargs'])
     else:
         vae_class = variant.get('vae_class', ConvVAE)
         if use_linear_dynamics:
-            model = vae_class(representation_size, decoder_output_activation=decoder_activation, action_dim=action_dim,**variant['vae_kwargs'])
+            model = vae_class(representation_size, decoder_output_activation=decoder_activation,
+                              action_dim=action_dim, **variant['vae_kwargs'])
         else:
-            model = vae_class(representation_size, decoder_output_activation=decoder_activation,**variant['vae_kwargs'])
+            model = vae_class(
+                representation_size, decoder_output_activation=decoder_activation, **variant['vae_kwargs'])
 
     model.to(ptu.device)
 
     vae_trainer_class = variant.get('vae_trainer_class', ConvVAETrainer)
     trainer = vae_trainer_class(model, beta=beta,
-                       beta_schedule=beta_schedule,
-                       **variant['algo_kwargs'])
+                                beta_schedule=beta_schedule,
+                                **variant['algo_kwargs'])
+    # TODO(kuanfang)
+    print('The VAE model will be saved at %s.' % (trainer.log_dir))
     save_period = variant['save_period']
 
     logger.remove_tabular_output(
@@ -194,6 +221,7 @@ def train_vae(variant, return_data=False):
 
         if epoch % 50 == 0:
             logger.save_itr_params(epoch, model)
+
     logger.save_extra_data(model, 'model', mode='pickle')
     logger.remove_tabular_output(
         'vae_progress.csv', relative_to_snapshot_dir=True,
@@ -207,6 +235,7 @@ def train_vae(variant, return_data=False):
 
     return model
 
+
 def concatenate_datasets(data_list):
     from rlkit.util.io import load_local_or_remote_file
     obs, envs, dataset = [], [], {}
@@ -216,26 +245,30 @@ def concatenate_datasets(data_list):
         n_random_steps = curr_data['observations'].shape[1]
         imlength = curr_data['observations'].shape[2]
         curr_data['env'] = np.repeat(curr_data['env'], n_random_steps, axis=0)
-        curr_data['observations'] = curr_data['observations'].reshape(-1, 1, imlength)
+        curr_data['observations'] = curr_data['observations'].reshape(
+            -1, 1, imlength)
         obs.append(curr_data['observations'])
         envs.append(curr_data['env'])
     dataset['observations'] = np.concatenate(obs, axis=0)
     dataset['env'] = np.concatenate(envs, axis=0)
     return dataset
 
+
 def format_flat_dataset(dataset):
     num_samples = dataset['observations'].shape[0]
     imlength = dataset['observations'].shape[1]
     traj_len = num_samples // dataset['env'].shape[0]
-    dataset['observations'] = dataset['observations'].reshape(num_samples, 1, imlength)
+    dataset['observations'] = dataset['observations'].reshape(
+        num_samples, 1, imlength)
     dataset['env'] = np.repeat(dataset['env'], traj_len, axis=0)
     return dataset
+
 
 def generate_vae_dataset(variant):
     print(variant)
     from tqdm import tqdm
     env_class = variant.get('env_class', None)
-    env_kwargs = variant.get('env_kwargs',None)
+    env_kwargs = variant.get('env_kwargs', None)
     env_id = variant.get('env_id', None)
     N = variant.get('N', 10000)
     batch_size = variant.get('batch_size', 128)
@@ -249,16 +282,22 @@ def generate_vae_dataset(variant):
     augment_data = variant.get('augment_data', False)
     data_filter_fn = variant.get('data_filter_fn', lambda x: x)
     delete_after_loading = variant.get('delete_after_loading', False)
-    oracle_dataset_using_set_to_goal = variant.get('oracle_dataset_using_set_to_goal', False)
+    oracle_dataset_using_set_to_goal = variant.get(
+        'oracle_dataset_using_set_to_goal', False)
     random_rollout_data = variant.get('random_rollout_data', False)
-    random_rollout_data_set_to_goal = variant.get('random_rollout_data_set_to_goal', True)
-    random_and_oracle_policy_data=variant.get('random_and_oracle_policy_data', False)
-    random_and_oracle_policy_data_split=variant.get('random_and_oracle_policy_data_split', 0)
+    random_rollout_data_set_to_goal = variant.get(
+        'random_rollout_data_set_to_goal', True)
+    random_and_oracle_policy_data = variant.get(
+        'random_and_oracle_policy_data', False)
+    random_and_oracle_policy_data_split = variant.get(
+        'random_and_oracle_policy_data_split', 0)
     policy_file = variant.get('policy_file', None)
     n_random_steps = variant.get('n_random_steps', 100)
-    vae_dataset_specific_env_kwargs = variant.get('vae_dataset_specific_env_kwargs', None)
+    vae_dataset_specific_env_kwargs = variant.get(
+        'vae_dataset_specific_env_kwargs', None)
     save_file_prefix = variant.get('save_file_prefix', None)
-    non_presampled_goal_img_is_garbage = variant.get('non_presampled_goal_img_is_garbage', None)
+    non_presampled_goal_img_is_garbage = variant.get(
+        'non_presampled_goal_img_is_garbage', None)
 
     conditional_vae_dataset = variant.get('conditional_vae_dataset', False)
     use_env_labels = variant.get('use_env_labels', False)
@@ -273,7 +312,7 @@ def generate_vae_dataset(variant):
     from multiworld.core.image_env import ImageEnv, unormalize_image
     import rlkit.torch.pytorch_util as ptu
     from rlkit.util.io import load_local_or_remote_file
-    from rlkit.data_management.dataset  import (
+    from rlkit.data_management.dataset import (
         TrajectoryDataset, ImageObservationDataset, InitialObservationDataset,
         EnvironmentDataset, ConditionalDynamicsDataset, InitialObservationNumpyDataset,
         InfiniteBatchLoader, InitialObservationNumpyJitteringDataset
@@ -282,29 +321,35 @@ def generate_vae_dataset(variant):
     use_test_dataset = False
     if dataset_path is not None:
         if type(dataset_path) == str:
-            dataset = load_local_or_remote_file(dataset_path, delete_after_loading=delete_after_loading)
+            dataset = load_local_or_remote_file(
+                dataset_path, delete_after_loading=delete_after_loading)
             dataset = dataset.item()
-            N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
+            N = dataset['observations'].shape[0] * \
+                dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
         if isinstance(dataset_path, list):
             dataset = concatenate_datasets(dataset_path)
-            N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
+            N = dataset['observations'].shape[0] * \
+                dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
         if isinstance(dataset_path, dict):
 
             if type(dataset_path['train']) == str:
-                dataset = load_local_or_remote_file(dataset_path['train'], delete_after_loading=delete_after_loading)
+                dataset = load_local_or_remote_file(
+                    dataset_path['train'], delete_after_loading=delete_after_loading)
                 dataset = dataset.item()
             elif isinstance(dataset_path['train'], list):
                 dataset = concatenate_datasets(dataset_path['train'])
 
             if type(dataset_path['test']) == str:
-                test_dataset = load_local_or_remote_file(dataset_path['test'], delete_after_loading=delete_after_loading)
+                test_dataset = load_local_or_remote_file(
+                    dataset_path['test'], delete_after_loading=delete_after_loading)
                 test_dataset = test_dataset.item()
             elif isinstance(dataset_path['test'], list):
                 test_dataset = concatenate_datasets(dataset_path['test'])
 
-            N = dataset['observations'].shape[0] * dataset['observations'].shape[1]
+            N = dataset['observations'].shape[0] * \
+                dataset['observations'].shape[1]
             n_random_steps = dataset['observations'].shape[1]
             use_test_dataset = True
     else:
@@ -317,13 +362,15 @@ def generate_vae_dataset(variant):
         filename = "/tmp/{}_N{}_{}_imsize{}_random_oracle_split_{}{}.npy".format(
             save_file_prefix,
             str(N),
-            init_camera.__name__ if init_camera and hasattr(init_camera, '__name__') else '',
+            init_camera.__name__ if init_camera and hasattr(
+                init_camera, '__name__') else '',
             imsize,
             random_and_oracle_policy_data_split,
             tag,
         )
         if use_cached and osp.isfile(filename):
-            dataset = load_local_or_remote_file(filename, delete_after_loading=delete_after_loading)
+            dataset = load_local_or_remote_file(
+                filename, delete_after_loading=delete_after_loading)
             if conditional_vae_dataset:
                 dataset = dataset.item()
             print("loaded data from saved file", filename)
@@ -368,13 +415,15 @@ def generate_vae_dataset(variant):
                     'observations': np.zeros((N // n_random_steps, n_random_steps, imsize * imsize * num_channels), dtype=np.uint8),
                     'actions': np.zeros((N // n_random_steps, n_random_steps, env.action_space.shape[0]), dtype=np.float),
                     'env': np.zeros((N // n_random_steps, imsize * imsize * num_channels), dtype=np.uint8),
-                    }
+                }
             else:
-                dataset = np.zeros((N, imsize * imsize * num_channels), dtype=np.uint8)
+                dataset = np.zeros(
+                    (N, imsize * imsize * num_channels), dtype=np.uint8)
             labels = []
             for i in tqdm(range(N)):
                 if random_and_oracle_policy_data:
-                    num_random_steps = int(N*random_and_oracle_policy_data_split)
+                    num_random_steps = int(
+                        N*random_and_oracle_policy_data_split)
                     if i < num_random_steps:
                         env.reset()
                         for _ in range(n_random_steps):
@@ -389,7 +438,7 @@ def generate_vae_dataset(variant):
                             ))
                             action, _ = policy.get_action(policy_obs)
                             obs, _, _, _ = env.step(action)
-                elif random_rollout_data: #ADD DATA WHERE JUST PUCK MOVES
+                elif random_rollout_data:  # ADD DATA WHERE JUST PUCK MOVES
                     if i % n_random_steps == 0:
                         env.reset()
                         policy.reset()
@@ -397,7 +446,8 @@ def generate_vae_dataset(variant):
                         if random_rollout_data_set_to_goal:
                             env.set_to_goal(env.get_goal())
                     obs = env._get_obs()
-                    u = policy.get_action_from_raw_action(env.action_space.sample())
+                    u = policy.get_action_from_raw_action(
+                        env.action_space.sample())
                     env.step(u)
                 elif oracle_dataset_using_set_to_goal:
                     print(i)
@@ -414,9 +464,12 @@ def generate_vae_dataset(variant):
                 if use_env_labels:
                     labels.append(obs['label'])
                 if save_trajectories:
-                    dataset['observations'][i // n_random_steps, i % n_random_steps, :] = unormalize_image(img)
-                    dataset['actions'][i // n_random_steps, i % n_random_steps, :] = u
-                    dataset['env'][i // n_random_steps, :] = unormalize_image(env_img)
+                    dataset['observations'][i // n_random_steps, i %
+                                            n_random_steps, :] = unormalize_image(img)
+                    dataset['actions'][i // n_random_steps, i %
+                                       n_random_steps, :] = u
+                    dataset['env'][i // n_random_steps,
+                                   :] = unormalize_image(env_img)
                 else:
                     dataset[i, :] = unormalize_image(img)
 
@@ -511,7 +564,6 @@ def generate_vae_dataset(variant):
         if use_test_dataset and ('env' not in test_dataset):
             test_dataset['env'] = test_dataset['observations'][:, 0]
 
-
         if use_test_dataset:
             train_dataset = dataset_class({
                 'observations': dataset['observations'],
@@ -533,7 +585,6 @@ def generate_vae_dataset(variant):
                 'env': dataset['env'][test_i, :]
             })
 
-
         train_batch_loader_kwargs = variant.get(
             'train_batch_loader_kwargs',
             dict(batch_size=batch_size, num_workers=0, )
@@ -544,9 +595,9 @@ def generate_vae_dataset(variant):
         )
 
         train_data_loader = data.DataLoader(train_dataset,
-            shuffle=True, drop_last=True, **train_batch_loader_kwargs)
+                                            shuffle=True, drop_last=True, **train_batch_loader_kwargs)
         test_data_loader = data.DataLoader(test_dataset,
-            shuffle=True, drop_last=True, **test_batch_loader_kwargs)
+                                           shuffle=True, drop_last=True, **test_batch_loader_kwargs)
 
         train_dataset = InfiniteBatchLoader(train_data_loader)
         test_dataset = InfiniteBatchLoader(test_data_loader)
@@ -555,6 +606,7 @@ def generate_vae_dataset(variant):
         train_dataset = ImageObservationDataset(dataset[:n, :])
         test_dataset = ImageObservationDataset(dataset[n:, :])
     return train_dataset, test_dataset, info
+
 
 def get_envs(variant):
     from multiworld.core.image_env import ImageEnv
@@ -566,16 +618,17 @@ def get_envs(variant):
     from rlkit.torch.vae.vq_vae import VQ_VAE
     from rlkit.torch.gan.bigan import BiGAN
 
-
     render = variant.get('render', False)
     vae_path = variant.get("vae_path", None)
     reward_params = variant.get("reward_params", dict())
     init_camera = variant.get("init_camera", None)
     do_state_exp = variant.get("do_state_exp", False)
     presample_goals = variant.get('presample_goals', False)
-    presample_image_goals_only = variant.get('presample_image_goals_only', False)
+    presample_image_goals_only = variant.get(
+        'presample_image_goals_only', False)
     presampled_goals_path = variant.get('presampled_goals_path', None)
-    vae = load_local_or_remote_file(vae_path) if type(vae_path) is str else vae_path
+    vae = load_local_or_remote_file(vae_path) if type(
+        vae_path) is str else vae_path
     if 'env_id' in variant:
         import gym
         import multiworld
@@ -639,7 +692,7 @@ def get_envs(variant):
                 render_goals=render,
                 render_rollouts=render,
                 reward_params=reward_params,
-                presampled_goals = presampled_goals,
+                presampled_goals=presampled_goals,
                 **variant.get('vae_wrapped_env_kwargs', {})
             )
             print("Presampling all goals only")
@@ -657,25 +710,25 @@ def get_envs(variant):
                 )
             elif isinstance(vae, VQ_VAE):
                 vae_env = VQVAEWrappedEnv(
-                image_env,
-                vae,
-                imsize=image_env.imsize,
-                decode_goals=render,
-                render_goals=render,
-                render_rollouts=render,
-                reward_params=reward_params,
-                **variant.get('vae_wrapped_env_kwargs', {})
+                    image_env,
+                    vae,
+                    imsize=image_env.imsize,
+                    decode_goals=render,
+                    render_goals=render,
+                    render_rollouts=render,
+                    reward_params=reward_params,
+                    **variant.get('vae_wrapped_env_kwargs', {})
                 )
             elif isinstance(vae, BiGAN):
                 vae_env = BiGANWrappedEnv(
-                image_env,
-                vae,
-                imsize=image_env.imsize,
-                decode_goals=render,
-                render_goals=render,
-                render_rollouts=render,
-                reward_params=reward_params,
-                **variant.get('vae_wrapped_env_kwargs', {})
+                    image_env,
+                    vae,
+                    imsize=image_env.imsize,
+                    decode_goals=render,
+                    render_goals=render,
+                    render_rollouts=render,
+                    reward_params=reward_params,
+                    **variant.get('vae_wrapped_env_kwargs', {})
                 )
             else:
                 vae_env = VAEWrappedEnv(

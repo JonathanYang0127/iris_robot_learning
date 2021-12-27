@@ -34,6 +34,7 @@ class ContextualRewardFn(object, metaclass=abc.ABCMeta):
 
 
 class ContextualEnv(gym.Wrapper):
+
     def __init__(
             self,
             env: gym.Env,
@@ -42,25 +43,35 @@ class ContextualEnv(gym.Wrapper):
             observation_key=None,  # for backwards compatibility
             observation_keys=None,
             update_env_info_fn=None,
-            contextual_diagnostics_fns: Union[None, List[ContextualDiagnosticsFn]]=None,
+            contextual_diagnostics_fns: Union[
+                None, List[ContextualDiagnosticsFn]] = None,
             unbatched_reward_fn=None,
     ):
         super().__init__(env)
+
         if observation_key is not None and observation_keys is not None:
-            raise ValueError('Only specify observation_key or observation_keys')
+            raise ValueError(
+                'Only specify observation_key or observation_keys')
+
         if observation_key is None and observation_keys is None:
             raise ValueError(
                 'Specify either observation_key or observation_keys'
             )
+
         if observation_keys is None:
             observation_keys = [observation_key]
+
         if contextual_diagnostics_fns is None:
             contextual_diagnostics_fns = []
+
         if not isinstance(env.observation_space, gym.spaces.Dict):
             raise ValueError("ContextualEnvs require wrapping Dict spaces.")
+
         spaces = env.observation_space.spaces
+
         for k, space in context_distribution.spaces.items():
             spaces[k] = space
+
         self.observation_space = gym.spaces.Dict(spaces)
         self.context_distribution = context_distribution
         self.reward_fn = reward_fn
@@ -70,13 +81,16 @@ class ContextualEnv(gym.Wrapper):
         self._rollout_context_batch = None
         self._update_env_info = update_env_info_fn or insert_reward
         self._contextual_diagnostics_fns = contextual_diagnostics_fns
+
         if unbatched_reward_fn is None:
             unbatched_reward_fn = UnbatchRewardFn(reward_fn)
+
         self.unbatched_reward_fn = unbatched_reward_fn
 
     def reset(self):
         obs = self.env.reset()
-        self._rollout_context_batch = self.context_distribution(context=obs).sample(1)
+        self._rollout_context_batch = self.context_distribution(
+            context=obs).sample(1)
         self._update_obs(obs)
         self._last_obs = obs
         return obs
@@ -94,8 +108,9 @@ class ContextualEnv(gym.Wrapper):
         # TODO: don't assume these things are just vectors
         if not self.reward_fn:
             return env_reward
-        return self.unbatched_reward_fn(
-            state, action, next_state, self._rollout_context_batch)
+        else:
+            return self.unbatched_reward_fn(
+                state, action, next_state, self._rollout_context_batch)
 
     def _update_obs(self, obs):
         for k in self._context_keys:

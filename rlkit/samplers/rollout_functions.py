@@ -6,69 +6,7 @@ import copy
 create_rollout_function = partial
 
 
-def multitask_rollout(
-        env,
-        agent,
-        max_path_length=np.inf,
-        render=False,
-        render_kwargs=None,
-        observation_key=None,
-        desired_goal_key=None,
-        get_action_kwargs=None,
-        return_dict_obs=False,
-        full_o_postprocess_func=None,
-):
-    if full_o_postprocess_func:
-        def wrapped_fun(env, agent, o):
-            full_o_postprocess_func(env, agent, observation_key, o)
-    else:
-        wrapped_fun = None
-
-    def obs_processor(o):
-        return np.hstack((o[observation_key], o[desired_goal_key]))
-
-    paths = rollout(
-        env,
-        agent,
-        max_path_length=max_path_length,
-        render=render,
-        render_kwargs=render_kwargs,
-        get_action_kwargs=get_action_kwargs,
-        preprocess_obs_for_policy_fn=obs_processor,
-        full_o_postprocess_func=wrapped_fun,
-    )
-    if not return_dict_obs:
-        paths['observations'] = paths['observations'][observation_key]
-    return paths
-
-
-def contextual_rollout(
-        env,
-        agent,
-        observation_keys=None,
-        context_keys_for_policy=None,
-        obs_processor=None,
-        **kwargs
-):
-    if context_keys_for_policy is None:
-        context_keys_for_policy = ['context']
-
-    if not obs_processor:
-        def obs_processor(o):
-            combined_obs = [o[k] for k in observation_keys]
-            for k in context_keys_for_policy:
-                combined_obs.append(o[k])
-            return np.concatenate(combined_obs, axis=0)
-    paths = rollout(
-        env,
-        agent,
-        preprocess_obs_for_policy_fn=obs_processor,
-        **kwargs
-    )
-    return paths
-
-
-def rollout(
+def rollout(  # NOQA
         env,
         agent,
         max_path_length=np.inf,
@@ -85,7 +23,7 @@ def rollout(
     if get_action_kwargs is None:
         get_action_kwargs = {}
     if preprocess_obs_for_policy_fn is None:
-        preprocess_obs_for_policy_fn = lambda x: x
+        def preprocess_obs_for_policy_fn(x): return x
     raw_obs = []
     raw_next_obs = []
     observations = []
@@ -230,3 +168,65 @@ def deprecated_rollout(
         agent_infos=agent_infos,
         env_infos=env_infos,
     )
+
+
+def multitask_rollout(
+        env,
+        agent,
+        max_path_length=np.inf,
+        render=False,
+        render_kwargs=None,
+        observation_key=None,
+        desired_goal_key=None,
+        get_action_kwargs=None,
+        return_dict_obs=False,
+        full_o_postprocess_func=None,
+):
+    if full_o_postprocess_func:
+        def wrapped_fun(env, agent, o):
+            full_o_postprocess_func(env, agent, observation_key, o)
+    else:
+        wrapped_fun = None
+
+    def obs_processor(o):
+        return np.hstack((o[observation_key], o[desired_goal_key]))
+
+    paths = rollout(
+        env,
+        agent,
+        max_path_length=max_path_length,
+        render=render,
+        render_kwargs=render_kwargs,
+        get_action_kwargs=get_action_kwargs,
+        preprocess_obs_for_policy_fn=obs_processor,
+        full_o_postprocess_func=wrapped_fun,
+    )
+    if not return_dict_obs:
+        paths['observations'] = paths['observations'][observation_key]
+    return paths
+
+
+def contextual_rollout(
+        env,
+        agent,
+        observation_keys=None,
+        context_keys_for_policy=None,
+        obs_processor=None,
+        **kwargs
+):
+    if context_keys_for_policy is None:
+        context_keys_for_policy = ['context']
+
+    if not obs_processor:
+        def obs_processor(o):
+            combined_obs = [o[k] for k in observation_keys]
+            for k in context_keys_for_policy:
+                combined_obs.append(o[k])
+            return np.concatenate(combined_obs, axis=0)
+    paths = rollout(
+        env,
+        agent,
+        preprocess_obs_for_policy_fn=obs_processor,
+        **kwargs
+    )
+    return paths

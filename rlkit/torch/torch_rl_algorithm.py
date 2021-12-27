@@ -1,6 +1,6 @@
 import abc
 from collections import OrderedDict
-from typing import Iterable,MutableMapping
+from typing import Iterable, MutableMapping
 from torch import nn as nn
 
 from rlkit.core.batch_rl_algorithm import BatchRLAlgorithm
@@ -94,6 +94,7 @@ class JointTrainer(Trainer):
     trainer/vae/...
     ```
     """
+
     def __init__(self, trainers: OrderedDictType[str, TorchTrainer]):
         super().__init__()
         if len(trainers) == 0:

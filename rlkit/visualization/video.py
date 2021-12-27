@@ -1,3 +1,11 @@
+import pickle
+from rlkit.visualization.image import add_border, make_image_fit_into_hwc_format, combine_images_into_grid
+from rlkit.core import logger
+from multiworld.core.image_env import ImageEnv
+import scipy.misc
+import time
+import numpy as np
+import skvideo.io
 import os
 import os.path as osp
 import uuid
@@ -5,17 +13,6 @@ import uuid
 from rlkit.envs.vae_wrappers import VAEWrappedEnv, ConditionalVAEWrappedEnv
 
 filename = str(uuid.uuid4())
-
-import skvideo.io
-import numpy as np
-import time
-
-import scipy.misc
-
-from multiworld.core.image_env import ImageEnv
-from rlkit.core import logger
-from rlkit.visualization.image import add_border, make_image_fit_into_hwc_format, combine_images_into_grid
-import pickle
 
 
 def save_paths(algo, epoch):
@@ -48,7 +45,8 @@ class VideoSaveFunction:
             "exploration_goal_image_key", "decoded_goal_image")
         self.evaluation_goal_image_key = self.dump_video_kwargs.pop(
             "evaluation_goal_image_key", "image_desired_goal")
-        self.path_length = variant.get('algo_kwargs', {}).get('max_path_length', 200)
+        self.path_length = variant.get(
+            'algo_kwargs', {}).get('max_path_length', 200)
         self.expl_path_collector = expl_path_collector
         self.eval_path_collector = eval_path_collector
         self.variant = variant
@@ -93,15 +91,15 @@ class VideoSaveFunction:
 
 class RIGVideoSaveFunction:
     def __init__(self,
-        model,
-        data_collector,
-        tag,
-        save_video_period,
-        goal_image_key=None,
-        decode_goal_image_key=None,
-        reconstruction_key=None,
-        **kwargs
-    ):
+                 model,
+                 data_collector,
+                 tag,
+                 save_video_period,
+                 goal_image_key=None,
+                 decode_goal_image_key=None,
+                 reconstruction_key=None,
+                 **kwargs
+                 ):
         self.model = model
         self.data_collector = data_collector
         self.tag = tag
@@ -124,7 +122,7 @@ class RIGVideoSaveFunction:
         paths = self.data_collector.get_epoch_paths()
         if epoch % self.save_video_period == 0 or epoch == algo.num_epochs:
             filename = osp.join(self.logdir,
-                'video_{epoch}_{tag}.mp4'.format(epoch=epoch, tag=self.tag))
+                                'video_{epoch}_{tag}.mp4'.format(epoch=epoch, tag=self.tag))
             if self.decode_goal_image_key:
                 for i in range(len(paths)):
                     self.add_decoded_goal_to_path(paths[i])
@@ -132,11 +130,11 @@ class RIGVideoSaveFunction:
                 for i in range(len(paths)):
                     self.add_reconstruction_to_path(paths[i])
             dump_paths(None,
-                filename,
-                paths,
-                self.keys,
-                **self.dump_video_kwargs,
-            )
+                       filename,
+                       paths,
+                       self.keys,
+                       **self.dump_video_kwargs,
+                       )
 
     def add_decoded_goal_to_path(self, path):
         latent = path['full_observations'][0]['latent_desired_goal']
@@ -251,7 +249,7 @@ def reshape_for_video(frames, N, rows, columns, num_channels):
     frames = np.array(frames, dtype=np.uint8)
     # TODO: can't we just do path_length = len(frames) / N ?
     path_length = frames.size // (
-            N * img_height * img_width * num_channels
+        N * img_height * img_width * num_channels
     )
     frames = np.array(frames, dtype=np.uint8).reshape(
         (N, path_length, img_height, img_width, num_channels)

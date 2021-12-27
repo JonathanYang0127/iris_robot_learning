@@ -368,6 +368,10 @@ class Logger(object):
                 if itr % self._snapshot_gap == 0:
                     file_name = osp.join(self._snapshot_dir, 'itr_%d' % itr)
                     self._save_params_to_file(params, file_name, mode=self._save_param_mode)
+            elif self._snapshot_mode == "save_pretrained":
+                if itr == -1:
+                    file_name = osp.join(self._snapshot_dir, 'itr_%d' % itr)
+                    self._save_params_to_file(params, file_name, mode=self._save_param_mode)
             elif self._snapshot_mode == "gap_and_last":
                 if itr % self._snapshot_gap == 0:
                     file_name = osp.join(self._snapshot_dir, 'itr_%d' % itr)

@@ -16,12 +16,15 @@ class ContextualPathCollector(MdpPathCollector):
             context_keys_for_policy='context',
             render=False,
             render_kwargs=None,
+            obs_processor=None,
+            rollout=contextual_rollout,
             **kwargs
     ):
         rollout_fn = partial(
-            contextual_rollout,
+            rollout,
             context_keys_for_policy=context_keys_for_policy,
             observation_keys=observation_keys,
+            obs_processor=obs_processor,
         )
         super().__init__(
             env, policy,

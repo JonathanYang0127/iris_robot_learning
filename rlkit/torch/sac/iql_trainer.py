@@ -43,6 +43,7 @@ class IQLTrainer(TorchTrainer):
             policy_weight_decay=0,
             q_weight_decay=0,
             optimizer_class=optim.Adam,
+            bc=False,
 
             policy_update_period=1,
             q_update_period=1,
@@ -56,6 +57,8 @@ class IQLTrainer(TorchTrainer):
             soft_target_tau=1e-2,
             target_update_period=1,
             beta=1.0,
+            *args,
+            **kwargs,
     ):
         super().__init__()
         self.env = env
@@ -69,6 +72,7 @@ class IQLTrainer(TorchTrainer):
         self.vf = vf
         self.z = z
         self.buffer_policy = buffer_policy
+        self.bc = bc
 
         self.qf_criterion = nn.MSELoss()
         self.vf_criterion = nn.MSELoss()
@@ -114,11 +118,15 @@ class IQLTrainer(TorchTrainer):
         self.policy_update_period = policy_update_period
 
         self.reward_transform_class = reward_transform_class or LinearTransform
-        self.reward_transform_kwargs = reward_transform_kwargs or dict(m=1, b=0)
+        self.reward_transform_kwargs = reward_transform_kwargs or dict(
+            m=1, b=0)
         self.terminal_transform_class = terminal_transform_class or LinearTransform
-        self.terminal_transform_kwargs = terminal_transform_kwargs or dict(m=1, b=0)
-        self.reward_transform = self.reward_transform_class(**self.reward_transform_kwargs)
-        self.terminal_transform = self.terminal_transform_class(**self.terminal_transform_kwargs)
+        self.terminal_transform_kwargs = terminal_transform_kwargs or dict(
+            m=1, b=0)
+        self.reward_transform = self.reward_transform_class(
+            **self.reward_transform_kwargs)
+        self.terminal_transform = self.terminal_transform_class(
+            **self.terminal_transform_kwargs)
 
         self.clip_score = clip_score
         self.beta = beta
@@ -145,7 +153,8 @@ class IQLTrainer(TorchTrainer):
         q2_pred = self.qf2(obs, actions)
         target_vf_pred = self.vf(next_obs).detach()
 
-        q_target = self.reward_scale * rewards + (1. - terminals) * self.discount * target_vf_pred
+        q_target = self.reward_scale * rewards + \
+            (1. - terminals) * self.discount * target_vf_pred
         q_target = q_target.detach()
         qf1_loss = self.qf_criterion(q1_pred, q_target)
         qf2_loss = self.qf_criterion(q2_pred, q_target)
@@ -160,7 +169,8 @@ class IQLTrainer(TorchTrainer):
         vf_pred = self.vf(obs)
         vf_err = vf_pred - q_pred
         vf_sign = (vf_err > 0).float()
-        vf_weight = (1 - vf_sign) * self.quantile + vf_sign * (1 - self.quantile)
+        vf_weight = (1 - vf_sign) * self.quantile + \
+            vf_sign * (1 - self.quantile)
         vf_loss = (vf_weight * (vf_err ** 2)).mean()
 
         """
@@ -173,7 +183,8 @@ class IQLTrainer(TorchTrainer):
         if self.clip_score is not None:
             exp_adv = torch.clamp(exp_adv, max=self.clip_score)
 
-        weights = exp_adv[:, 0].detach()
+        weights = ptu.from_numpy(np.ones(exp_adv[:, 0].shape)).detach(
+        ) if self.bc else exp_adv[:, 0].detach()
         policy_loss = (-policy_logpp * weights).mean()
 
         """

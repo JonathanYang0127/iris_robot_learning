@@ -1,3 +1,8 @@
+import sys
+from contextlib import contextmanager
+import itertools
+import os
+import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import copy
@@ -10,16 +15,13 @@ except:
     import viskit.core as core
 from rlkit.util.variant_generator import AttrDict
 
-read_tb = lambda: None
-import glob
-import os
-import itertools
 
-from contextlib import contextmanager
-import sys, os
+def read_tb(): return None
 
-true_fn = lambda p: True
-identity_fn = lambda x: x
+
+def true_fn(p): return True
+def identity_fn(x): return x
+
 
 @contextmanager
 def suppress_stdout():
@@ -30,6 +32,7 @@ def suppress_stdout():
             yield
         finally:
             sys.stdout = old_stdout
+
 
 class AWRLogReader:
     def read_log(self, exp_path, filename):
@@ -46,6 +49,7 @@ class AWRLogReader:
             output_data[h] = np.array(data[i], dtype=np.float)
         return output_data
 
+
 class NumpyLogReader:
     def read_log(self, exp_path, filename):
         data_path = os.path.join(progress_path, "tensorboard_log.npy")
@@ -59,6 +63,7 @@ class NumpyLogReader:
             d[keys[i]] = D[i, :]
 
         return d
+
 
 def load_exps(dirnames, filter_fn=true_fn, suppress_output=False, progress_filename="progress.csv", custom_log_reader=None):
     def load():
@@ -82,8 +87,9 @@ def load_exps(dirnames, filter_fn=true_fn, suppress_output=False, progress_filen
             good_exps.append(e)
     return good_exps
 
+
 def load_exps_data_numpy(exp_folder_paths, log_reader, disable_variant=False,
-        progress_filename="progress.csv", params_filename="variant.json"):
+                         progress_filename="progress.csv", params_filename="variant.json"):
     exps = []
     for exp_folder_path in exp_folder_paths:
         exps += [x[0] for x in os.walk(exp_folder_path)]
@@ -108,9 +114,11 @@ def load_exps_data_numpy(exp_folder_paths, log_reader, disable_variant=False,
             print(e)
     return exps_data
 
+
 def tag_exps(exps, tag_key, tag_value):
     for e in exps:
         e["flat_params"][tag_key] = tag_value
+
 
 def read_params_from_output(filename, maxlines=200):
     if not filename in cached_params:
@@ -128,9 +136,11 @@ def read_params_from_output(filename, maxlines=200):
         cached_params[filename] = params
     return cached_params[filename]
 
+
 def prettify(p, key):
     """Postprocessing p[key] for printing"""
     return p[key]
+
 
 def prettify_configuration(config):
     if not config:
@@ -142,6 +152,7 @@ def prettify_configuration(config):
         x = k + "=" + v + ", "
         s += x
     return s[:-2]
+
 
 def to_array(lists):
     """Converts lists of different lengths into a left-aligned 2D array"""
@@ -155,6 +166,7 @@ def to_array(lists):
         output[i, :n] = y
     return output
 
+
 def filter_by_flat_params(d):
     def f(l):
         for k in d:
@@ -162,6 +174,7 @@ def filter_by_flat_params(d):
                 return False
         return True
     return f
+
 
 def exclude_by_flat_params(d):
     def f(l):
@@ -171,6 +184,7 @@ def exclude_by_flat_params(d):
         return True
     return f
 
+
 def filter_exps(exps, filter_fn):
     good_exps = []
     for e in exps:
@@ -178,23 +192,25 @@ def filter_exps(exps, filter_fn):
             good_exps.append(e)
     return good_exps
 
+
 def comparison(*args, **kwargs):
     fig = plt.figure()
     ax = plt.axes()
     return _comparison(ax=ax, *args, **kwargs)
 
-def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
-        figsize=(5, 3.5),
-        xlabel=None, default_vary=False, xlim=None, ylim=None,
-        print_final=False, print_start=False, print_max=False, print_min=False,
-        print_plot=True, print_legend=True,
-        reduce_op=sum, method_order=None, remap_keys={},
-        label_to_color=None, return_data=False, bar_plot=False,
-        label_include_key=True,
-        plot_error_bars=True, plot_seeds=False, overlay=False,
-        formatting_func=None, ax=None,
-        print_on_missing_key=True, print_zero=False,
-    ):
+
+def _comparison(exps, key, vary=["expdir"], f=true_fn, smooth=identity_fn,
+                figsize=(5, 3.5),
+                xlabel=None, default_vary=False, xlim=None, ylim=None,
+                print_final=False, print_start=False, print_max=False, print_min=False,
+                print_plot=True, print_legend=True,
+                reduce_op=sum, method_order=None, remap_keys={},
+                label_to_color=None, return_data=False, bar_plot=False,
+                label_include_key=True,
+                plot_error_bars=True, plot_seeds=False, overlay=False,
+                formatting_func=None, ax=None,
+                print_on_missing_key=True, print_zero=False,
+                ):
     """exps is result of core.load_exps_data
     key is (what we might think is) the effect variable
     vary is (what we might think is) the causal variable
@@ -215,6 +231,7 @@ def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
 
     y_data = {}
     x_data = {}
+
     def lookup(v):
         if v in l['flat_params']:
             return str(l['flat_params'][v])
@@ -293,8 +310,10 @@ def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
                 color = label_to_color[label_without_vary_prefix]
                 plot_kwargs["color"] = color
             if plot_error_bars:
-                ax.fill_between(x, y-1.96*s, y+1.96*s, alpha=0.1, **plot_kwargs)
-            line, = ax.plot(x, y, label=str(label) + label_suffix, **plot_kwargs)
+                ax.fill_between(x, y-1.96*s, y+1.96*s,
+                                alpha=0.1, **plot_kwargs)
+            line, = ax.plot(x, y, label=str(label) +
+                            label_suffix, **plot_kwargs)
             lines.append(line)
 
             if plot_seeds:
@@ -347,20 +366,21 @@ def _comparison(exps, key, vary = ["expdir"], f=true_fn, smooth=identity_fn,
 
     return lines
 
+
 def split(exps,
-        keys,
-        vary = "expdir",
-        split=[],
-        f=true_fn,
-        w="evaluator",
-        smooth=identity_fn,
-        figsize=(5, 3),
-        print_final=False, print_max=False, print_min=False, print_plot=True,
-        split_fig=False,
-        default_vary=None,
-        num_x_plots=1,
-        **kwargs
-    ):
+          keys,
+          vary="expdir",
+          split=[],
+          f=true_fn,
+          w="evaluator",
+          smooth=identity_fn,
+          figsize=(5, 3),
+          print_final=False, print_max=False, print_min=False, print_plot=True,
+          split_fig=False,
+          default_vary=None,
+          num_x_plots=1,
+          **kwargs
+          ):
 
     default_vary = {} if default_vary is None else default_vary
 
@@ -399,7 +419,9 @@ def split(exps,
     for c in configs:
         if split_fig:
             plt.figure(figsize=figsize)
-        fsplit = lambda exp: all([str(exp['flat_params'][k]) == v for k, v in c]) and f(exp)
+
+        def fsplit(exp): return all(
+            [str(exp['flat_params'][k]) == v for k, v in c]) and f(exp)
         # for exp in exps:
         #     print(fsplit(exp), exp['flat_params'])
         lines = []
@@ -408,14 +430,22 @@ def split(exps,
             i += 1
             if print_final or print_max or print_min:
                 print(key, c)
-            lines += _comparison(exps, key, vary, f=fsplit, smooth=smooth,
-                figsize=figsize,
-                print_final=print_final,
-                print_max=print_max, print_min=print_min,
-                print_plot=print_plot, ax=ax, default_vary=default_vary,
-                **kwargs)
+            lines += _comparison(exps,
+                                 key,
+                                 vary,
+                                 f=fsplit,
+                                 smooth=smooth,
+                                 figsize=figsize,
+                                 print_final=print_final,
+                                 print_max=print_max,
+                                 print_min=print_min,
+                                 print_plot=print_plot,
+                                 ax=ax,
+                                 default_vary=default_vary,
+                                 **kwargs)
             if print_plot:
-                ax.set_title(prettify_configuration(c) + " Vary " + " ".join(vary))
+                ax.set_title(prettify_configuration(
+                    c) + " Vary " + " ".join(vary))
         if split_fig:
             plt.legend(handles=lines, bbox_to_anchor=(1.0, 0.75))
 
@@ -463,7 +493,8 @@ def plot_trials(
         try:
             y_values = np.vstack([values[:min_len] for values in all_values])
         except ValueError as e:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+            ipdb.set_trace()
             print(e)
         mean = np.mean(y_values, axis=0)
         std = np.std(y_values, axis=0)
@@ -472,10 +503,12 @@ def plot_trials(
     plt.xlabel(x_label)
     plt.ylabel(y_label)
 
+
 def ma_filter(N):
     return lambda x: moving_average(x, N)
 
-def moving_average(a, n=3) :
+
+def moving_average(a, n=3):
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
@@ -504,7 +537,6 @@ def padded_moving_average(data_array, window=5, avg_only_from_left=True):
     return np.array(new_list)
 
 
-import itertools
 def scatterplot_matrix(data1, data2, **kwargs):
     """Plots a scatterplot matrix of subplots.  Each row of "data" is plotted
     against other rows, resulting in a nrows by nrows grid of subplots with the
@@ -512,7 +544,7 @@ def scatterplot_matrix(data1, data2, **kwargs):
     passed on to matplotlib's "plot" command. Returns the matplotlib figure
     object containg the subplot grid."""
     numvars, numdata = len(data1), len(data2)
-    fig, axes = plt.subplots(nrows=numvars, ncols=numvars, figsize=(16,16))
+    fig, axes = plt.subplots(nrows=numvars, ncols=numvars, figsize=(16, 16))
     fig.subplots_adjust(hspace=0.05, wspace=0.05)
 
     for ax in axes.flat:
@@ -532,10 +564,10 @@ def scatterplot_matrix(data1, data2, **kwargs):
 
     # Plot the data.
     for i, j in itertools.product(range(numvars), range(numdata)):
-        axes[i,j].scatter(data1[i], data2[j], **kwargs)
+        axes[i, j].scatter(data1[i], data2[j], **kwargs)
         label = "{:6.3f}".format(np.corrcoef([data1[i], data2[j]])[0, 1])
-        axes[i,j].annotate(label, (0.1, 0.9), xycoords='axes fraction',
-                ha='center', va='center')
+        axes[i, j].annotate(label, (0.1, 0.9), xycoords='axes fraction',
+                            ha='center', va='center')
 
     # Turn on the proper x or y axes ticks.
     # for i, j in zip(range(numvars), itertools.cycle((-1, 0))):
@@ -544,27 +576,32 @@ def scatterplot_matrix(data1, data2, **kwargs):
 
     return fig
 
+
 def plot_horizontal(x, values, label):
     mean, std = np.mean(values), np.std(values)
-    plt.fill_between(x, mean- std, mean + std, alpha=0.1)
+    plt.fill_between(x, mean - std, mean + std, alpha=0.1)
     return plt.plot(x, [mean, mean], label=label)
+
 
 def plot_with_errors(x, values, label):
     mean, std = np.mean(values, axis=0), np.std(values, axis=0)
-    plt.fill_between(x, mean- std, mean + std, alpha=0.1)
+    plt.fill_between(x, mean - std, mean + std, alpha=0.1)
     return plt.plot(x, mean, label=label)
+
 
 def configure_matplotlib(matplotlib):
     matplotlib.rcParams['mathtext.fontset'] = 'stix'
     matplotlib.rcParams['font.family'] = 'STIXGeneral'
     matplotlib.rcParams.update({'font.size': 18})
 
+
 def number_K_format_func(value, tick_number):
     return(str(int(value // 1000)) + 'K')
+
 
 def number_M_format_func(value, tick_number):
     return(str(int(value // 1000000)) + 'M')
 
+
 def format_func_epoch(value, tick_number):
     return(str(int(value)) + 'K')
-

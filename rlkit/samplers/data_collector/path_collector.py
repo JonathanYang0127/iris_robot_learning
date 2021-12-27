@@ -126,9 +126,9 @@ class CustomMDPPathCollector(PathCollector):
         self._num_paths_total = 0
 
     def collect_new_paths(
-            self, policy_fn, max_path_length,
-            num_steps, discard_incomplete_paths
-        ):
+        self, policy_fn, max_path_length,
+        num_steps, discard_incomplete_paths
+    ):
         paths = []
         num_steps_collected = 0
         while num_steps_collected < num_steps:

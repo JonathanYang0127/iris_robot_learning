@@ -1,21 +1,14 @@
 import warnings
 from typing import Any, Callable, Dict, List
-import random
 import numpy as np
 import gym
-from gym.spaces import Box, Dict
 from multiworld.core.multitask_env import MultitaskEnv
 from rlkit.util.io import load_local_or_remote_file
-from gym.spaces import Box, Dict
 from rlkit import pythonplusplus as ppp
 from rlkit.core.distribution import DictDistribution
 from rlkit.envs.contextual import ContextualRewardFn
-from rlkit.envs.contextual.contextual_env import (
-    ContextualDiagnosticsFn,
-    Path,
-    Context,
-    Diagnostics,
-)
+from rlkit.envs.contextual.contextual_env import Path
+from rlkit.envs.contextual.contextual_env import Diagnostics
 from rlkit.envs.images import EnvRenderer
 
 Observation = Dict
@@ -62,7 +55,8 @@ class AddImageDistribution(DictDistribution):
     ):
         self._env = env
         self._base_distribution = base_distribution
-        img_space = Box(0, 1, renderer.image_shape, dtype=np.float32)
+        img_space = gym.spaces.Box(
+            0, 1, renderer.image_shape, dtype=np.float32)
         self._spaces = base_distribution.spaces
         self._spaces[image_goal_key] = img_space
         self._image_goal_key = image_goal_key
@@ -78,7 +72,8 @@ class AddImageDistribution(DictDistribution):
         contexts = self._base_distribution.sample(batch_size)
         images = []
         for i in range(batch_size):
-            goal = ppp.treemap(lambda x: x[i], contexts, atomic_type=np.ndarray)
+            goal = ppp.treemap(
+                lambda x: x[i], contexts, atomic_type=np.ndarray)
             env_state = self._env.get_env_state()
             self._env.set_to_goal(goal)
             img_goal = self._renderer(self._env)
@@ -120,13 +115,18 @@ class PresampledPathDistribution(DictDistribution):
             self,
             datapath,
             representation_size,
-            initialize_encodings=True, # Set to true if you plan to re-encode presampled images
+            # Set to true if you plan to re-encode presampled images
+            initialize_encodings=True,
     ):
         self._presampled_goals = load_local_or_remote_file(datapath)
-        self.representation_size = representation_size 
-        self._num_presampled_goals = self._presampled_goals[list(self._presampled_goals)[0]].shape[0]
+        self.representation_size = representation_size
+        self._num_presampled_goals = self._presampled_goals[list(
+            self._presampled_goals)[0]].shape[0]
+
         if initialize_encodings:
-            self._presampled_goals['initial_latent_state'] = np.zeros((self._num_presampled_goals, self.representation_size))
+            self._presampled_goals['initial_latent_state'] = np.zeros(
+                (self._num_presampled_goals, self.representation_size))
+
         self._set_spaces()
 
     def sample(self, batch_size: int):
@@ -142,7 +142,186 @@ class PresampledPathDistribution(DictDistribution):
             dim = self._presampled_goals[key][0].shape[0]
             box = gym.spaces.Box(-np.ones(dim), np.ones(dim))
             pairs.append((key, box))
-        self.observation_space = Dict(pairs)
+        self.observation_space = gym.spaces.Dict(pairs)
+
+    @property
+    def spaces(self):
+        return self.observation_space.spaces
+
+
+class NotDonePresampledPathDistribution(PresampledPathDistribution):
+    def __init__(
+            self,
+            datapath,
+            representation_size,
+            env,
+            # Set to true if you plan to re-encode presampled images
+            initialize_encodings=True,
+    ):
+        self.env = env
+        self.context = None
+        super().__init__(datapath,
+                         representation_size,
+                         initialize_encodings=initialize_encodings)
+
+    def sample(self, batch_size: int):
+        idx = []
+        for j in range(0, batch_size):
+            possible_idxs = list(range(0, self._num_presampled_goals))
+            np.random.shuffle(possible_idxs)
+            if batch_size == 1:
+                curr_obs = self.context
+            else:
+                curr_obs = {
+                    k: self.context[k][j] for k, v in self.context.items()
+                }
+            for i in possible_idxs:
+                sampled_goal = {
+                    k: v[i] for k, v in self._presampled_goals.items()
+                }
+                if not self.env.done_fn(curr_obs, sampled_goal):
+                    idx.append(i)
+                    break
+            if len(idx) != j+1:
+                idx.append((self.env.test_env_seed,
+                           np.random.choice(possible_idxs)))
+                # assert False, "not enough not done goal samples"
+        sampled_goals = {
+            k: v[idx] for k, v in self._presampled_goals.items()
+        }
+        return sampled_goals
+
+    def __call__(self, context):
+        self.context = context
+        return self
+
+
+class TwoDistributions(DictDistribution):
+    def __init__(
+        self,
+        dist1: DictDistribution,
+        dist2: DictDistribution,
+        dist1_sampling_prob,
+    ):
+        self.dist1 = dist1
+        self.dist2 = dist2
+        self.dist1_sampling_prob = dist1_sampling_prob
+
+        self._spaces = dist1.spaces
+
+    def sample(self, batch_size: int):
+        dist1_batch_size = np.random.binomial(
+            batch_size, self.dist1_sampling_prob)
+        dist2_batch_size = batch_size - dist1_batch_size
+
+        sampled_goals = {}
+        if dist1_batch_size == 0:
+            sampled_goals = self.dist2.sample(dist2_batch_size)
+        elif dist2_batch_size == 0:
+            sampled_goals = self.dist1.sample(dist1_batch_size)
+        else:
+            sampled_goals = self.dist1.sample(dist1_batch_size)
+            dist2_sampled_goals = self.dist2.sample(dist2_batch_size)
+
+            for k in sampled_goals.keys():
+                sampled_goals[k] = np.concatenate(
+                    (sampled_goals[k], dist2_sampled_goals[k]), axis=0)
+
+        return sampled_goals
+
+    def __call__(self, context):
+        self.context = context
+        self.dist1(context)
+        self.dist2(context)
+        return self
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+
+class MultipleGoalsNotDonePresampledPathDistribution(
+        NotDonePresampledPathDistribution):
+    def __init__(
+            self,
+            datapaths,
+            representation_size,
+            env,
+            goal_env_seeds,
+            # Set to true if you plan to re-encode presampled images
+            initialize_encodings=True,
+    ):
+        self.goal_env_seeds = goal_env_seeds
+        self.env = env
+        self.representation_size = representation_size
+
+        self._presampled_goals = {}
+        self._num_presampled_goals = {}
+        for goal_env_seed, datapath in zip(self.goal_env_seeds, datapaths):
+            presampled_goals = load_local_or_remote_file(datapath)
+            num_presampled_goals = presampled_goals[list(presampled_goals)[
+                0]].shape[0]
+
+            self._presampled_goals[goal_env_seed] = presampled_goals
+            self._num_presampled_goals[goal_env_seed] = num_presampled_goals
+
+            if initialize_encodings:
+                presampled_goals['initial_latent_state'] = np.zeros(
+                    (num_presampled_goals, self.representation_size))
+        self._set_spaces()
+
+    def sample(self, batch_size: int):
+        idx = []
+
+        for j in range(0, batch_size):
+            possible_idxs = list(
+                range(0, self._num_presampled_goals[self.env.test_env_seed]))
+            np.random.shuffle(possible_idxs)
+            if batch_size == 1:
+                curr_obs = self.context
+            else:
+                curr_obs = {
+                    k: self.context[k][j] for k, v in self.context.items()
+                }
+            for i in possible_idxs:
+                sampled_goal = {
+                    k: v[i]
+                    for k, v in self._presampled_goals[
+                        self.env.test_env_seed].items()
+                }
+                if not self.env.done_fn(curr_obs, sampled_goal):
+                    idx.append((self.env.test_env_seed, i))
+                    break
+            if len(idx) != j+1:
+                idx.append((self.env.test_env_seed,
+                           np.random.choice(possible_idxs)))
+                # assert False, "not enough not done goal samples"
+
+        sampled_goals = {}
+        for i in idx:
+            env_seed_idx, goal_idx = i
+            for k, v in self._presampled_goals[env_seed_idx].items():
+                if k not in sampled_goals.keys():
+                    sampled_goals[k] = v[goal_idx:goal_idx+1]
+                else:
+                    sampled_goals[k] = np.concatenate(
+                        (sampled_goals[k], v[goal_idx:goal_idx+1]), axis=0)
+
+        return sampled_goals
+
+    def __call__(self, context):
+        self.context = context
+        return self
+
+    def _set_spaces(self):
+        pairs = []
+        for key in self._presampled_goals[list(
+                self._presampled_goals.keys())[0]]:
+            dim = self._presampled_goals[list(self._presampled_goals.keys())[
+                0]][key][0].shape[0]
+            box = gym.spaces.Box(-np.ones(dim), np.ones(dim))
+            pairs.append((key, box))
+        self.observation_space = gym.spaces.Dict(pairs)
 
     @property
     def spaces(self):
@@ -215,8 +394,8 @@ class L2Distance(ContextualRewardFn):
         else:
             difference = achieved - desired
             weighted_difference = (
-                    self._dimension_weights[None, :]
-                    * difference
+                self._dimension_weights[None, :]
+                * difference
             )
             distance = np.linalg.norm(weighted_difference, axis=-1)
         return distance
@@ -248,6 +427,7 @@ class ThresholdDistanceReward(ContextualRewardFn):
     def __call__(self, states, actions, next_states, contexts):
         distance = self._distance_fn(states, actions, next_states, contexts)
         return -(distance > self._distance_threshold).astype(np.float32)
+
 
 class GoalConditionedDiagnosticsToContextualDiagnostics():
     # use a class rather than function for serialization

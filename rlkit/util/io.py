@@ -19,7 +19,6 @@ def get_relative_path(filename):
 
 
 def local_path_from_s3_or_local_path(filename):
-    print('local log dir', LOCAL_LOG_DIR, 'filename', filename)
     relative_filename = os.path.join(LOCAL_LOG_DIR, filename)
     if os.path.isfile(filename):
         return filename
@@ -77,7 +76,8 @@ def sync_down_folder(path):
 
     full_s3_path = os.path.join(AWS_S3_PATH, path)
     bucket_name, bucket_relative_path = split_s3_full_path(full_s3_path)
-    command = "aws s3 sync s3://%s/%s %s" % (bucket_name, bucket_relative_path, local_path)
+    command = "aws s3 sync s3://%s/%s %s" % (
+        bucket_name, bucket_relative_path, local_path)
     print(command)
     stream = os.popen(command)
     output = stream.read()
@@ -94,15 +94,21 @@ def split_s3_full_path(s3_path):
     directory_path = '/'.join(directories)
     return bucket_name, directory_path
 
+
 class CPU_Unpickler(pickle.Unpickler):
     """Utility for loading a pickled model on CPU machine saved from a GPU"""
+
     def find_class(self, module, name):
         if module == 'torch.storage' and name == '_load_from_bytes':
             return lambda b: torch.load(io.BytesIO(b), map_location='cpu')
-        else: return super().find_class(module, name)
+        else:
+            return super().find_class(module, name)
+
 
 def load_local_or_remote_file(filepath, file_type=None, delete_after_loading=False, **kwargs):
+    print('filepath:', filepath)
     local_path = local_path_from_s3_or_local_path(filepath)
+    print('local_path:', local_path)
     assert local_path is not None, "file not found. Filename: %s" % filepath
     if file_type is None:
         extension = local_path.split('.')[-1]
@@ -130,6 +136,7 @@ def load_local_or_remote_file(filepath, file_type=None, delete_after_loading=Fal
 
     return object
 
+
 def get_absolute_path(path):
     if path[0] == "/":
         return path
@@ -140,6 +147,7 @@ def get_absolute_path(path):
         else:
             local_path = "%s/%s" % (LOCAL_LOG_DIR, path)
         return local_path
+
 
 if __name__ == "__main__":
     p = sync_down("ashvin/vae/new-point2d/run0/id1/params.pkl")

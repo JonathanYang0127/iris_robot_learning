@@ -5,6 +5,7 @@ from gym.spaces import Dict, Discrete
 from rlkit.data_management.replay_buffer import ReplayBuffer
 import rlkit.data_management.images as image_np
 
+
 class ObsDictReplayBuffer(ReplayBuffer):
     """
     Save goals from the same trajectory into the replay buffer.
@@ -37,7 +38,8 @@ class ObsDictReplayBuffer(ReplayBuffer):
         :param ob_keys_to_save: List of keys to save
         """
         if observation_key is not None and observation_keys is not None:
-            raise ValueError('Only specify observation_key or observation_keys')
+            raise ValueError(
+                'Only specify observation_key or observation_keys')
         if observation_key is None and observation_keys is None:
             raise ValueError(
                 'Specify either observation_key or observation_keys'
@@ -233,7 +235,8 @@ class ObsDictReplayBuffer(ReplayBuffer):
             if ub > lb:
                 next_obs_i = int(np.random.randint(lb, ub))
             else:
-                next_obs_i = int(np.random.randint(lb, ub + self.max_size)) % self.max_size
+                next_obs_i = int(np.random.randint(
+                    lb, ub + self.max_size)) % self.max_size
             future_obs_idxs.append(next_obs_i)
         future_obs_idxs = np.array(future_obs_idxs)
         return future_obs_idxs
@@ -338,7 +341,8 @@ class ObsDictRelabelingBuffer(ObsDictReplayBuffer):
                 new_next_obs_dict[goal_key][num_rollout_goals:last_env_goal_idx] = \
                     env_goals[goal_key]
         if num_future_goals > 0:
-            future_obs_idxs = self._get_future_obs_indices(indices[-num_future_goals:])
+            future_obs_idxs = self._get_future_obs_indices(
+                indices[-num_future_goals:])
             for goal_key in self.goal_keys:
                 achieved_k = goal_key.replace('desired', 'achieved')
                 new_obs_dict[goal_key][-num_future_goals:] = (
@@ -373,7 +377,8 @@ class ObsDictRelabelingBuffer(ObsDictReplayBuffer):
             new_next_obs = new_next_obs_dict[self.observation_keys[0]]
         else:
             new_obs = tuple(new_obs_dict[k] for k in self.observation_keys)
-            new_next_obs = tuple(new_next_obs_dict[k] for k in self.observation_keys)
+            new_next_obs = tuple(new_next_obs_dict[k]
+                                 for k in self.observation_keys)
         resampled_goals = new_next_obs_dict[self.desired_goal_key]
         batch = {
             'observations': new_obs,

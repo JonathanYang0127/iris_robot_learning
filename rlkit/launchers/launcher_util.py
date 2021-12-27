@@ -23,6 +23,7 @@ GitInfo = NamedTuple(
     ],
 )
 
+
 class AutoSetup:
     """
     Automatically set up:
@@ -34,6 +35,7 @@ class AutoSetup:
     :param unpack_variant: do you call exp_function with `**variant`?
     :return: function output
     """
+
     def __init__(self, exp_function, unpack_variant=True):
         self.exp_function = exp_function
         self.unpack_variant = unpack_variant
@@ -59,6 +61,7 @@ class AutoSetup:
         else:
             self.exp_function(variant)
 
+
 def run_experiment(
         method_call,
         exp_name='default',
@@ -74,7 +77,7 @@ def run_experiment(
         **kwargs
 ):
     if base_log_dir is None:
-        base_log_dir=config.LOCAL_LOG_DIR
+        base_log_dir = config.LOCAL_LOG_DIR
     if wrap_fn_with_auto_setup:
         method_call = AutoSetup(method_call, unpack_variant=unpack_variant)
     if mode == 'here_no_doodad':
@@ -105,6 +108,7 @@ def run_experiment(
             **kwargs
         )
 
+
 def setup_experiment(
         variant,
         exp_name,
@@ -130,6 +134,9 @@ def setup_experiment(
         seed=seed,
         exp_id=exp_id,
         **logger_config)
+
+    print('The snapshot_dir of the logger is: %s' % (
+        logger.get_snapshot_dir()))
 
 
 def set_seed(seed):
