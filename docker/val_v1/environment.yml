@@ -240,5 +240,5 @@ dependencies:
     - widgetsnbextension==3.5.1
     - wrapt==1.11.2
     - zipp==3.1.0
-prefix: /home/patrickhaoy/anaconda3/envs/mjrl-env
+prefix: /home/ashvin/anaconda3/envs/mjrl-env
 
