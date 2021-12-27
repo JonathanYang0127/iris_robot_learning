@@ -7,6 +7,8 @@ import numpy as np
 from typing import Union, Callable, Any, Dict, List
 
 from rlkit.core.distribution import DictDistribution
+from rlkit.torch import pytorch_util as ptu
+from rlkit.util.io import load_local_or_remote_file
 from rlkit import pythonplusplus as ppp
 
 
@@ -180,10 +182,7 @@ class PlannedContextualEnv(gym.Wrapper):
             env: gym.Env,
             planner,
             reward_fn: ContextualRewardFn,
-            init_states,
-            goal_states,
-            # init_distribution: DictDistribution,
-            # goal_distribution: DictDistribution,
+            presampled_data_path,
             context_timeout=None,
             direction_timeout=None,
             context_switch_reward_thresh=None,
@@ -225,8 +224,16 @@ class PlannedContextualEnv(gym.Wrapper):
         self._last_obs = None
         self._update_env_info = update_env_info_fn or insert_reward
 
-        self._init_states = init_states
-        self._goal_states = goal_states
+        # presampled_data = np.load(presampled_data_path, allow_pickle=True)
+        presampled_data = load_local_or_remote_file(presampled_data_path)
+
+        self._init_images = presampled_data['initial_image_observation']
+        self._goal_images = presampled_data['image_desired_goal']
+
+        self._init_latent_states = self._encode_images(
+            self._preprocess_images(self._init_images))
+        self._goal_latent_states = self._encode_images(
+            self._preprocess_images(self._goal_images))
 
         self._planner = planner
         self._context_keys = list(planner.spaces.keys())
@@ -242,6 +249,49 @@ class PlannedContextualEnv(gym.Wrapper):
             unbatched_reward_fn = UnbatchRewardFn(reward_fn)
 
         self.unbatched_reward_fn = unbatched_reward_fn
+
+    def _preprocess_images(self, images):
+        num_samples = images.shape[0]
+        num_steps = images.shape[1]
+        images = np.reshape(
+            images, [num_samples, num_steps, 3, 48, 48])
+        images = np.transpose(images, [0, 1, 4, 3, 2])
+
+        images = images.astype(np.float32) / 255 - 0.5
+
+        # Channel first.
+        if images.ndim == 4:
+            images = np.transpose(images, (0, 3, 1, 2))
+        elif images.ndim == 5:
+            images = np.transpose(images, (0, 1, 4, 2, 3))
+
+        return images
+
+    def _encode_images(self, images, batch_size=1024):
+        num_seqs = images.shape[0]
+        num_steps = images.shape[1]
+        num_samples = num_seqs * num_steps
+        num_batches = int(np.ceil(float(num_samples) / float(batch_size)))
+        encodings = []
+        for i in range(num_batches):
+            start = i * batch_size
+            end = (i + 1) * batch_size
+            end = min(end, num_samples)
+
+            batch = images[start:end]
+            batch = ptu.from_numpy(batch)
+            batch = batch.view(
+                -1, batch.shape[-3], batch.shape[-2], batch.shape[-1])
+
+            encoding_i = self.model.encode(batch, mode='zq', flatten=False)
+            encoding_i = ptu.get_numpy(encoding_i)
+            encodings.append(encoding_i)
+            # logging.info('Finished encoding the images %d / %d.'
+            #              % (end, num_samples))
+
+        encodings = np.concatenate(encodings, axis=0)
+
+        return encodings
 
     def reset(self):
         obs = self.env.reset()
@@ -279,15 +329,19 @@ class PlannedContextualEnv(gym.Wrapper):
 
     def _replan(self, obs, direction):
         if direction == 0:
-            goal_state = self._init_states[self.reward_fn.observation_key]
+            goal_states = self._init_latent_states[
+                self.reward_fn.observation_key]
         elif direction == 1:
-            goal_state = self._goal_states[self.reward_fn.observation_key]
+            goal_states = self._goal_latent_states[
+                self.reward_fn.observation_key]
         else:
             raise ValueError('Unrecognized direction: %r' % (direction))
 
+        curr_image = obs['image_observation']
+        curr_state = self.model.encode(curr_image, mode='zq', flatten=False)
         self._rollout_context_batch = self.planner(
-            init_state=obs,
-            goal_state=goal_state)
+            init_state=curr_state,
+            goal_state=goal_states)  # NOQA
 
         if self._direction_timeout is not None:
             self._countdown_this_direction = self._direction_timeout
