@@ -8,9 +8,6 @@ from rlkit.core.distribution import DictDistributionGenerator
 from rlkit.util.io import load_local_or_remote_file
 from rlkit.torch import pytorch_util as ptu
 
-from roboverse.bullet.misc import quat_to_deg_batch
-
-
 class AddDecodedImageDistribution(DictDistribution):
     def __init__(
         self,
@@ -67,6 +64,7 @@ class AddGripperStateDistribution(DictDistribution):
         self._spaces[output_key] = gripper_state_space
 
     def sample(self, batch_size: int):
+        from roboverse.bullet.misc import quat_to_deg_batch
         s = self.dist.sample(batch_size)
         s[self.output_key] = np.concatenate(
             (s[self.input_key][:, :3],
