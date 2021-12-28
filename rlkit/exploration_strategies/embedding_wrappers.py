@@ -1,3 +1,6 @@
+import gym
+from roboverse.bullet.serializable import Serializable
+
 class EmbeddingWrapperOffline(gym.Env, Serializable):
 
     def __init__(self, env, embeddings):
