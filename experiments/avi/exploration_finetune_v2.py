@@ -7,7 +7,7 @@ from roboverse.bullet.serializable import Serializable
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
+from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic, AddNoise
 from rlkit.torch.networks.cnn import ConcatCNN
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
@@ -268,11 +268,12 @@ def experiment(variant):
     else:
         raise NotImplementedError
 
+    expl_policy = AddNoise(policy, variant['expl_policy_noise'])
     eval_policy = MakeDeterministic(policy)
     expl_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
         expl_env,
-        policy,
+        expl_policy,
         observation_keys=observation_keys,
         expl_reset_free=args.expl_reset_free,
         epochs_per_reset=variant['epochs_per_reset'],
@@ -281,7 +282,7 @@ def experiment(variant):
     eval_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
         expl_env,
-        policy,
+        eval_policy,
         observation_keys=observation_keys,
         expl_reset_free=False,
         epochs_per_reset=variant['epochs_per_reset'],
@@ -372,7 +373,8 @@ if __name__ == '__main__':
         expl_reset_free = args.expl_reset_free,
         epochs_per_reset = 1,
         cem_update_window = 25,
-        closest_expl_period = 10,
+        closest_expl_period = 15,
+        expl_policy_noise = 0.0,
 
         trainer_kwargs=dict(
             discount=0.9666,
@@ -429,6 +431,8 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
+    # random_num = np.random.randint(10000)
+    # exp_prefix = '{}-exploration-awac-image-{}-{}'.format(time.strftime("%y-%m-%d"), args.env, random_num)
     exp_prefix = '{}-exploration-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )

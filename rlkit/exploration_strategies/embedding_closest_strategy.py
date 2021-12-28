@@ -30,6 +30,9 @@ class ClosestExplorationStrategy(BaseExplorationStrategy):
             self._current_embedding = one_hot(np.random.randint(self._latent_dim), self._latent_dim)
         else:
             if self._fixed_embedding[dir] is None:
+                log_dir = logger.get_snapshot_dir()
+                with open(log_dir + "/{}.txt".format(dir), "w+") as file:
+                    file.write(str(np.argmax(np.array(self._positive_embeddings[dir]), axis=1)))
                 mode = stats.mode(np.argmax(np.array(self._positive_embeddings[dir]), axis=1))[0][0]
                 self._fixed_embedding[dir] = one_hot(mode, self._latent_dim)
             self._current_embedding = self._fixed_embedding[dir]
