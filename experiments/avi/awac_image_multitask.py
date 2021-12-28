@@ -243,7 +243,7 @@ if __name__ == '__main__':
     parser.add_argument("--max-path-len", type=int, default=30)
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
-    parser.add_argument('--offline-alg', type=str, choices=('AWAC', 'IQL'))
+    parser.add_argument('--offline-alg', type=str, choices=('AWAC', 'IQL'), default="AWAC")
     parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
