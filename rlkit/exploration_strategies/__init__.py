@@ -2,4 +2,4 @@ from .embedding_gaussian_strategy import GaussianExplorationStrategy
 from .embedding_cem_strategy import CEMExplorationStrategy
 from .embedding_fast_strategy import FastExplorationStrategy
 from .embedding_closest_strategy import ClosestExplorationStrategy
-
+from .embedding_wrappers import EmbeddingWrapperOffline, EmbeddingWrapper
