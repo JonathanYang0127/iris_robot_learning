@@ -21,6 +21,7 @@ from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v
     add_multitask_data_to_multitask_buffer_v2, \
     VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer, \
     add_data_to_buffer_multitask_v2
+from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline as EmbeddingWrapper
 
 import roboverse
 import numpy as np
@@ -28,29 +29,6 @@ from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
 
 BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06_1000.npy'
-
-
-class EmbeddingWrapper(gym.Env, Serializable):
-
-    def __init__(self, env, embeddings):
-        self.env = env
-        self.action_space = env.action_space
-        self.observation_space = env.observation_space
-        self.embeddings = embeddings
-
-    def step(self, action):
-        obs, rew, done, info = self.env.step(action)
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs, rew, done, info
-
-    def reset(self):
-        obs = self.env.reset()
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs
-
-    def reset_task(self, task_idx):
-        self.env.reset_task(task_idx)
-
 
 def experiment(variant):
     num_tasks = variant['num_tasks']
