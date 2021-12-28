@@ -8,14 +8,14 @@ from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.samplers.rollout_functions import rollout, fixed_contextual_rollout
 from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline, EmbeddingWrapper
 
-def set_env_to_opp_task(env)
-    if (isinstance(self.eval_env, EmbeddingWrapper) or
-        isinstance(self.eval_env, EmbeddingWrapperOffline)):
+def set_env_to_opp_task(env):
+    if (isinstance(env, EmbeddingWrapper) or
+        isinstance(env, EmbeddingWrapperOffline)):
         task_idx = env.env.task_idx
     else:
         task_idx = env.task_idx
 
-    if self._env.is_reset_task():
+    if env.is_reset_task():
         opp_task = task_idx - env.num_tasks
     else:
         opp_task = task_idx + env.num_tasks
