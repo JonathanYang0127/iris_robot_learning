@@ -251,7 +251,8 @@ if __name__ == '__main__':
         use_task_embedding=args.use_task_embedding,
         seed=args.seed,
         trainer_kwargs=dict(
-            discount=0.9666,
+            discount=1.0,
+            use_reward_as_terminal=False,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
@@ -304,6 +305,8 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
+    # random_num = np.random.randint(10000)
+    # exp_prefix = '{}-{}-image-{}-{}'.format(time.strftime("%y-%m-%d"), args.offline_alg, args.env, random_num)
     exp_prefix = '{}-{}-image-{}'.format(time.strftime("%y-%m-%d"), args.offline_alg, args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)

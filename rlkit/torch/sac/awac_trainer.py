@@ -29,6 +29,7 @@ class AWACTrainer(TorchTrainer):
             buffer_policy=None,
 
             discount=0.99,
+            use_reward_as_terminal=False,
             reward_scale=1.0,
             beta=1.0,
             beta_schedule_kwargs=None,
@@ -183,6 +184,7 @@ class AWACTrainer(TorchTrainer):
                 self.beta_schedule = schedule_class(**beta_schedule_kwargs)
 
         self.discount = discount
+        self.use_reward_as_terminal = use_reward_as_terminal
         self.reward_scale = reward_scale
         self.eval_statistics = OrderedDict()
         self._n_train_steps_total = 0
@@ -465,7 +467,10 @@ class AWACTrainer(TorchTrainer):
 
     def train_from_torch(self, batch, train=True, pretrain=False,):
         rewards = batch['rewards']
-        terminals = batch['terminals']
+        if self.use_reward_as_terminal:
+            terminals = batch['rewards']
+        else:
+            terminals = batch['terminals']
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']

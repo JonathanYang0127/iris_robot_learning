@@ -329,6 +329,7 @@ if __name__ == '__main__':
 
         trainer_kwargs=dict(
             discount=0.9666,
+            use_reward_as_terminal=False,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
