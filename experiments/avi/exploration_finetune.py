@@ -6,7 +6,7 @@ from rlkit.samplers.data_collector import ContextualObsDictPathCollector
 from rlkit.torch.sac.awac_trainer import AWACTrainer
 
 
-from roboverse.bullet.serializable import Serializable
+from rlkit.core.roboverse_serializable import Serializable
 import roboverse
 import torch
 import numpy as np

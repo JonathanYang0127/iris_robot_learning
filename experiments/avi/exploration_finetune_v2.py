@@ -2,7 +2,7 @@ import argparse
 import time
 import os
 import gym
-from roboverse.bullet.serializable import Serializable
+from rlkit.core.roboverse_serializable import Serializable
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm

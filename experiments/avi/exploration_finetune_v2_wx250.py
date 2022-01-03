@@ -221,6 +221,7 @@ def experiment(variant):
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
         multitask=True,
+        use_reward_as_terminal=True,
         **variant['trainer_kwargs']
     )
 

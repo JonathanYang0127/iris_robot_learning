@@ -4,7 +4,7 @@ from rlkit.misc.roboverse_utils import (add_reward_filtered_data_to_buffers_mult
 from rlkit.exploration_strategies import *
 from rlkit.samplers.data_collector import EmbeddingExplorationObsDictPathCollector
 
-from roboverse.bullet.serializable import Serializable
+from rlkit.core.roboverse_serializable import Serializable
 import roboverse
 import torch
 import numpy as np
