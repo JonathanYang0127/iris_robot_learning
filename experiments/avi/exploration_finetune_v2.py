@@ -7,7 +7,7 @@ from roboverse.bullet.serializable import Serializable
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
+from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic, AddNoise
 from rlkit.torch.networks.cnn import ConcatCNN
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
@@ -28,53 +28,6 @@ from rlkit.launchers.config import LOCAL_LOG_DIR
 import torch
 
 BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06_1000.npy'
-
-
-class EmbeddingWrapper(gym.Env, Serializable):
-    def __init__(self, env, embeddings):
-        self.env = env
-        self.action_space = env.action_space
-        self.observation_space = env.observation_space
-        self.embeddings = embeddings
-        self.latent_dim = len(self.embeddings[0])
-        self.num_tasks = env.num_tasks
-
-    def is_reset_task(self):
-        return super().is_reset_task()
-
-    def get_task_embedding(self, task_idx):
-        if task_idx >= 2 * self.num_tasks:
-            return [0] * self.latent_dim
-        else:
-            return self.embeddings[task_idx]
-
-    def step(self, action):
-        obs, rew, done, info = self.env.step(action)
-        obs.update({'task_embedding': self.get_task_embedding(self.env.task_idx)})
-        return obs, rew, done, info
-
-    def reset(self):
-        obs = self.env.reset()
-        obs.update({'task_embedding': self.get_task_embedding(self.env.task_idx)})
-        return obs
-
-    def reset_task(self, task_idx):
-        self.env.reset_task(task_idx)
-    def get_observation(self):
-        return self.env.get_observation()
-    def reset_robot_only(self):
-        return self.env.reset_robot_only()
-
-    def get_new_task_idx(self):
-        '''
-        Propose a new task based on whether the last trajectory succeeded.
-        '''
-        info = self.env.get_info()
-        if info['reset_success_target']:
-            new_task_idx = self.env.task_idx - self._env.num_tasks
-        if info['place_success_target']:
-            new_task_idx = self.env.task_idx + self._env.num_tasks
-        return new_task_idx
 
 
 def experiment(variant):
@@ -255,18 +208,23 @@ def experiment(variant):
             q_function=qf1, n_components=10)
     elif variant['exploration_strategy'] == 'cem':
         exploration_strategy = CEMExplorationStrategy(task_embeddings_batch,
-            update_frequency=variant['exploration_update_frequency'], n_components=num_tasks)
+            update_frequency=variant['exploration_update_frequency'], n_components=num_tasks,
+            update_window=variant['cem_update_window'])
+    elif variant['exploration_strategy'] == 'closest':
+        exploration_strategy = ClosestExplorationStrategy(task_embeddings_batch, 
+        exploration_period=variant['closest_expl_period'])
     elif variant['exploration_strategy'] == 'fast':
         exploration_strategy = FastExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=10)
     else:
         raise NotImplementedError
 
+    expl_policy = AddNoise(policy, variant['expl_policy_noise'])
     eval_policy = MakeDeterministic(policy)
     expl_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
         expl_env,
-        policy,
+        expl_policy,
         observation_keys=observation_keys,
         expl_reset_free=args.expl_reset_free,
         epochs_per_reset=variant['epochs_per_reset'],
@@ -275,7 +233,7 @@ def experiment(variant):
     eval_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
         expl_env,
-        policy,
+        eval_policy,
         observation_keys=observation_keys,
         expl_reset_free=False,
         epochs_per_reset=variant['epochs_per_reset'],
@@ -331,7 +289,7 @@ if __name__ == '__main__':
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument('--expl-reset-free', action='store_true', default=False)
     parser.add_argument('-e', '--exploration-strategy', type=str,
-        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast'))
+        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast', 'closest'))
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
@@ -365,9 +323,13 @@ if __name__ == '__main__':
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
         epochs_per_reset = 1,
+        cem_update_window = 25,
+        closest_expl_period = 15,
+        expl_policy_noise = 0.0,
 
         trainer_kwargs=dict(
             discount=0.9666,
+            use_reward_as_terminal=False,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
@@ -421,6 +383,8 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
+    # random_num = np.random.randint(10000)
+    # exp_prefix = '{}-exploration-awac-image-{}-{}'.format(time.strftime("%y-%m-%d"), args.env, random_num)
     exp_prefix = '{}-exploration-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, )

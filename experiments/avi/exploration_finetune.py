@@ -15,27 +15,6 @@ import os
 import gym
 
 
-class EmbeddingWrapper(gym.Env, Serializable):
-
-    def __init__(self, env, embeddings):
-        self.env = env
-        self.action_space = env.action_space
-        self.observation_space = env.observation_space
-        self.embeddings = embeddings
-
-    def step(self, action):
-        obs, rew, done, info = self.env.step(action)
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs, rew, done, info
-
-    def reset(self):
-        obs = self.env.reset()
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs
-
-    def reset_task(self, task_idx):
-        self.env.reset_task(task_idx)
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--checkpoint-path", type=str, required=True)

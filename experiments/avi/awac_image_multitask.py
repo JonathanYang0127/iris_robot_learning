@@ -7,6 +7,7 @@ from roboverse.bullet.serializable import Serializable
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
+from rlkit.torch.sac.iql_trainer import IQLTrainer
 from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import ConcatCNN
 
@@ -20,6 +21,7 @@ from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v
     add_multitask_data_to_multitask_buffer_v2, \
     VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer, \
     add_data_to_buffer_multitask_v2
+from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline as EmbeddingWrapper
 
 import roboverse
 import numpy as np
@@ -27,29 +29,6 @@ from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
 
 BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06_1000.npy'
-
-
-class EmbeddingWrapper(gym.Env, Serializable):
-
-    def __init__(self, env, embeddings):
-        self.env = env
-        self.action_space = env.action_space
-        self.observation_space = env.observation_space
-        self.embeddings = embeddings
-
-    def step(self, action):
-        obs, rew, done, info = self.env.step(action)
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs, rew, done, info
-
-    def reset(self):
-        obs = self.env.reset()
-        obs.update({'task_embedding': self.embeddings[self.env.task_idx]})
-        return obs
-
-    def reset_task(self, task_idx):
-        self.env.reset_task(task_idx)
-
 
 def experiment(variant):
     num_tasks = variant['num_tasks']
@@ -164,7 +143,15 @@ def experiment(variant):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
 
-    trainer = AWACTrainer(
+    if 'AWAC' in variant['algorithm']:
+        trainer_class = AWACTrainer 
+    elif 'IQL' in variant['algorithm']:
+        cnn_params['added_fc_input_size'] -= action_dim
+        vf = ConcatCNN(**cnn_params)
+        variant['trainer_kwargs']['vf'] = vf 
+        trainer_class = IQLTrainer
+
+    trainer = trainer_class(
         env=eval_env,
         policy=policy,
         qf1=qf1,
@@ -234,12 +221,13 @@ if __name__ == '__main__':
     parser.add_argument("--max-path-len", type=int, default=30)
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument('--offline-alg', type=str, choices=('AWAC', 'IQL'), default="AWAC")
     parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
 
     variant = dict(
-        algorithm="AWAC-Pixel",
+        algorithm="{}-Pixel".format(args.offline_alg),
 
         num_epochs=3000,
         batch_size=64,
@@ -264,13 +252,13 @@ if __name__ == '__main__':
         seed=args.seed,
         trainer_kwargs=dict(
             discount=0.9666,
+            use_reward_as_terminal=False,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
             qf_lr=3E-4,
             reward_scale=1,
             beta=args.beta,
-            use_automatic_entropy_tuning=False,
             alpha=0,
             compute_bc=False,
             awr_min_q=True,
@@ -317,7 +305,9 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
-    exp_prefix = '{}-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
+    # random_num = np.random.randint(10000)
+    # exp_prefix = '{}-{}-image-{}-{}'.format(time.strftime("%y-%m-%d"), args.offline_alg, args.env, random_num)
+    exp_prefix = '{}-{}-image-{}'.format(time.strftime("%y-%m-%d"), args.offline_alg, args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
                  snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
 

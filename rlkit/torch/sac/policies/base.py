@@ -64,3 +64,18 @@ class MakeDeterministic(TorchStochasticPolicy):
     def forward(self, *args, **kwargs):
         dist = self._action_distribution_generator.forward(*args, **kwargs)
         return Delta(dist.mle_estimate())
+
+class AddNoise(TorchStochasticPolicy):
+    def __init__(
+            self,
+            policy,
+            noise
+    ):
+        super().__init__()
+        self._policy = policy
+        self._noise = noise
+
+    def get_actions(self, obs_np, ):
+        actions = self._policy.get_actions(obs_np)
+        actions += np.random.normal(scale=self._noise, size=actions.shape)
+        return actions

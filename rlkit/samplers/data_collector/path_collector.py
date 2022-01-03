@@ -6,6 +6,20 @@ import numpy as np
 from rlkit.misc.eval_util import create_stats_ordered_dict
 from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.samplers.rollout_functions import rollout, fixed_contextual_rollout
+from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline, EmbeddingWrapper
+
+def set_env_to_opp_task(env):
+    if (isinstance(env, EmbeddingWrapper) or
+        isinstance(env, EmbeddingWrapperOffline)):
+        task_idx = env.env.task_idx
+    else:
+        task_idx = env.task_idx
+
+    if env.is_reset_task():
+        opp_task = task_idx - env.num_tasks
+    else:
+        opp_task = task_idx + env.num_tasks
+    env.reset_task(opp_task)
 
 
 class MdpPathCollector(PathCollector):
@@ -79,11 +93,7 @@ class MdpPathCollector(PathCollector):
             )
             if not expl_reset_free:
                 # switch to opposite task
-                if self._env.is_reset_task():
-                    opp_task = self._env.env.task_idx - self._env.num_tasks
-                else:
-                    opp_task = self._env.env.task_idx + self._env.num_tasks
-                self._env.reset_task(opp_task)
+                set_env_to_opp_task(self._env)
             else:
                 # switch to opposite task only if successful
                 self._env.reset_robot_only()
@@ -257,11 +267,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             self._env.reset_task(self._exploration_task)
             # alternate which task we reset to
             if (self._epoch // self._epochs_per_reset) % 2 == 0:
-                if self._env.is_reset_task():
-                    opp_task = self._env.env.task_idx - self._env.num_tasks
-                else:
-                    opp_task = self._env.env.task_idx + self._env.num_tasks
-                self._env.reset_task(opp_task)
+                set_env_to_opp_task(self._env)
             self._env.reset()
 
         return super().collect_new_paths(expl_reset_free=self._expl_reset_free, *args, **kwargs)
