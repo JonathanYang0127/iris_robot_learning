@@ -243,7 +243,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
                 expl_reset_free=self._expl_reset_free,
                 relabel_rewards=self._relabel_rewards,
                 **kwargs)
-            success = rollout['rewards'][-1] > 0
+            success = sum(rollout['rewards']) > 0
             post_trajectory_kwargs = {'reverse': self._reverse,
                 'embedding': embedding,
                 'success': success}
@@ -270,6 +270,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         snapshot = super().get_snapshot()
         snapshot.update(
             observation_keys=self._observation_keys,
+            exploration_strategy=self._exploration_strategy,
         )
         return snapshot
 

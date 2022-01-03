@@ -252,7 +252,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
             obs = self._obs[self.observation_keys[0]][indices]
             next_obs = self._next_obs[self.observation_keys[0]][indices]
         else:
-            obs = np.concatenate([self._obs[k][indices] for k in 
+            obs = np.concatenate([self._obs[k][indices] for k in
                                   self.observation_keys], axis=1)
             next_obs = np.concatenate([self._next_obs[k][indices] for k
                                       in self.observation_keys], axis=1)
@@ -269,7 +269,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
             batch[key] = batch[key].reshape(batch_size, traj_len, -1)
 
         return batch
- 
+
     def _sample_goals_from_env(self, batch_size):
         return self.env.sample_goals(batch_size)
 
@@ -371,7 +371,7 @@ class ObsDictReplayBufferVQVAE(ObsDictReplayBuffer):
         actions = path["actions"]
         rewards = path["rewards"]
         next_obs = path["next_observations"]
-        terminals = path["terminals"]           
+        terminals = path["terminals"]
         obs['image'] = self.encode_observations(obs['image'])
         next_obs['image'] = self.encode_observations(next_obs['image'])
         super().add_path(path, ob_dicts_already_combined=True)

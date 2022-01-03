@@ -22,11 +22,22 @@ from widowx_envs.widowx.widowx_grasp_env import GraspWidowXResetFreeEnv
 from widowx_envs.widowx.env_wrappers import NormalizedBoxEnv
 from widowx_envs.utils.params import *
 
-
+import pickle
 import numpy as np
 from gym import spaces
 from rlkit.launchers.config import LOCAL_LOG_DIR
 import torch
+
+import warnings
+warnings.filterwarnings("ignore")
+
+def MakeStochastic(policy):
+    noise = 0.01
+    def new_policy(input):
+        out = policy(input)
+        out += np.random.normal(noise, size=out.shape)
+
+    return new_policy
 
 def experiment(variant):
     num_tasks = variant['num_tasks']
@@ -136,6 +147,7 @@ def experiment(variant):
                                action_dim=action_dim,
                                std_architecture="values",
                                **cnn_params)
+    policy = MakeStochastic(policy)
     buffer_policy = GaussianCNNPolicy(max_log_std=0,
                                       min_log_std=-6,
                                       obs_dim=None,
@@ -173,23 +185,32 @@ def experiment(variant):
 
     # we need to add room for an exploration tasks
     num_buffer_tasks = num_tasks * 2
-    replay_buffer = ObsDictMultiTaskReplayBuffer(
-        max_replay_buffer_size,
-        expl_env,
-        np.arange(num_buffer_tasks),
-        use_next_obs_in_context=False,
-        sparse_rewards=False,
-        observation_keys=observation_keys
-    )
 
     if variant['buffer'] != "":
-        add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
-                                               observation_keys, num_tasks)
+        with open(variant['buffer'], 'rb') as f:
+            replay_buffer = pickle.load(f)
+    else:
+        # create new replay buffer
+        replay_buffer = ObsDictMultiTaskReplayBuffer(
+            max_replay_buffer_size,
+            expl_env,
+            np.arange(num_buffer_tasks),
+            use_next_obs_in_context=False,
+            sparse_rewards=False,
+            observation_keys=observation_keys
+        )
+        if variant['buffers'] != []:
+            buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
+            add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
+                task_encoder=None, embedding_mode=variant['embedding_mode'],
+                encoder_type=variant['task_encoder_type'])
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
+
+
 
     trainer = AWACTrainer(
         env=eval_env,
@@ -218,6 +239,18 @@ def experiment(variant):
     else:
         raise NotImplementedError
 
+    if args.finetuning_checkpoint != "":
+        with open(args.finetuning_checkpoint, "rb") as f:
+            data = torch.load(f)
+            exploration_strategy = data['exploration/exploration_strategy']
+            policy = data['trainer/policy']
+            trainer.policy = policy
+            trainer.buffer_policy = data['trainer/buffer_policy']
+            trainer.qf1 = data['trainer/qf1']
+            trainer.target_qf1 = data['trainer/target_qf1']
+            trainer.qf2 = data['trainer/qf2']
+            trainer.target_qf2 = data['trainer/target_qf2']
+
     eval_policy = MakeDeterministic(policy)
     expl_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
@@ -226,7 +259,8 @@ def experiment(variant):
         observation_keys=observation_keys,
         expl_reset_free=args.expl_reset_free,
         epochs_per_reset=variant['epochs_per_reset'],
-        exploration_task=variant['exploration_task']
+        exploration_task=variant['exploration_task'],
+        relabel_rewards=True
     )
     eval_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
@@ -258,7 +292,7 @@ def experiment(variant):
         multi_task=True,
         exploration_task=variant['exploration_task'],
         train_tasks=[variant['exploration_task'], opp_task],
-        eval_tasks=[variant['exploration_task']],
+        eval_tasks=[variant['exploration_task'], opp_task],
         log_keys_to_remove=["exploration/env", "evaluation/env"]
     )
 
@@ -279,21 +313,46 @@ def enable_gpus(gpu_str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--checkpoint", type=str, required=True)
+    parser.add_argument("-fc", "--finetuning_checkpoint", type=str, default="")
     parser.add_argument("--num-tasks", type=int, default=32)
     parser.add_argument("--task-key", type=str, default='pinktrayleft', choices=('pinktrayleft',
         'redplateright'))
     parser.add_argument("--object-key", type=str, required=True)
-    parser.add_argument("--buffer", type=str, default="")
+    parser.add_argument("--obs-dict-buffer", type=str, default="")
+    parser.add_argument("--buffers", type=str, nargs='+')
+    parser.add_argument("--buffer-variant", type=str, default="")
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
     parser.add_argument('--expl-reset-free', action='store_true', default=False)
+    parser.add_argument("--task-encoder", default="", type=str)
+    parser.add_argument("--encoder-type", default='image', choices=('image', 'trajectory'))
+    parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
     parser.add_argument('-e', '--exploration-strategy', type=str,
         choices=('gaussian', 'gaussian_filtered', 'cem', 'fast'))
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
+
+    assert args.buffer_variant != "" or args.buffers != "" or args.obs_dict_buffer != ""
+    buffers = []
+    if args.buffer_variant:
+        '''Use buffer variant to get ordered list of buffer paths'''
+        import json
+        buffer_variant = open(args.buffer_variant)
+        data = json.load(buffer_variant)
+        buffers = data["buffers"]
+    elif args.buffers:
+        buffers = set()
+        for buffer_path in args.buffers:
+            if '.pkl' in buffer_path or '.npy' in buffer_path:
+                buffers.add(buffer_path)
+            else:
+                path = Path(buffer_path)
+                buffers.update(list(path.rglob('*.pkl')))
+                buffers.update(list(path.rglob('*.npy')))
+        buffers = [str(b) for b in buffers]
 
     variant = dict(
         algorithm="AWAC-Pixel",
@@ -301,11 +360,11 @@ if __name__ == '__main__':
         num_epochs=3000,
         batch_size=64,
         meta_batch_size=4,
-        max_path_length=15,
+        max_path_length=20,
         num_trains_per_train_loop=1000,
-        num_eval_steps_per_epoch=40 *40,
-        num_expl_steps_per_train_loop=40 * 40,
-        min_num_steps_before_training=100 * 40,
+        num_eval_steps_per_epoch=0,
+        num_expl_steps_per_train_loop=20 * 20,
+        min_num_steps_before_training=40 * 20,
 
         dump_video_kwargs=dict(
             save_video_period=1,
@@ -315,7 +374,9 @@ if __name__ == '__main__':
         task_key=args.task_key,
         object_key=args.object_key,
         checkpoint=args.checkpoint,
-        buffer=args.buffer,
+        finetuning_checkpoint=args.finetuning_checkpoint,
+        buffer=args.obs_dict_buffer,
+        buffers=buffers,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
         use_task_embedding=False,
@@ -327,7 +388,7 @@ if __name__ == '__main__':
         epochs_per_reset = 0,
 
         trainer_kwargs=dict(
-            discount=0.9666,
+            discount=1.0,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
@@ -359,6 +420,10 @@ if __name__ == '__main__':
             awr_use_mle_for_vf=True,
             clip_score=0.5,
         ),
+
+        task_encoder_checkpoint=args.task_encoder,
+        task_encoder_type=args.encoder_type,
+        embedding_mode=args.embedding_mode,
     )
 
     variant['cnn_params'] = dict(

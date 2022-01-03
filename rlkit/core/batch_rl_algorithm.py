@@ -143,10 +143,13 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                         task_indices = np.random.choice(
                             self.train_tasks, self.meta_batch_size
                         )
-                        train_data = self.replay_buffer.sample_batch(
-                            task_indices,
-                            self.batch_size,
-                        )
+                        try:
+                            train_data = self.replay_buffer.sample_batch(
+                                task_indices,
+                                self.batch_size,
+                            )
+                        except:
+                            break
                     if self.train_embedding_network:
                         # import IPython; IPython.embed()
                         if not self.encoder_type == 'transformer':

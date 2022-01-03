@@ -182,7 +182,7 @@ def rollout(
         full_next_observations=raw_obs,
     )
     if relabel_rewards:
-        rollout_data = relabel_rewards(rollout_data)
+        rollout_data = env.relabel_rewards(rollout_data)
     return rollout_data
 
 
