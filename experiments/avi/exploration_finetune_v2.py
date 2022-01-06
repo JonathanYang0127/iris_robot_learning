@@ -290,7 +290,9 @@ if __name__ == '__main__':
     parser.add_argument('--expl-reset-free', action='store_true', default=False)
     parser.add_argument('-e', '--exploration-strategy', type=str,
         choices=('gaussian', 'gaussian_filtered', 'cem', 'fast', 'closest'))
+    parser.add_argument("--cem-update-window", type=int, default=25)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
 
@@ -317,13 +319,14 @@ if __name__ == '__main__':
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
         use_task_embedding=True,
+        seed=args.seed,
 
         exploration_task = args.exploration_task,
         exploration_strategy = args.exploration_strategy,
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
         epochs_per_reset = 1,
-        cem_update_window = 25,
+        cem_update_window = args.cem_update_window,
         closest_expl_period = 15,
         expl_policy_noise = 0.0,
 
@@ -387,6 +390,6 @@ if __name__ == '__main__':
     # exp_prefix = '{}-exploration-awac-image-{}-{}'.format(time.strftime("%y-%m-%d"), args.env, random_num)
     exp_prefix = '{}-exploration-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+                 snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
 
     experiment(variant)
