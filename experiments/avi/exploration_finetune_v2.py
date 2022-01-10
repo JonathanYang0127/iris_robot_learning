@@ -228,7 +228,8 @@ def experiment(variant):
         observation_keys=observation_keys,
         expl_reset_free=args.expl_reset_free,
         epochs_per_reset=variant['epochs_per_reset'],
-        exploration_task=variant['exploration_task']
+        exploration_task=variant['exploration_task'],
+        log_obj_info_path=variant['log_obj_info_path'],
     )
     eval_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
@@ -292,6 +293,7 @@ if __name__ == '__main__':
         choices=('gaussian', 'gaussian_filtered', 'cem', 'fast', 'closest'))
     parser.add_argument("--cem-update-window", type=int, default=25)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument("--log-obj-info-path", type=str, default="")
     parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
@@ -320,6 +322,7 @@ if __name__ == '__main__':
         use_robot_state=args.use_robot_state,
         use_task_embedding=True,
         seed=args.seed,
+        log_obj_info_path=args.log_obj_info_path,
 
         exploration_task = args.exploration_task,
         exploration_strategy = args.exploration_strategy,
