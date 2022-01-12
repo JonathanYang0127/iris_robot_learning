@@ -6,6 +6,20 @@ import numpy as np
 from rlkit.misc.eval_util import create_stats_ordered_dict
 from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.samplers.rollout_functions import rollout, fixed_contextual_rollout
+from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline, EmbeddingWrapper
+
+def set_env_to_opp_task(env):
+    if (isinstance(env, EmbeddingWrapper) or
+        isinstance(env, EmbeddingWrapperOffline)):
+        task_idx = env.env.task_idx
+    else:
+        task_idx = env.task_idx
+
+    if env.is_reset_task():
+        opp_task = task_idx - env.num_tasks
+    else:
+        opp_task = task_idx + env.num_tasks
+    env.reset_task(opp_task)
 
 
 class MdpPathCollector(PathCollector):
@@ -54,11 +68,14 @@ class MdpPathCollector(PathCollector):
             object_detector=None,
             multi_task=False,
             task_index=0,
-            expl_reset_free=False
+            expl_reset_free=False,
+            log_obj_info=False,
     ):
         paths = []
+        if log_obj_info:
+            infos_list = []
         num_steps_collected = 0
-        if multi_task:
+        if multi_task and not expl_reset_free:
             self._env.reset_task(task_index)
         # print("num_steps", num_steps)
 
@@ -72,21 +89,27 @@ class MdpPathCollector(PathCollector):
             if object_detector is not None:
                 input('Press enter when ready for online path rollout...')
 
-            path = self._rollout_fn(
-                self._env,
-                self._policy,
-                max_path_length=max_path_length_this_loop,
-            )
-            if not expl_reset_free:
-                self._env.reset()
+            if log_obj_info:
+                path, infos = self._rollout_fn(
+                    self._env,
+                    self._policy,
+                    max_path_length=max_path_length_this_loop,
+                )
             else:
-                # if success, reset task so that rewards are for the opposite task
-                if path['rewards'][-1] > 0:
-                    if self._env.env.task_idx >= self._env.num_tasks:
-                        opp_task = self._env.env.task_idx - self._env.num_tasks
-                    else:
-                        opp_task = self._env.env.task_idx + self._env.num_tasks
-                    self._env.reset_task(opp_task)
+                path = self._rollout_fn(
+                    self._env,
+                    self._policy,
+                    max_path_length=max_path_length_this_loop,
+                )
+            if not expl_reset_free:
+                # switch to opposite task
+                set_env_to_opp_task(self._env)
+            else:
+                # switch to opposite task only if successful
+                self._env.reset_robot_only()
+                new_task_idx = self._env.get_new_task_idx()
+                self._env.reset_task(new_task_idx)
+
 
             if object_detector is not None:
                 from widowx_envs.scripts.label_pickplace_rewards import (
@@ -103,10 +126,15 @@ class MdpPathCollector(PathCollector):
                 break
             num_steps_collected += path_len
             paths.append(path)
+            if log_obj_info:
+                infos_list.append(infos)
         self._num_paths_total += len(paths)
         self._num_steps_total += num_steps_collected
         self._epoch_paths.extend(paths)
-        return paths
+        if log_obj_info:
+            return paths, infos_list
+        else:
+            return paths
 
     def get_epoch_paths(self):
         return self._epoch_paths
@@ -204,6 +232,10 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             observation_keys=['observation',],
             expl_reset_free=False,
             epochs_per_reset=1,
+            exploration_task=0,
+            do_cem_update=True,
+            relabel_rewards=False,
+            log_obj_info_path="",
             **kwargs
     ):
         '''
@@ -213,10 +245,17 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         self._exploration_strategy = exploration_strategy
         self._observation_keys = observation_keys
         self._expl_reset_free = expl_reset_free
-        self._prev_success = False
         self._reverse = False
         self._env = env
         self._epochs_per_reset = epochs_per_reset
+        self._exploration_task = exploration_task
+        self._do_cem_update = do_cem_update
+        self._relabel_rewards = relabel_rewards
+        self._epoch = 0
+        self.log_obj_info_path = log_obj_info_path
+        self.log_obj_info = bool(log_obj_info_path)
+        if self.log_obj_info:
+            self.obj_infos_as_arr = None
 
     def collect_new_paths(
             self,
@@ -224,28 +263,74 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             **kwargs
     ):
         def exploration_rollout(*args, **kwargs):
-            # switch models if prev traj was successful
-            if self._prev_success:
-                self._reverse = not self._reverse
-            # if episodic exploration always fit the forward model
-            if not self._expl_reset_free:
-                self._reverse = False
+            # determine which task we're in
+            self._reverse = self._env.is_reset_task()
+            # Dictionary of object_name -> np.array
+            initial_obj_positions = self._env.env.get_obj_positions()
+            target_object = self._env.env.target_object
+
             embedding = self._exploration_strategy.sample_embedding(reverse=self._reverse)
             rollout = fixed_contextual_rollout(*args,
                 observation_keys=self._observation_keys,
                 context=embedding,
                 expl_reset_free=self._expl_reset_free,
+                relabel_rewards=self._relabel_rewards,
                 **kwargs)
             success = rollout['rewards'][-1] > 0
             post_trajectory_kwargs = {'reverse': self._reverse,
                 'embedding': embedding,
                 'success': success}
             print(post_trajectory_kwargs)
-            self._prev_success = success
-            self._exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
-            return rollout
+            if self._do_cem_update:
+                self._exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
+            return rollout, (initial_obj_positions, self._reverse, self._env.task_idx, target_object)
         self._rollout_fn = exploration_rollout
-        return super().collect_new_paths(expl_reset_free=self._expl_reset_free, *args, **kwargs)
+
+        if self._epochs_per_reset != 0 and self._epoch % self._epochs_per_reset == 0:
+            self._env.reset_task(self._exploration_task)
+            # alternate which task we reset to
+            if (self._epoch // self._epochs_per_reset) % 2 == 0:
+                set_env_to_opp_task(self._env)
+            self._env.reset()
+
+        if self.log_obj_info:
+            paths, infos_list = super().collect_new_paths(
+                expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info, *args, **kwargs)
+            assert len(initial_obj_positions) == len(reverses)
+
+            obj_infos_list = []
+            for initial_obj_positions_dict, reverse, task_idx, target_object in infos_list:
+                dict_to_add = {
+                    "epoch": 1.0 * self._epoch, "reverse": 1.0 * reverse,
+                    "task_idx": 1.0 * task_idx, "target_object_pos": initial_obj_positions_dict[target_object]
+                }
+                obj_infos_list.append(dict_to_add)
+
+            def convert_dict_list_to_array(dict_list):
+                """Converts the dict_list into an array and
+                concatenates that to self.obj_infos_as_arr"""
+                assert len(infos_list[0]) >= 1
+                for _dict in dict_list:
+                    values_as_list = []
+                    for key, val in dict_list.items():
+                        # assuming that the dictionary ordering is fixed each time, which
+                        # I think is true for python >=3.6
+                        if isinstance(val, np.ndarray):
+                            values_as_list.extend(list(val))
+                        else:
+                            values_as_list.append(float(val))
+                    values_as_arr = np.array(values_as_list)
+                    if output:
+                        self.obj_infos_as_arr = np.concatenate((self.obj_infos_as_arr, values_as_arr), axis=0)
+                    else:
+                        self.obj_infos_as_arr = values_as_arr
+
+            convert_dict_list_to_array(obj_infos_list)
+            np.save("self.log_obj_path", self.obj_infos_as_arr)
+        else:
+            paths = super().collect_new_paths(
+                expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info, *args, **kwargs)
+        return paths
 
     def get_snapshot(self):
         snapshot = super().get_snapshot()
@@ -255,8 +340,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         return snapshot
 
     def end_epoch(self, epoch):
-        if epoch % self._epochs_per_reset == 0:
-            self._env.reset()
+        self._epoch = epoch
         super().end_epoch(epoch)
 
 '''

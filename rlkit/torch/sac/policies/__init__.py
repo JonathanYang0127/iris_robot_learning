@@ -2,6 +2,7 @@ from rlkit.torch.sac.policies.base import (
     TorchStochasticPolicy,
     PolicyFromDistributionGenerator,
     MakeDeterministic,
+    AddNoise,
 )
 from rlkit.torch.sac.policies.gaussian_policy import (
     TanhGaussianPolicyAdapter,
@@ -24,6 +25,7 @@ __all__ = [
     'TorchStochasticPolicy',
     'PolicyFromDistributionGenerator',
     'MakeDeterministic',
+    'AddNoise',
     'TanhGaussianPolicyAdapter',
     'TanhGaussianPolicy',
     'GaussianPolicy',

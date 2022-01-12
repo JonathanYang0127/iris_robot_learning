@@ -26,10 +26,11 @@ class max_q_policy:
             obs = obs.view(1, -1).repeat(self.num_repeat, 1)
             action = self.policy(obs).rsample()
             q1 = self.qf1(obs, action)
+            print(q1)
             ind = q1.max(0)[1]
         return ptu.get_numpy(action[ind]).flatten(), None
 
-    
+
     def eval(self):
         self.qf1.eval()
         self.policy.eval()
@@ -47,6 +48,8 @@ if __name__ == '__main__':
     parser.add_argument("--num-tasks", type=int, default=0)
     parser.add_argument("--task-embedding", default=False, action="store_true")
     parser.add_argument("--task-encoder", default=None)
+    parser.add_argument("--sample-trajectory", type=str, default=None)
+    parser.add_argument("--use-checkpoint-encoder", action='store_true', default=False)
     args = parser.parse_args()
 
     assert args.num_tasks != 0 or args.task_embedding
@@ -72,9 +75,12 @@ if __name__ == '__main__':
                 eval_policy = max_q_policy(params['trainer/qf1'], params['trainer/policy'])
             else:
                 eval_policy = params['evaluation/policy']
+            if args.use_checkpoint_encoder:
+                task_encoder = params['trainer/task_encoder']
+                task_encoder.to(ptu.device)
         elif ext == ".pkl":
             eval_policy = pickle.load(handle)
-            
+
     eval_policy.eval()
 
     if args.task_encoder:
@@ -82,6 +88,7 @@ if __name__ == '__main__':
         net = EncoderDecoderNet(64, 2, encoder_resnet=False)
         net.load_state_dict(torch.load(args.task_encoder))
         net.to(ptu.device)
+        task_encoder = net.encoder_net
 
     for i in range(num_trajs):
         obs = env.reset()
@@ -99,13 +106,20 @@ if __name__ == '__main__':
             task = np.array([0] * args.num_tasks)
             task[task_idx] = 1
         else:
-            if args.task_encoder:
-                input("Press enter to take image")
-                obs = ptu.from_numpy(env.reset()['image'].reshape(1, 1, -1))
-                task = ptu.get_numpy(net.encoder_net(obs)[1])
+            if args.task_encoder or args.use_checkpoint_encoder:
+                if args.sample_trajectory is None:
+                    env.move_to_state([-0.11982477,  0.2200,  0.07], 0, duration=1)
+                    input("Press enter to take image")
+                    obs = ptu.from_numpy(env._get_obs()['image'].reshape(1, 1, -1))
+                else:
+                    with open(args.sample_trajectory, 'rb') as f:
+                        path = pickle.load(f)
+                    obs = ptu.from_numpy(path['observations'][-1]['image'].reshape(1, 1, -1))
+                task = ptu.get_numpy(task_encoder(obs[0]))
                 task = task.reshape(-1)
                 print("task: ", task)
                 input("Press enter to continue")
+                obs = env.reset()
             else:
                 task = "None"
                 while not isinstance(eval(task), list):

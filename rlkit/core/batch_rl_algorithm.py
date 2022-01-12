@@ -3,6 +3,9 @@ from collections import OrderedDict
 from rlkit.core.timer import timer
 from rlkit.core.rl_algorithm import BaseRLAlgorithm
 import numpy as np
+from rlkit.core import logger
+import os
+from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline, EmbeddingWrapper
 
 class BatchRLAlgorithm(BaseRLAlgorithm):
     def __init__(
@@ -58,12 +61,12 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             if self.multi_task:
                 init_expl_paths = self.expl_data_collector.collect_new_paths(
                     self.max_path_length,
-                    self.num_eval_steps_per_epoch,
+                    self.min_num_steps_before_training,
                     discard_incomplete_paths=True,
                     multi_task=True,
                     task_index=self.exploration_task
                 )
-                self.replay_buffer.add_paths(self.exploration_task, init_expl_paths)
+                self.replay_buffer.add_multitask_paths(init_expl_paths)
             else:
                 init_expl_paths = self.expl_data_collector.collect_new_paths(
                     self.max_path_length,
@@ -75,6 +78,12 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
 
         timer.start_timer('evaluation sampling')
         if self.epoch % self._eval_epoch_freq == 0 and self.num_eval_steps_per_epoch > 0:
+            save_state_file = logger.get_snapshot_dir() + "/state{}.bullet".format(self.epoch)
+            if (isinstance(self.eval_env, EmbeddingWrapper) or
+                isinstance(self.eval_env, EmbeddingWrapperOffline)):
+                self.eval_env.env.save_state(save_state_file)
+            else:
+                self.eval_env.save_state(save_state_file)
             if self.multi_task:
                 for i in self.eval_tasks:
                     self.eval_data_collector.collect_new_paths(
@@ -90,6 +99,12 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                     self.num_eval_steps_per_epoch,
                     discard_incomplete_paths=True,
                 )
+            if (isinstance(self.eval_env, EmbeddingWrapper) or
+                isinstance(self.eval_env, EmbeddingWrapperOffline)):
+                self.eval_env.env.restore_state(save_state_file)
+            else:
+                self.eval_env.restore_state(save_state_file)
+            os.remove(save_state_file)
         timer.stop_timer('evaluation sampling')
 
         if not self._eval_only:
@@ -109,7 +124,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                         timer.stop_timer('exploration sampling')
 
                         timer.start_timer('replay buffer data storing', unique=False)
-                        self.replay_buffer.add_paths(self.exploration_task, new_expl_paths)
+                        self.replay_buffer.add_multitask_paths(new_expl_paths)
                         timer.stop_timer('replay buffer data storing')
                     else:
                         timer.start_timer('exploration sampling', unique=False)
