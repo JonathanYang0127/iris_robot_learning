@@ -144,6 +144,11 @@ def experiment(variant):
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
 
+    qf1 = ConcatCNN(**cnn_params)
+    qf2 = ConcatCNN(**cnn_params)
+    target_qf1 = ConcatCNN(**cnn_params)
+    target_qf2 = ConcatCNN(**cnn_params)
+
     # we need to add room for an exploration tasks
     num_buffer_tasks = num_tasks * 2
     replay_buffer = ObsDictMultiTaskReplayBuffer(
