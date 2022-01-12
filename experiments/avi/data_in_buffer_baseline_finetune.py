@@ -7,7 +7,7 @@ from roboverse.bullet.serializable import Serializable
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic
+from rlkit.torch.sac.policies import GaussianCNNPolicy, MakeDeterministic, AddNoise
 from rlkit.torch.networks.cnn import ConcatCNN
 
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
@@ -30,40 +30,6 @@ import torch
 BUFFER = '/media/avi/data/Work/github/avisingh599/minibullet/data/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06/jul3_Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0_1000_save_all_noise_0.1_2021-07-03T09-00-06_1000.npy'
 
 
-class EmbeddingWrapper(gym.Env, Serializable):
-
-    def __init__(self, env, embeddings):
-        self.env = env
-        self.action_space = env.action_space
-        self.observation_space = env.observation_space
-        self.embeddings = embeddings
-        self.latent_dim = len(self.embeddings[0])
-        self.num_tasks = env.num_tasks
-
-    def get_task_embedding(self, task_idx):
-        if task_idx >= 2 * self.num_tasks:
-            return [0] * self.latent_dim
-        else:
-            return self.embeddings[task_idx]
-
-    def step(self, action):
-        obs, rew, done, info = self.env.step(action)
-        obs.update({'task_embedding': self.get_task_embedding(self.env.task_idx)})
-        return obs, rew, done, info
-
-    def reset(self):
-        obs = self.env.reset()
-        obs.update({'task_embedding': self.get_task_embedding(self.env.task_idx)})
-        return obs
-
-    def reset_task(self, task_idx):
-        self.env.reset_task(task_idx)
-    def get_observation(self):
-        return self.env.get_observation()
-    def reset_robot_only(self):
-        return self.env.reset_robot_only()
-
-
 def experiment(variant):
     num_tasks = variant['num_tasks']
     env_num_tasks = num_tasks
@@ -71,6 +37,16 @@ def experiment(variant):
         #hacky change because the num_tasks passed into roboverse doesn't count exploration
         env_num_tasks //= 2
     eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
+    if variant['exploration_task'] < num_tasks:
+        if variant['exploration_task'] < env_num_tasks:
+            opp_task = variant['exploration_task']+env_num_tasks
+        else:
+            opp_task = variant['exploration_task']-env_num_tasks
+    else:
+        if variant['exploration_task'] < num_tasks + env_num_tasks:
+            opp_task = variant['exploration_task']+env_num_tasks
+        else:
+            opp_task = variant['exploration_task']-env_num_tasks
 
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
@@ -119,6 +95,8 @@ def experiment(variant):
     task_embeddings_batch = np.array(task_embeddings_batch)
 
     expl_env = eval_env
+    expl_env.reset_task(variant['exploration_task'])
+    expl_env.reset()
 
     action_dim = eval_env.action_space.low.size
     observation_keys = ['image',]
@@ -166,21 +144,6 @@ def experiment(variant):
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
 
-    ext = os.path.splitext(args.checkpoint)[-1]
-    with open(args.checkpoint, 'rb') as handle:
-        if ext == ".pt":
-            params = torch.load(handle)
-            policy = params['trainer/policy']
-            eval_policy = MakeDeterministic(policy)
-            qf1 = params['trainer/qf1']
-            qf2 = params['trainer/qf2']
-            target_qf1 = params['trainer/target_qf1']
-            target_qf2 = params['trainer/target_qf2']
-        elif ext == ".pkl":
-            policy = pickle.load(handle)
-            eval_policy = MakeDeterministic(policy)
-
-
     # we need to add room for an exploration tasks
     num_buffer_tasks = num_tasks * 2
     replay_buffer = ObsDictMultiTaskReplayBuffer(
@@ -197,6 +160,8 @@ def experiment(variant):
     if variant['exploration_task'] < num_tasks:
         replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
         replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
+        replay_buffer.task_buffers[opp_task].bias_point = replay_buffer.task_buffers[opp_task]._top
+        replay_buffer.task_buffers[opp_task].before_bias_point_probability = 0.3
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)
@@ -228,35 +193,46 @@ def experiment(variant):
             q_function=qf1, n_components=10)
     elif variant['exploration_strategy'] == 'cem':
         exploration_strategy = CEMExplorationStrategy(task_embeddings_batch,
-            update_frequency=variant['exploration_update_frequency'], n_components=10)
+            update_frequency=variant['exploration_update_frequency'], n_components=num_tasks,
+            update_window=variant['cem_update_window'])
+    elif variant['exploration_strategy'] == 'closest':
+        exploration_strategy = ClosestExplorationStrategy(task_embeddings_batch, 
+        exploration_period=variant['closest_expl_period'])
     elif variant['exploration_strategy'] == 'fast':
         exploration_strategy = FastExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=10)
     else:
         raise NotImplementedError
 
+    expl_policy = AddNoise(policy, variant['expl_policy_noise'])
     eval_policy = MakeDeterministic(policy)
     expl_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
         expl_env,
-        policy,
+        expl_policy,
         observation_keys=observation_keys,
         expl_reset_free=args.expl_reset_free,
-        epochs_per_reset=variant['epochs_per_reset']
+        epochs_per_reset=variant['epochs_per_reset'],
+        exploration_task=variant['exploration_task'],
+        log_obj_info_path=variant['log_obj_info_path'],
     )
-    eval_path_collector = ObsDictPathCollector(
-        eval_env,
+    eval_path_collector = EmbeddingExplorationObsDictPathCollector(
+        exploration_strategy,
+        expl_env,
         eval_policy,
         observation_keys=observation_keys,
+        expl_reset_free=False,
+        epochs_per_reset=variant['epochs_per_reset'],
+        exploration_task=variant['exploration_task'],
+        do_cem_update=False
     )
-
 
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
         evaluation_env=eval_env,
         exploration_data_collector=expl_path_collector,
-        evaluation_data_collector=expl_path_collector,
+        evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
@@ -268,7 +244,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-        train_tasks=np.arange(num_tasks), #[variant['exploration_task']],
+        train_tasks=[variant['exploration_task'], opp_task],
         eval_tasks=[variant['exploration_task']],
     )
 
@@ -288,7 +264,6 @@ def enable_gpus(gpu_str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0')
-    parser.add_argument("-c", "--checkpoint", type=str, required=True)
     parser.add_argument("--num-tasks", type=int, default=32)
     parser.add_argument("--exploration-task", type=int)
     parser.add_argument("--buffer", type=str, default=BUFFER)
@@ -299,8 +274,11 @@ if __name__ == '__main__':
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument('--expl-reset-free', action='store_true', default=False)
     parser.add_argument('-e', '--exploration-strategy', type=str,
-        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast'))
+        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast', 'closest'))
+    parser.add_argument("--cem-update-window", type=int, default=25)
     parser.add_argument("--gpu", default='0', type=str)
+    parser.add_argument("--log-obj-info-path", type=str, default="")
+    parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
 
@@ -312,8 +290,7 @@ if __name__ == '__main__':
         meta_batch_size=4,
         max_path_length=40,
         num_trains_per_train_loop=1000,
-        # num_eval_steps_per_epoch=0,
-        num_eval_steps_per_epoch=1200,
+        num_eval_steps_per_epoch=40 *40,
         num_expl_steps_per_train_loop=40 * 40,
         min_num_steps_before_training=100 * 40,
 
@@ -323,20 +300,26 @@ if __name__ == '__main__':
 
         env=args.env,
         num_tasks=args.num_tasks,
-        checkpoint=args.checkpoint,
+        checkpoint=None,
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
         use_task_embedding=True,
+        seed=args.seed,
+        log_obj_info_path=args.log_obj_info_path,
 
         exploration_task = args.exploration_task,
         exploration_strategy = args.exploration_strategy,
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
         epochs_per_reset = 1,
+        cem_update_window = args.cem_update_window,
+        closest_expl_period = 15,
+        expl_policy_noise = 0.0,
 
         trainer_kwargs=dict(
-            discount=0.99,
+            discount=0.9666,
+            use_reward_as_terminal=False,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
@@ -390,8 +373,10 @@ if __name__ == '__main__':
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)
 
+    # random_num = np.random.randint(10000)
+    # exp_prefix = '{}-exploration-awac-image-{}-{}'.format(time.strftime("%y-%m-%d"), args.env, random_num)
     exp_prefix = '{}-exploration-awac-image-{}'.format(time.strftime("%y-%m-%d"), args.env)
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+                 snapshot_mode='gap_and_last', snapshot_gap=10, seed=args.seed)
 
     experiment(variant)
