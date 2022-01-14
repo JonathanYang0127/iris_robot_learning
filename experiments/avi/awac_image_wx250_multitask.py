@@ -101,9 +101,9 @@ def experiment(variant):
         net.load_state_dict(torch.load(variant['task_encoder_checkpoint']))
         net.to(ptu.device)
         task_encoder = net.encoder_net
-
     else:
         task_encoder = None
+
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         int(1E6),
         expl_env,

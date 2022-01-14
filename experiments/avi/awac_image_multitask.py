@@ -2,7 +2,7 @@ import argparse
 import time
 import os
 import gym
-from roboverse.bullet.serializable import Serializable
+from rlkit.core.roboverse_serializable import Serializable
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
@@ -144,11 +144,11 @@ def experiment(variant):
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
 
     if 'AWAC' in variant['algorithm']:
-        trainer_class = AWACTrainer 
+        trainer_class = AWACTrainer
     elif 'IQL' in variant['algorithm']:
         cnn_params['added_fc_input_size'] -= action_dim
         vf = ConcatCNN(**cnn_params)
-        variant['trainer_kwargs']['vf'] = vf 
+        variant['trainer_kwargs']['vf'] = vf
         trainer_class = IQLTrainer
 
     trainer = trainer_class(

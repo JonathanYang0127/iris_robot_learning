@@ -1,5 +1,5 @@
 import gym
-from roboverse.bullet.serializable import Serializable
+from rlkit.core.roboverse_serializable import Serializable
 
 class EmbeddingWrapperOffline(gym.Env, Serializable):
 

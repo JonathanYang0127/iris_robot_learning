@@ -7,13 +7,15 @@ import rlkit.torch.pytorch_util as ptu
 import matplotlib
 matplotlib.use("PDF")
 import matplotlib.pyplot as plt
+import copy
 
 class CEMExplorationStrategy(BaseExplorationStrategy):
-    def __init__(self, embeddings, policy=None, q_function=None, n_components=10, update_frequency=20, update_window=100):
+    def __init__(self, embeddings, policy=None, q_function=None, n_components=10, update_frequency=10, update_window=10):
         super().__init__(embeddings, policy=policy, q_function=q_function)
         self.n_components = n_components
+        print(self.n_components)
         self.update_frequency = update_frequency
-        self.update_window=update_window
+        self.update_window = max(update_window, n_components) #Need to have at least n_components embeddings
         self._update_counter = {'forward': 0, 'reverse': 0}
         self._iteration = {'forward': 0, 'reverse': 0}
         self._current_embedding = None
@@ -27,6 +29,19 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
         gm_key = 'reverse' if kwargs['reverse'] else 'forward'
         z, _ = self.gms[gm_key].sample()
         self._current_embedding = z.flatten()
+        '''
+        if gm_key == 'forward':
+            self._current_embedding = np.zeros(z.flatten().shape)
+            self._current_embedding[0] = 1
+            return self._current_embedding
+        else:
+            self._current_embedding = np.zeros(z.flatten().shape)
+            self._current_embedding[22] = 1
+            return self._current_embedding
+        '''
+        with open("out.txt", "w+") as f:
+            f.write(str(self._current_embedding))
+        print(self._current_embedding)
         return self._current_embedding
 
     def post_trajectory_update(self, plot=False, **kwargs):
@@ -35,13 +50,16 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
         self._update_counter[gm_key] += 1
         if kwargs['success']:
             self._positive_embeddings[gm_key].append(copy.deepcopy(self._current_embedding))
+
         if self._update_counter[gm_key] % self.update_frequency == 0 and \
-            len(self._positive_embeddings[gm_key]) >= self.n_components:
+            len(self._positive_embeddings[gm_key]) >= 2:
+            embeddings = copy.deepcopy(self._positive_embeddings[gm_key])
+            num_embeddings = len(embeddings)
             print("ADAPTING...")
             self._iteration[gm_key] += 1
             self._update_counter[gm_key] = 0
-            self.gms[gm_key] = self.fit_gaussian(np.array(self._positive_embeddings[gm_key][-self.update_window:]),
-                n_components=self.n_components, plot=plot)
+            self.gms[gm_key] = self.fit_gaussian(np.array(embeddings[-self.update_window:]),
+                n_components=min(self.n_components, num_embeddings), plot=plot)
 
     def fit_gaussian(self, batch, n_components=1, plot=False):
         gm = GaussianMixture(n_components=n_components)
