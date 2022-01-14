@@ -266,8 +266,14 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             # determine which task we're in
             self._reverse = self._env.is_reset_task()
             # Dictionary of object_name -> np.array
-            initial_obj_positions = self._env.env.get_obj_positions()
-            target_object = self._env.env.target_object
+            try:
+                initial_obj_positions = self._env.env.get_obj_positions()
+                target_object = self._env.env.target_object
+                task_idx = self._env.task_idx
+            except:
+                initial_obj_positions = None
+                target_object = None
+                task_idx = None
 
             embedding = self._exploration_strategy.sample_embedding(reverse=self._reverse)
             rollout = fixed_contextual_rollout(*args,
@@ -283,7 +289,11 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             print(post_trajectory_kwargs)
             if self._do_cem_update:
                 self._exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
-            return rollout, (initial_obj_positions, self._reverse, self._env.task_idx, target_object)
+
+            if self.log_obj_info:
+                return rollout, (initial_obj_positions, self._reverse, task_idx, target_object)
+            return rollout
+
         self._rollout_fn = exploration_rollout
 
         if self._epochs_per_reset != 0 and self._epoch % self._epochs_per_reset == 0:
