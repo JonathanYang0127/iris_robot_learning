@@ -283,7 +283,10 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             print(post_trajectory_kwargs)
             if self._do_cem_update:
                 self._exploration_strategy.post_trajectory_update(**post_trajectory_kwargs)
-            return rollout, (initial_obj_positions, self._reverse, self._env.task_idx, target_object)
+            if self.log_obj_info:
+                return rollout, (initial_obj_positions, self._reverse, self._env.env.task_idx, target_object)
+            else:
+                return rollout
         self._rollout_fn = exploration_rollout
 
         if self._epochs_per_reset != 0 and self._epoch % self._epochs_per_reset == 0:
@@ -296,8 +299,6 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         if self.log_obj_info:
             paths, infos_list = super().collect_new_paths(
                 expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info, *args, **kwargs)
-            assert len(initial_obj_positions) == len(reverses)
-
             obj_infos_list = []
             for initial_obj_positions_dict, reverse, task_idx, target_object in infos_list:
                 dict_to_add = {
@@ -312,21 +313,21 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
                 assert len(infos_list[0]) >= 1
                 for _dict in dict_list:
                     values_as_list = []
-                    for key, val in dict_list.items():
+                    for key, val in _dict.items():
                         # assuming that the dictionary ordering is fixed each time, which
                         # I think is true for python >=3.6
                         if isinstance(val, np.ndarray):
                             values_as_list.extend(list(val))
                         else:
                             values_as_list.append(float(val))
-                    values_as_arr = np.array(values_as_list)
-                    if output:
+                    values_as_arr = np.array(values_as_list)[None]
+                    if self.obj_infos_as_arr is not None:
                         self.obj_infos_as_arr = np.concatenate((self.obj_infos_as_arr, values_as_arr), axis=0)
                     else:
                         self.obj_infos_as_arr = values_as_arr
 
             convert_dict_list_to_array(obj_infos_list)
-            np.save("self.log_obj_path", self.obj_infos_as_arr)
+            np.save(self.log_obj_info_path, self.obj_infos_as_arr)
         else:
             paths = super().collect_new_paths(
                 expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info, *args, **kwargs)
