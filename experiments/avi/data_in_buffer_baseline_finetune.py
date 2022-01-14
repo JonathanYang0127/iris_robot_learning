@@ -2,7 +2,7 @@ import argparse
 import time
 import os
 import gym
-from rlkit.core.roboverse_serializable import Serializable
+from roboverse.bullet.serializable import Serializable
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
@@ -144,20 +144,10 @@ def experiment(variant):
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
 
-    ext = os.path.splitext(args.checkpoint)[-1]
-    with open(args.checkpoint, 'rb') as handle:
-        if ext == ".pt":
-            params = torch.load(handle)
-            policy = params['trainer/policy']
-            eval_policy = MakeDeterministic(policy)
-            qf1 = params['trainer/qf1']
-            qf2 = params['trainer/qf2']
-            target_qf1 = params['trainer/target_qf1']
-            target_qf2 = params['trainer/target_qf2']
-        elif ext == ".pkl":
-            policy = pickle.load(handle)
-            eval_policy = MakeDeterministic(policy)
-
+    qf1 = ConcatCNN(**cnn_params)
+    qf2 = ConcatCNN(**cnn_params)
+    target_qf1 = ConcatCNN(**cnn_params)
+    target_qf2 = ConcatCNN(**cnn_params)
 
     # we need to add room for an exploration tasks
     num_buffer_tasks = num_tasks * 2
@@ -279,7 +269,6 @@ def enable_gpus(gpu_str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default='Widow250PickPlaceMetaTrainMultiObjectMultiContainer-v0')
-    parser.add_argument("-c", "--checkpoint", type=str, required=True)
     parser.add_argument("--num-tasks", type=int, default=32)
     parser.add_argument("--exploration-task", type=int)
     parser.add_argument("--buffer", type=str, default=BUFFER)
@@ -316,7 +305,7 @@ if __name__ == '__main__':
 
         env=args.env,
         num_tasks=args.num_tasks,
-        checkpoint=args.checkpoint,
+        checkpoint=None,
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,

@@ -166,9 +166,6 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
     )
 
-    video_func = VideoSaveFunctionBullet(variant)
-    algorithm.post_train_funcs.append(video_func)
-
     algorithm.to(ptu.device)
 
     if variant['use_bc']:
