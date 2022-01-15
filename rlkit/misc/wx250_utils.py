@@ -44,8 +44,11 @@ class DummyEnv:
 
 def load_data(data_object):
     if isinstance(data_object, str):
-        with open(data_object, 'rb') as handle:
-            data = pickle.load(handle)
+        try:
+            with open(data_object, 'rb') as handle:
+                data = pickle.load(handle)
+        except:
+            print("Failed to open {}".format(data_object))
         return data
     elif isinstance(data_object, list):
         return data_object
@@ -119,7 +122,7 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
         )
         if encoder_type == 'image':
             encoder_buffer = ObsDictMultiTaskReplayBuffer(*buffer_args, **buffer_kwargs)
-            add_reward_filtered_data_to_buffers_multitask(data_paths, ['image'], 
+            add_reward_filtered_data_to_buffers_multitask(data_paths, ['image'],
                 (encoder_buffer, lambda r: r > 0))
             sample_func = encoder_buffer.sample_batch
         elif encoder_type == 'trajectory':
@@ -174,11 +177,11 @@ def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_repl
 def add_reward_filtered_data_to_buffers_multitask(data_paths, observation_keys, *args):
     for arg in args:
         assert len(arg) == 2
-    
+
     for task_idx, data_path in data_paths.items():
         data_paths[task_idx] = load_data(data_path)
         data = data_paths[task_idx]
-    
+
         for j in range(len(data)):
             path_len = len(data[j]['actions'])
             path = data[j]
@@ -210,4 +213,3 @@ def add_reward_filtered_trajectories_to_buffers_multitask(data_paths, observatio
                         arg[0].add_sample(task_idx,
                             path['observations'][i], path['actions'][i], path['rewards'][i],
                             path['terminals'][i], path['next_observations'][i])
-

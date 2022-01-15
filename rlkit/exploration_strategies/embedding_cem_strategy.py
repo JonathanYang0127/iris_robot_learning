@@ -32,11 +32,11 @@ class CEMExplorationStrategy(BaseExplorationStrategy):
         '''
         if gm_key == 'forward':
             self._current_embedding = np.zeros(z.flatten().shape)
-            self._current_embedding[0] = 1
+            self._current_embedding[23] = 1
             return self._current_embedding
         else:
             self._current_embedding = np.zeros(z.flatten().shape)
-            self._current_embedding[22] = 1
+            self._current_embedding[0] = 1
             return self._current_embedding
         '''
         with open("out.txt", "w+") as f:

@@ -147,7 +147,7 @@ def experiment(variant):
                                action_dim=action_dim,
                                std_architecture="values",
                                **cnn_params)
-    policy = MakeStochastic(policy)
+    #policy = MakeStochastic(policy)
     buffer_policy = GaussianCNNPolicy(max_log_std=0,
                                       min_log_std=-6,
                                       obs_dim=None,
@@ -221,7 +221,7 @@ def experiment(variant):
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
         multitask=True,
-        use_reward_as_terminal=True,
+        #use_reward_as_terminal=True,
         **variant['trainer_kwargs']
     )
 
@@ -234,6 +234,9 @@ def experiment(variant):
     elif variant['exploration_strategy'] == 'cem':
         exploration_strategy = CEMExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=num_tasks)
+    elif variant['exploration_strategy'] == 'closest':
+        exploration_strategy = ClosestExplorationStrategy(task_embeddings_batch,
+        exploration_period=variant['closest_expl_period'])
     elif variant['exploration_strategy'] == 'fast':
         exploration_strategy = FastExplorationStrategy(task_embeddings_batch,
             update_frequency=variant['exploration_update_frequency'], n_components=10)
@@ -294,7 +297,8 @@ def experiment(variant):
         exploration_task=variant['exploration_task'],
         train_tasks=[variant['exploration_task'], opp_task],
         eval_tasks=[variant['exploration_task'], opp_task],
-        log_keys_to_remove=["exploration/env", "evaluation/env"]
+        log_keys_to_remove=["exploration/env", "evaluation/env"],
+        save_exploration_paths=True
     )
 
     # TODO: Add video saving functionality
@@ -315,6 +319,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--checkpoint", type=str, required=True)
     parser.add_argument("-fc", "--finetuning_checkpoint", type=str, default="")
+    parser.add_argument("-d", "--discount", type=float, default=0.95)
+    parser.add_argument("--clip-score", type=float, default=5.0)
     parser.add_argument("--num-tasks", type=int, default=32)
     parser.add_argument("--task-key", type=str, default='pinktrayleft', choices=('pinktrayleft',
         'redplateright'))
@@ -331,20 +337,14 @@ if __name__ == '__main__':
     parser.add_argument("--encoder-type", default='image', choices=('image', 'trajectory'))
     parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
     parser.add_argument('-e', '--exploration-strategy', type=str,
-        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast'))
+        choices=('gaussian', 'gaussian_filtered', 'cem', 'fast', 'closest'))
     parser.add_argument("--gpu", default='0', type=str)
 
     args = parser.parse_args()
 
     assert args.buffer_variant != "" or args.buffers != "" or args.obs_dict_buffer != ""
     buffers = []
-    if args.buffer_variant:
-        '''Use buffer variant to get ordered list of buffer paths'''
-        import json
-        buffer_variant = open(args.buffer_variant)
-        data = json.load(buffer_variant)
-        buffers = data["buffers"]
-    elif args.buffers:
+    if args.buffers:
         buffers = set()
         for buffer_path in args.buffers:
             if '.pkl' in buffer_path or '.npy' in buffer_path:
@@ -354,7 +354,21 @@ if __name__ == '__main__':
                 buffers.update(list(path.rglob('*.pkl')))
                 buffers.update(list(path.rglob('*.npy')))
         buffers = [str(b) for b in buffers]
-
+        if args.buffer_variant:
+            '''Use buffer variant to get ordered list of buffer paths'''
+            import json
+            buffer_variant = open(args.buffer_variant)
+            data = json.load(buffer_variant)
+            buffer_order = data["buffers"]
+            new_buffers = []
+            for i in buffer_order:
+                buffer_name = os.path.basename(i)
+                for j in buffers:
+                    if buffer_name in j:
+                        new_buffers.append(j)
+                        break
+            buffers = new_buffers
+    print(buffers)
     variant = dict(
         algorithm="AWAC-Pixel",
 
@@ -362,10 +376,10 @@ if __name__ == '__main__':
         batch_size=64,
         meta_batch_size=4,
         max_path_length=20,
-        num_trains_per_train_loop=1000,
+        num_trains_per_train_loop=1,
         num_eval_steps_per_epoch=0,
-        num_expl_steps_per_train_loop=20 * 20,
-        min_num_steps_before_training=40 * 20,
+        num_expl_steps_per_train_loop=1 * 20,
+        min_num_steps_before_training=1 * 20,
 
         dump_video_kwargs=dict(
             save_video_period=1,
@@ -386,10 +400,11 @@ if __name__ == '__main__':
         exploration_strategy = args.exploration_strategy,
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
+        closest_expl_period = 15,
         epochs_per_reset = 0,
 
         trainer_kwargs=dict(
-            discount=1.0,
+            discount=args.discount,
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3E-4,
@@ -419,7 +434,7 @@ if __name__ == '__main__':
             terminal_transform_kwargs=dict(m=0, b=0),
 
             awr_use_mle_for_vf=True,
-            clip_score=0.5,
+            clip_score=args.clip_score,
         ),
 
         task_encoder_checkpoint=args.task_encoder,
@@ -449,6 +464,6 @@ if __name__ == '__main__':
 
     exp_prefix = '{}-exploration-awac-image-real-robot'.format(time.strftime("%y-%m-%d"))
     setup_logger(logger, exp_prefix, LOCAL_LOG_DIR, variant=variant,
-                 snapshot_mode='gap_and_last', snapshot_gap=10, )
+                 snapshot_mode='gap_and_last', snapshot_gap=1, )
 
     experiment(variant)

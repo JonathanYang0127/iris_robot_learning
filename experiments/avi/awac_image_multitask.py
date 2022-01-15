@@ -192,7 +192,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         train_tasks=np.arange(num_tasks),
-        eval_tasks=np.arange(num_tasks),
+        eval_tasks=np.arange(num_tasks)
     )
 
     video_func = VideoSaveFunctionBullet(variant)

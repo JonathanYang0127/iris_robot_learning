@@ -6,6 +6,7 @@ import numpy as np
 from rlkit.core import logger
 import os
 from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline, EmbeddingWrapper
+import pickle
 
 class BatchRLAlgorithm(BaseRLAlgorithm):
     def __init__(
@@ -20,6 +21,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             object_detector=None,
             multi_task=False,
             exploration_task=None,
+            exploration_reset_task=None,
+            exploration_task_prob=0.5,
             meta_batch_size=4,
             train_tasks=0,
             eval_tasks=0,
@@ -27,6 +30,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
             replay_buffer_positive=None,
             train_embedding_network=False,
             encoder_type='regular',
+            save_exploration_paths=False,
             *args,
             **kwargs
     ):
@@ -41,6 +45,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.min_num_steps_before_training = min_num_steps_before_training
         self.multi_task = multi_task
         self.exploration_task = exploration_task
+        self.exploration_probability = exploration_task_prob
+        self.exploration_reset_task = exploration_reset_task
         self.meta_batch_size = meta_batch_size
         self.train_tasks = train_tasks
         self.eval_tasks = eval_tasks
@@ -48,6 +54,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
         self.biased_sampling = biased_sampling
         self.train_embedding_network = train_embedding_network
         self.encoder_type = encoder_type
+        self.save_exploration_paths = save_exploration_paths
         if self.train_embedding_network:
             assert replay_buffer_positive is not None
             self.replay_buffer_positive = replay_buffer_positive
@@ -74,6 +81,11 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                     discard_incomplete_paths=False,
                 )
                 self.replay_buffer.add_paths(init_expl_paths)
+
+            if self.save_exploration_paths:
+                save_buffer_file = logger.get_snapshot_dir() + "/init_exploration_paths_{}.pkl".format(self.epoch)
+                with open(save_buffer_file, "wb+") as f:
+                    pickle.dump(init_expl_paths, f)
             self.expl_data_collector.end_epoch(-1)
 
         timer.start_timer('evaluation sampling')
@@ -140,6 +152,12 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
 
                         timer.start_timer('replay buffer data storing', unique=False)
                         self.replay_buffer.add_paths(new_expl_paths)
+
+                        if self.save_exploration_paths:
+                            save_buffer_file = logger.get_snapshot_dir() + "/exploration_paths_{}.pkl".format(self.epoch)
+                            with open(save_buffer_file, "wb+") as f:
+                                pickle.dump(new_expl_paths, f)
+
                         timer.stop_timer('replay buffer data storing')
                         print("self.replay_buffer._size", self.replay_buffer._size)
 
@@ -149,6 +167,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                         train_data = self.replay_buffer.random_batch(
                             self.batch_size, biased_sampling=self.biased_sampling)
                     else:
+                        probabilities = []
                         task_indices = np.random.choice(
                             self.train_tasks, self.meta_batch_size
                         )
@@ -158,6 +177,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
                                 self.batch_size,
                             )
                         except:
+                            import pdb; pdb.set_trace()
                             break
                     if self.train_embedding_network:
                         # import IPython; IPython.embed()
