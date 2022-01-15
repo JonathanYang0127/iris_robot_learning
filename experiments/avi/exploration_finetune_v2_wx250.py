@@ -378,8 +378,8 @@ if __name__ == '__main__':
         max_path_length=20,
         num_trains_per_train_loop=1000,
         num_eval_steps_per_epoch=0,
-        num_expl_steps_per_train_loop=10 * 20,
-        min_num_steps_before_training=10 * 20,
+        num_expl_steps_per_train_loop=20 * 20,
+        min_num_steps_before_training=40 * 20,
 
         dump_video_kwargs=dict(
             save_video_period=1,
