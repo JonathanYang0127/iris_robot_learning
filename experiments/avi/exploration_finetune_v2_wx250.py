@@ -244,7 +244,28 @@ def experiment(variant):
         raise NotImplementedError
 
     if args.finetuning_checkpoint != "":
-        with open(args.finetuning_checkpoint, "rb") as f:
+        checkpoint_itr = None
+        checkpoint_buffers = []
+        max_epoch = -1
+        for root, dirs, files in os.walk(args.finetuning_checkpoint):
+            for f in files:
+                if 'itr' in f:
+                    epoch = int(f[4:-3])
+                    if epoch > max_epoch:
+                        max_epoch = epoch
+                        checkpoint_itr = os.path.join(root, f)
+                elif 'path' in f:
+                    checkpoint_buffers.append(os.path.join(root, f))
+
+        print("Using checkpoint {}".format(checkpoint_itr))
+        print("Using buffers {}".format(checkpoint_buffers))
+
+        for buffer in checkpoint_buffers:
+            with open(buffer, 'rb') as f:
+                expl_paths = pickle.load(f)
+            replay_buffer.add_multitask_paths(expl_paths)
+
+        with open(checkpoint_itr, "rb") as f:
             data = torch.load(f)
             exploration_strategy = data['exploration/exploration_strategy']
             policy = data['trainer/policy']
@@ -254,6 +275,7 @@ def experiment(variant):
             trainer.target_qf1 = data['trainer/target_qf1']
             trainer.qf2 = data['trainer/qf2']
             trainer.target_qf2 = data['trainer/target_qf2']
+
 
     eval_policy = MakeDeterministic(policy)
     expl_path_collector = EmbeddingExplorationObsDictPathCollector(
@@ -301,6 +323,8 @@ def experiment(variant):
         save_exploration_paths=True
     )
 
+    if args.finetuning_checkpoint != "":
+        algorithm.epoch = max_epoch + 1
     # TODO: Add video saving functionality
     #video_func = VideoSaveFunctionBullet(variant)
     #algorithm.post_train_funcs.append(video_func)
