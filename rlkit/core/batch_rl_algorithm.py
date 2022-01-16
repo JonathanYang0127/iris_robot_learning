@@ -137,6 +137,11 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
 
                         timer.start_timer('replay buffer data storing', unique=False)
                         self.replay_buffer.add_multitask_paths(new_expl_paths)
+
+                        if self.save_exploration_paths:
+                            save_buffer_file = logger.get_snapshot_dir() + "/exploration_paths_{}.pkl".format(self.epoch)
+                            with open(save_buffer_file, "wb+") as f:
+                                pickle.dump(new_expl_paths, f)
                         timer.stop_timer('replay buffer data storing')
                     else:
                         timer.start_timer('exploration sampling', unique=False)
@@ -152,11 +157,6 @@ class BatchRLAlgorithm(BaseRLAlgorithm):
 
                         timer.start_timer('replay buffer data storing', unique=False)
                         self.replay_buffer.add_paths(new_expl_paths)
-
-                        if self.save_exploration_paths:
-                            save_buffer_file = logger.get_snapshot_dir() + "/exploration_paths_{}.pkl".format(self.epoch)
-                            with open(save_buffer_file, "wb+") as f:
-                                pickle.dump(new_expl_paths, f)
 
                         timer.stop_timer('replay buffer data storing')
                         print("self.replay_buffer._size", self.replay_buffer._size)
