@@ -35,7 +35,13 @@ def experiment(variant):
     env_num_tasks = num_tasks
     if args.reset_free:
         env_num_tasks = env_num_tasks // 2
-    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
+    kwargs = {}
+    fixed_task = False
+    if variant['init_task_idx'] is not None:
+        fixed_task = True
+        # print("fixed_task", fixed_task)
+        kwargs = {"fixed_task": fixed_task, "init_task_idx": variant['init_task_idx']}
+    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks, **kwargs)
 
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
@@ -222,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument('--offline-alg', type=str, choices=('AWAC', 'IQL'), default="AWAC")
+    parser.add_argument("--init-task-idx", type=int, default=None)
     parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
@@ -249,6 +256,7 @@ if __name__ == '__main__':
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
         use_task_embedding=args.use_task_embedding,
+        init_task_idx=args.init_task_idx,
         seed=args.seed,
         trainer_kwargs=dict(
             discount=0.9666,
