@@ -17,10 +17,13 @@ from rlkit.samplers.data_collector import ObsDictPathCollector
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
-from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v2, \
+from rlkit.misc.roboverse_utils import (
+    add_multitask_data_to_singletask_buffer_v2, \
     add_multitask_data_to_multitask_buffer_v2, \
     VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer, \
-    add_data_to_buffer_multitask_v2
+    add_data_to_buffer_multitask_v2,
+    add_data_to_multitask_buffer_v3,
+)
 from rlkit.exploration_strategies.embedding_wrappers import EmbeddingWrapperOffline as EmbeddingWrapper
 
 import roboverse
@@ -35,7 +38,14 @@ def experiment(variant):
     env_num_tasks = num_tasks
     if args.reset_free:
         env_num_tasks = env_num_tasks // 2
-    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
+
+    kwargs = {}
+    fixed_task = False
+    if variant['init_task_idx']:
+        fixed_task = True
+        # print("fixed_task", fixed_task)
+        kwargs = {"fixed_task": fixed_task, "init_task_idx": variant['init_task_idx']}
+    eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks, **kwargs)
 
     with open(variant['buffer'], 'rb') as fl:
         data = np.load(fl, allow_pickle=True)
@@ -77,7 +87,7 @@ def experiment(variant):
 
     if variant['use_task_embedding']:
         observation_keys.append('task_embedding')
-    else:
+    elif variant['init_task_idx'] is None:
         observation_keys.append('one_hot_task_id')
 
     if variant['use_robot_state']:
@@ -89,8 +99,10 @@ def experiment(variant):
     cnn_params = variant['cnn_params']
     if variant['use_task_embedding']:
         cnn_params.update(added_fc_input_size=state_observation_dim + latent_dim)
-    else:
+    elif variant['init_task_idx'] is None:
         cnn_params.update(added_fc_input_size=state_observation_dim + num_tasks)
+    else:
+        cnn_params.update(added_fc_input_size=state_observation_dim)
 
     policy = GaussianCNNPolicy(max_log_std=0,
                                min_log_std=-6,
@@ -111,9 +123,13 @@ def experiment(variant):
         cnn_params.update(
             added_fc_input_size=state_observation_dim + latent_dim + action_dim,
         )
-    else:
+    elif variant['init_task_idx'] is None:
         cnn_params.update(
             added_fc_input_size=state_observation_dim + num_tasks + action_dim,
+        )
+    else:
+        cnn_params.update(
+            added_fc_input_size=state_observation_dim + action_dim
         )
     if variant['use_negative_rewards']:
         cnn_params.update(output_activation=Clamp(max=0))  # rewards are <= 0
@@ -122,16 +138,24 @@ def experiment(variant):
     target_qf1 = ConcatCNN(**cnn_params)
     target_qf2 = ConcatCNN(**cnn_params)
 
+    if variant['init_task_idx'] is not None:
+        buffer_task_idxs = np.arange(2 * num_tasks)
+    else:
+        buffer_task_idxs = np.arange(num_tasks)
+    print("buffer_task_idxs", buffer_task_idxs)
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         max_replay_buffer_size,
         expl_env,
-        np.arange(num_tasks),
+        buffer_task_idxs,
         use_next_obs_in_context=False,
         sparse_rewards=False,
         observation_keys=observation_keys
     )
 
-    add_multitask_data_to_multitask_buffer_v2(data, replay_buffer, observation_keys, num_tasks)
+    if variant['init_task_idx'] is not None:
+        add_data_to_multitask_buffer_v3(data, replay_buffer, observation_keys, num_tasks)
+    else:
+        add_multitask_data_to_multitask_buffer_v2(data, replay_buffer, observation_keys, num_tasks)
 
     # if len(data[0]['observations'][0]['image'].shape) > 1:
     #     add_data_to_buffer(data, replay_buffer, observation_keys)
@@ -175,6 +199,16 @@ def experiment(variant):
         observation_keys=observation_keys,
     )
 
+    if variant['init_task_idx'] is not None:
+        train_tasks = [variant['init_task_idx']]
+        eval_tasks = [variant['init_task_idx']]
+    else:
+        train_tasks = np.arange(num_tasks)
+        eval_tasks = np.arange(num_tasks)
+
+    print("train_tasks", train_tasks)
+    print("eval_tasks", eval_tasks)
+
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
@@ -191,8 +225,8 @@ def experiment(variant):
         num_trains_per_train_loop=variant['num_trains_per_train_loop'],
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
-        train_tasks=np.arange(num_tasks),
-        eval_tasks=np.arange(num_tasks)
+        train_tasks=train_tasks,
+        eval_tasks=eval_tasks,
     )
 
     video_func = VideoSaveFunctionBullet(variant)
@@ -222,6 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--reset-free', action='store_true', default=False)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument('--offline-alg', type=str, choices=('AWAC', 'IQL'), default="AWAC")
+    parser.add_argument("--init-task-idx", type=int, default=None)
     parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
@@ -249,6 +284,7 @@ if __name__ == '__main__':
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
         use_task_embedding=args.use_task_embedding,
+        init_task_idx=args.init_task_idx,
         seed=args.seed,
         trainer_kwargs=dict(
             discount=0.9666,
