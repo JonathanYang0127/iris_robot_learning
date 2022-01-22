@@ -31,6 +31,7 @@ class RndPathCollector(MdpPathCollector):
             epochs_per_reset=1,
             exploration_task=0,
             latent_dim=18,
+            expl_reset_free=False,
             **kwargs
     ):
         super().__init__(env, fwd_policy, **kwargs)
@@ -43,6 +44,7 @@ class RndPathCollector(MdpPathCollector):
         self._exploration_task = exploration_task
         self._epoch = 0
         self._latent_dim = latent_dim
+        self._expl_reset_free = expl_reset_free
 
 
     def collect_new_paths(
@@ -55,22 +57,13 @@ class RndPathCollector(MdpPathCollector):
             self._reverse = self._env.is_reset_task()
             self._policy = self._perturb_policy if self._reverse else self._fwd_policy 
 
-            # Should we really be assigning different embeddings
-            # based on task direction here? We could use just one since 
-            # we're training different policies. But the perturb policy may be trained on
-            # fwd policy data.
-            if self._reverse:
-                embedding = np.zeros((self._latent_dim,))
-                embedding[-1] = 1.0
-            else:
-                embedding = np.zeros((self._latent_dim,))
-                embedding[-2] = 1.0
-            print(embedding)
+            # label the online data with last task index (unused in the offline phase)
+            embedding = np.zeros((self._latent_dim,))
+            embedding[-1] = 1.0
             rollout = fixed_contextual_rollout(*args,
                 observation_keys=self._observation_keys,
                 context=embedding,
-                expl_reset_free=True, # expl_reset_free = true: no resets between episodes
-                reverse=self._reverse,
+                expl_reset_free=self._expl_reset_free, # expl_reset_free = true: no resets between episodes
                 **kwargs)
             success = sum(rollout['rewards']) > 0
             print("reverse" if self._reverse else "forward", "success" if success else "failure", np.argmax(embedding))

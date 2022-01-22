@@ -34,7 +34,7 @@ def experiment(variant):
         #hacky change because the num_tasks passed into roboverse doesn't count exploration
         env_num_tasks //= 2
     eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
-    latent_dim = num_tasks + 2 # add two extra indices for fwd/backwd expl data
+    latent_dim = num_tasks + 1 # add one extra index for online data
     if variant['exploration_task'] < num_tasks:
         if variant['exploration_task'] < env_num_tasks:
             opp_task = variant['exploration_task']+env_num_tasks
@@ -56,11 +56,11 @@ def experiment(variant):
         if not 'task_embedding' in data[0]['observations'][0].keys():
             for j in range(num_traj_total):
                 for k in range(len(data[j]['observations'])):
-                    # add on two extra expl indices
+                    # add an extra expl index
                     data[j]['observations'][k]['task_embedding'] = \
-                        np.concatenate([data[j]['observations'][k]['one_hot_task_id'], np.array([0., 0.])])
+                        np.concatenate([data[j]['observations'][k]['one_hot_task_id'], np.array([0.])])
                     data[j]['next_observations'][k]['task_embedding'] = \
-                        np.concatenate([data[j]['next_observations'][k]['one_hot_task_id'], np.array([0., 0.])])
+                        np.concatenate([data[j]['next_observations'][k]['one_hot_task_id'], np.array([0.])])
     else:
         num_transitions = 8192*30
         max_replay_buffer_size = num_transitions + 10
@@ -120,7 +120,7 @@ def experiment(variant):
                                       action_dim=action_dim,
                                       std_architecture="values",
                                       **cnn_params)
-    rnd_model = RNDModel(**cnn_params, output_size=5)
+    rnd_model = RNDModel(**cnn_params, output_size=variant['rnd_output_size'])
     
     cnn_params.update(
         output_size=1,
@@ -218,7 +218,8 @@ def experiment(variant):
         observation_keys=observation_keys,
         epochs_per_reset=variant['epochs_per_reset'],
         exploration_task=variant['exploration_task'],
-        latent_dim=latent_dim
+        latent_dim=latent_dim,
+        expl_reset_free=True
     )
     eval_path_collector = RndPathCollector(
         expl_env,
@@ -227,7 +228,8 @@ def experiment(variant):
         observation_keys=observation_keys,
         epochs_per_reset=variant['epochs_per_reset'],
         exploration_task=variant['exploration_task'],
-        latent_dim=latent_dim
+        latent_dim=latent_dim,
+        expl_reset_free=False,
     )
 
     if args.buffer is None:
@@ -296,7 +298,7 @@ if __name__ == '__main__':
         meta_batch_size=4,
         max_path_length=40,
         num_trains_per_train_loop=10,
-        num_eval_steps_per_epoch=0,
+        num_eval_steps_per_epoch=2 * 40,
         num_expl_steps_per_train_loop=2 * 40,
         min_num_steps_before_training=0,
 
@@ -319,6 +321,7 @@ if __name__ == '__main__':
         epochs_per_reset = 1,
         closest_expl_period = 15,
         expl_policy_noise = 0.0,
+        rnd_output_size = 5,
 
         trainer_kwargs=dict(
             discount=0.9666,

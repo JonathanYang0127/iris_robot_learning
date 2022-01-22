@@ -172,10 +172,9 @@ class BatchRLAlgorithmRnd(BaseRLAlgorithm):
                         env_num_tasks = len(self.train_tasks) // 2
                         # only fwd task prior data and fwd expl data
                         task_indices_fwd = np.concatenate([self.train_tasks[:env_num_tasks], \
-                                                           [self.exploration_task]])
-                        # only fwd task prior data and all expl data
-                        task_indices_perturb = np.concatenate([self.train_tasks[:env_num_tasks], \
-                                                              [self.exploration_task, self.exploration_task + env_num_tasks]])
+                                                          [self.exploration_task]])
+                        # only perturb data
+                        task_indices_perturb = [self.exploration_task + env_num_tasks]
                         task_indices_fwd = np.random.choice(
                             task_indices_fwd, self.meta_batch_size
                         )
