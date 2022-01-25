@@ -99,6 +99,7 @@ class AWACTrainer(TorchTrainer):
             num_buffer_policy_train_steps_on_reset=100,
             advantage_weighted_buffer_loss=True,
             multitask=False,
+            rnd=None,
             **kwargs
     ):
         super().__init__()
@@ -233,6 +234,12 @@ class AWACTrainer(TorchTrainer):
         self.advantage_weighted_buffer_loss=advantage_weighted_buffer_loss
 
         self.multitask = multitask
+        self.rnd = rnd
+        if self.rnd is not None:
+            self.rnd_optimizer = optimizer_class(
+                self.rnd.f_hat.parameters(),
+                lr=policy_lr
+            )
 
     def get_batch_from_buffer(self, replay_buffer, batch_size):
         batch = replay_buffer.random_batch(batch_size)
@@ -491,6 +498,13 @@ class AWACTrainer(TorchTrainer):
             next_obs = next_obs.view(t * b, -1)
             rewards = rewards.view(t * b, 1)
             terminals = terminals.view(t * b, 1)
+
+        if self.rnd is not None:
+            rewards = self.rnd(obs).view(t * b, 1)
+            rnd_loss = rewards.mean()
+            self.rnd_optimizer.zero_grad()
+            rnd_loss.backward()
+            self.rnd_optimizer.step()
 
         """
         Policy and Alpha Loss
