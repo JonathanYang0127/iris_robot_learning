@@ -328,7 +328,7 @@ if __name__ == '__main__':
         exploration_strategy = args.exploration_strategy,
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
-        epochs_per_reset = 1,
+        epochs_per_reset = 2,
         cem_update_window = args.cem_update_window,
         closest_expl_period = 15,
         expl_policy_noise = 0.0,

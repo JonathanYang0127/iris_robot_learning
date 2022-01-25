@@ -34,7 +34,7 @@ def experiment(variant):
         #hacky change because the num_tasks passed into roboverse doesn't count exploration
         env_num_tasks //= 2
     eval_env = roboverse.make(variant['env'], transpose_image=True, num_tasks=env_num_tasks)
-    latent_dim = num_tasks + 1 # add one extra index for online data
+    latent_dim = num_tasks # add one extra index for online data
     if variant['exploration_task'] < num_tasks:
         if variant['exploration_task'] < env_num_tasks:
             opp_task = variant['exploration_task']+env_num_tasks
@@ -297,10 +297,10 @@ if __name__ == '__main__':
         batch_size=64,
         meta_batch_size=4,
         max_path_length=40,
-        num_trains_per_train_loop=10,
-        num_eval_steps_per_epoch=2 * 40,
-        num_expl_steps_per_train_loop=2 * 40,
-        min_num_steps_before_training=0,
+        num_trains_per_train_loop=1000,
+        num_eval_steps_per_epoch=40 * 40,
+        num_expl_steps_per_train_loop=40 * 40,
+        min_num_steps_before_training=100 * 40,
 
         dump_video_kwargs=dict(
             save_video_period=1,
@@ -318,7 +318,7 @@ if __name__ == '__main__':
         exploration_task = args.exploration_task,
         exploration_update_frequency=10,
         expl_reset_free = args.expl_reset_free,
-        epochs_per_reset = 1,
+        epochs_per_reset = 2,
         closest_expl_period = 15,
         expl_policy_noise = 0.0,
         rnd_output_size = 5,

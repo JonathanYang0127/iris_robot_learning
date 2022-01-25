@@ -52,7 +52,7 @@ class RndPathCollector(MdpPathCollector):
             *args,
             **kwargs
     ):
-        def exploration_rollout(*args, **kwargs):
+        def exploration_rollout(env, agent, **kwargs):
             # determine which task we're in
             self._reverse = self._env.is_reset_task()
             self._policy = self._perturb_policy if self._reverse else self._fwd_policy 
@@ -60,7 +60,7 @@ class RndPathCollector(MdpPathCollector):
             # label the online data with last task index (unused in the offline phase)
             embedding = np.zeros((self._latent_dim,))
             embedding[-1] = 1.0
-            rollout = fixed_contextual_rollout(*args,
+            rollout = fixed_contextual_rollout(env, self._policy,
                 observation_keys=self._observation_keys,
                 context=embedding,
                 expl_reset_free=self._expl_reset_free, # expl_reset_free = true: no resets between episodes
