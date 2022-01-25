@@ -16,9 +16,14 @@ from rlkit.samplers.data_collector import ObsDictPathCollector, EmbeddingExplora
 from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
-from rlkit.misc.roboverse_utils import add_multitask_data_to_singletask_buffer_v2, \
-    add_multitask_data_to_multitask_buffer_v2, \
-    VideoSaveFunctionBullet, get_buffer_size, add_data_to_buffer
+from rlkit.misc.roboverse_utils import (
+    add_multitask_data_to_singletask_buffer_v2,
+    add_multitask_data_to_multitask_buffer_v2,
+    add_data_to_multitask_buffer_v3,
+    VideoSaveFunctionBullet,
+    get_buffer_size,
+    add_data_to_buffer,
+)
 from rlkit.exploration_strategies import *
 
 import roboverse
@@ -81,6 +86,11 @@ def experiment(variant):
                 high=np.array([100] * latent_dim),
             )})
         eval_env = EmbeddingWrapper(eval_env, embeddings=task_embeddings)
+    elif variant['singletask_buffer']:
+        task_embeddings = dict()
+        for i in range(variant['num_tasks']):
+            task_embeddings[i] = [np.zeros(variant['num_tasks'])]
+        eval_env = EmbeddingWrapper(eval_env, embeddings=task_embeddings)
     else:
         eval_env.observation_space.spaces.update(
             {'one_hot_task_id': spaces.Box(
@@ -88,11 +98,14 @@ def experiment(variant):
                 high=np.array([1] * num_tasks),
             )})
 
-    task_embeddings_batch = []
-    for i in range(len(data)):
-        for j in range(len(data[i]['observations'])):
-            task_embeddings_batch.append(data[i]['observations'][j]['task_embedding'])
-    task_embeddings_batch = np.array(task_embeddings_batch)
+    if variant['singletask_buffer']:
+        task_embeddings_batch = np.zeros((32, variant['num_tasks']))
+    else:
+        task_embeddings_batch = []
+        for i in range(len(data)):
+            for j in range(len(data[i]['observations'])):
+                task_embeddings_batch.append(data[i]['observations'][j]['task_embedding'])
+        task_embeddings_batch = np.array(task_embeddings_batch)
 
     expl_env = eval_env
     expl_env.reset_task(variant['exploration_task'])
@@ -103,7 +116,7 @@ def experiment(variant):
 
     if variant['use_task_embedding']:
         observation_keys.append('task_embedding')
-    else:
+    elif not variant['singletask_buffer']:
         observation_keys.append('one_hot_task_id')
 
     if variant['use_robot_state']:
@@ -170,8 +183,23 @@ def experiment(variant):
         observation_keys=observation_keys
     )
 
-    add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
-                                           observation_keys, num_tasks)
+    if variant['singletask_buffer']:
+        if not variant['empty_prior_buffer']:
+            replay_buffer.task_buffers[variant['exploration_task']] = ObsDictReplayBuffer(
+                max_replay_buffer_size + 1000 * variant['num_expl_steps_per_train_loop'],
+                expl_env,
+                path_len=None, # default value.
+                observation_keys=observation_keys,
+                # env_info_sizes=env_info_sizes,
+            )
+            print("replay_buffer max size", replay_buffer.task_buffers[variant['exploration_task']].max_size)
+            add_data_to_multitask_buffer_v3(data, replay_buffer,
+                                            observation_keys, num_tasks)
+        else:
+            print("Not adding prior data to buffer.")
+    else:
+        add_multitask_data_to_multitask_buffer_v2(data, replay_buffer,
+                                                  observation_keys, num_tasks)
     if variant['exploration_task'] < num_tasks:
         replay_buffer.task_buffers[variant['exploration_task']].bias_point = replay_buffer.task_buffers[variant['exploration_task']]._top
         replay_buffer.task_buffers[variant['exploration_task']].before_bias_point_probability = 0.3
@@ -230,6 +258,8 @@ def experiment(variant):
         epochs_per_reset=variant['epochs_per_reset'],
         exploration_task=variant['exploration_task'],
         log_obj_info_path=variant['log_obj_info_path'],
+        do_cem_update=not(variant['singletask_buffer']),
+        singletask_buffer=variant['singletask_buffer'],
     )
     eval_path_collector = EmbeddingExplorationObsDictPathCollector(
         exploration_strategy,
@@ -239,8 +269,14 @@ def experiment(variant):
         expl_reset_free=False,
         epochs_per_reset=variant['epochs_per_reset'],
         exploration_task=variant['exploration_task'],
-        do_cem_update=False
+        do_cem_update=False,
+        singletask_buffer=variant['singletask_buffer'],
     )
+
+    if variant['singletask_buffer']:
+        train_tasks = [variant['exploration_task']]
+    else:
+        train_tasks = [variant['exploration_task'], opp_task]
 
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
@@ -259,7 +295,7 @@ def experiment(variant):
         min_num_steps_before_training=variant['min_num_steps_before_training'],
         multi_task=True,
         exploration_task=variant['exploration_task'],
-        train_tasks=[variant['exploration_task'], opp_task],
+        train_tasks=train_tasks,
         eval_tasks=[variant['exploration_task']],
     )
 
@@ -294,6 +330,10 @@ if __name__ == '__main__':
     parser.add_argument("--cem-update-window", type=int, default=25)
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--log-obj-info-path", type=str, default="")
+    parser.add_argument("--singletask-buffer", action='store_true', default=False,
+                        help="Use this flag if prior buffer only contains one task.")
+    parser.add_argument("--empty-prior-buffer", action='store_true', default=False,
+                        help="Empty the prior buffer before collecting online paths.")
     parser.add_argument("--seed", default=0, type=int)
 
     args = parser.parse_args()
@@ -320,9 +360,11 @@ if __name__ == '__main__':
         buffer=args.buffer,
         use_negative_rewards=args.use_negative_rewards,
         use_robot_state=args.use_robot_state,
-        use_task_embedding=True,
+        use_task_embedding=not(args.singletask_buffer),
         seed=args.seed,
         log_obj_info_path=args.log_obj_info_path,
+        singletask_buffer=args.singletask_buffer,
+        empty_prior_buffer=args.empty_prior_buffer,
 
         exploration_task = args.exploration_task,
         exploration_strategy = args.exploration_strategy,

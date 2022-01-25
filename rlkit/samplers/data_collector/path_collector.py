@@ -70,6 +70,7 @@ class MdpPathCollector(PathCollector):
             task_index=0,
             expl_reset_free=False,
             log_obj_info=False,
+            singletask_buffer=False,
     ):
         paths = []
         if log_obj_info:
@@ -101,7 +102,10 @@ class MdpPathCollector(PathCollector):
                     self._policy,
                     max_path_length=max_path_length_this_loop,
                 )
-            if not expl_reset_free:
+
+            if singletask_buffer and not expl_reset_free:
+                self._env.reset()
+            elif not expl_reset_free:
                 # switch to opposite task
                 set_env_to_opp_task(self._env)
             else:
@@ -236,6 +240,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             do_cem_update=True,
             relabel_rewards=False,
             log_obj_info_path="",
+            singletask_buffer=False, # if true, don't set to reverse task
             **kwargs
     ):
         '''
@@ -256,6 +261,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
         self.log_obj_info = bool(log_obj_info_path)
         if self.log_obj_info:
             self.obj_infos_as_arr = None
+        self.singletask_buffer = singletask_buffer
 
     def collect_new_paths(
             self,
@@ -269,7 +275,7 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             try:
                 initial_obj_positions = self._env.env.get_obj_positions()
                 target_object = self._env.env.target_object
-                task_idx = self._env.task_idx
+                task_idx = self._env.env.task_idx
             except:
                 initial_obj_positions = None
                 target_object = None
@@ -304,7 +310,8 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
 
         if self.log_obj_info:
             paths, infos_list = super().collect_new_paths(
-                expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info, *args, **kwargs)
+                expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info,
+                singletask_buffer=self.singletask_buffer, *args, **kwargs)
             obj_infos_list = []
             for initial_obj_positions_dict, reverse, task_idx, target_object in infos_list:
                 dict_to_add = {
@@ -336,7 +343,8 @@ class EmbeddingExplorationObsDictPathCollector(MdpPathCollector):
             np.save(self.log_obj_info_path, self.obj_infos_as_arr)
         else:
             paths = super().collect_new_paths(
-                expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info, *args, **kwargs)
+                expl_reset_free=self._expl_reset_free, log_obj_info=self.log_obj_info,
+                singletask_buffer=self.singletask_buffer, *args, **kwargs)
         return paths
 
     def get_snapshot(self):
