@@ -476,7 +476,7 @@ class WarpPerspective:
         self.warps = []
         for i in range(num_warps):
             dst_jitter = np.random.uniform(-warp_pixels, warp_pixels, size=(1, 4, 2))
-            dst = np.clip(src + dst_jitter, 0, 64)
+            dst = np.clip(src + dst_jitter, 0, self.size)
             self.warps.append(get_perspective_transform(ptu.from_numpy(src), ptu.from_numpy(dst)).detach().cpu().numpy()[0])
         self.warps = np.array(self.warps)
 
@@ -502,5 +502,5 @@ class WarpAffine:
     def __call__(self, tensor):
         b, *_ = tensor.size()
         warp_matrix = ptu.from_numpy(self.warps[np.random.randint(0, self.num_warps, size=b)])
-        return warp_affine(tensor, warp_matrix, dsize=(64, 64))
+        return warp_affine(tensor, warp_matrix, dsize=(self.size, self.size))
 

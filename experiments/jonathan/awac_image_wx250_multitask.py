@@ -288,7 +288,7 @@ if __name__ == '__main__':
             input_channels=3,
             kernel_sizes=[3, 3, 3],
             n_channels=[16, 16, 16],
-            strides=[2, 2, 2],
+            strides=[1, 1, 1],
             hidden_sizes=[1024, 512, 256],
             paddings=[1, 1, 1],
             pool_type='max2d',
@@ -315,7 +315,7 @@ if __name__ == '__main__':
             image_augmentation=True,
             image_augmentation_padding=4,
         )
-    variant['cnn_params']['augmentation_type'] = 'warp_perspective'
+    variant['cnn_params']['augmentation_type'] = 'random_crop'#'warp_perspective'
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:
