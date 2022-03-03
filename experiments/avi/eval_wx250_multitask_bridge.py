@@ -21,6 +21,8 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
+from rlkit.torch.sac.policies import MakeDeterministic
+
 right_front = [os.environ['DATA'] + '/robonetv2/toykitchen_fixed_cam_initial_testconfig/rss_benchmark/toykitchen1/put_broccoli_in_pot/2022-01-22_11-06-56/raw/traj_group0/traj0', 150]
 middle = [os.environ['DATA'] + '/robonetv2/toykitchen_fixed_cam_initial_testconfig/rss_benchmark/toykitchen1/put_broccoli_in_pot/2022-01-22_11-06-56/raw/traj_group0/traj1', 290]
 left_front = [os.environ['DATA'] + '/robonetv2/toykitchen_fixed_cam_initial_testconfig/rss_benchmark/toykitchen1/put_broccoli_in_pot/2022-01-22_11-06-56/raw/traj_group0/traj2', 200]
@@ -101,6 +103,9 @@ if __name__ == '__main__':
             eval_policy = pickle.load(handle)
 
     eval_policy.eval()
+    eval_policy = MakeDeterministic(eval_policy)
+
+    env.start()
 
     for i in range(num_trajs):
         obs = env.reset()
@@ -126,9 +131,10 @@ if __name__ == '__main__':
         obs_flat = ptu.from_numpy(np.concatenate([obs['image'][0], task]))
 
         for j in range(args.num_timesteps):
-            tstamp_return_obs = time.time() + 0.2
+            tstamp_return_obs = time.time()
 
             action, info = eval_policy.get_action(obs_flat)
+            tstamp_return_obs += 0.2
             obs, rew, done, info = env.step(action, get_obs_tstamp=tstamp_return_obs, blocking=False)
             obs_flat = ptu.from_numpy(np.concatenate([obs['image'][0], task]))
 
