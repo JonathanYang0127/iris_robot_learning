@@ -131,6 +131,8 @@ def experiment(variant):
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
         multitask=True,
+        meta_batch_size=variant['meta_batch_size'],
+        train_tasks=np.arange(num_tasks),
         **variant['trainer_kwargs']
     )
 

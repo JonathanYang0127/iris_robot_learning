@@ -51,7 +51,7 @@ class AWACTrainer(TorchTrainer):
             bc_num_pretrain_steps=0,
             q_num_pretrain1_steps=0,
             q_num_pretrain2_steps=0,
-            bc_batch_size=128,
+            bc_batch_size=64,
             alpha=1.0,
 
             policy_update_period=1,
@@ -100,6 +100,9 @@ class AWACTrainer(TorchTrainer):
             advantage_weighted_buffer_loss=True,
             multitask=False,
             rnd=None,
+
+            meta_batch_size=4,
+            train_tasks=[],
             **kwargs
     ):
         super().__init__()
@@ -241,13 +244,34 @@ class AWACTrainer(TorchTrainer):
                 lr=policy_lr
             )
 
+        self.meta_batch_size = meta_batch_size
+        self.train_tasks = train_tasks
+
     def get_batch_from_buffer(self, replay_buffer, batch_size):
         batch = replay_buffer.random_batch(batch_size)
         batch = np_to_pytorch_batch(batch)
         return batch
 
+    def get_multitask_batch_from_buffer(self, replay_buffer, batch_size):
+        task_indices = np.random.choice(self.train_tasks, self.meta_batch_size)
+        batch = replay_buffer.sample_batch(
+            task_indices,
+            batch_size,
+        )
+        batch = np_to_pytorch_batch(batch)
+        t, b, _ = batch['observations'].size()
+        batch['observations'] = batch['observations'].view(t * b, -1)
+        batch['actions'] = batch['actions'].view(t * b, -1)
+        batch['next_observations'] = batch['next_observations'].view(t * b, -1)
+        batch['rewards'] = batch['rewards'].view(t * b, 1)
+        batch['terminals'] = batch['terminals'].view(t * b, 1)
+        return batch
+
     def run_bc_batch(self, replay_buffer, policy):
-        batch = self.get_batch_from_buffer(replay_buffer, self.bc_batch_size)
+        if self.multitask:
+            batch = self.get_multitask_batch_from_buffer(replay_buffer, self.bc_batch_size)
+        else:
+            batch = self.get_batch_from_buffer(replay_buffer, self.bc_batch_size)
         o = batch["observations"]
         u = batch["actions"]
         # g = batch["resampled_goals"]
