@@ -122,6 +122,17 @@ def experiment(variant):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
 
+    
+    if variant['checkpoint'] is not None:
+        with open(variant['checkpoint'], 'rb') as handle:
+            params = torch.load(handle)
+            policy = params['trainer/policy']
+            buffer_policy = params['trainer/buffer_policy']
+            qf1 = params['trainer/qf1']
+            qf2 = params['trainer/qf2']
+            target_qf1 = params['trainer/target_qf1']
+            target_qf2 = params['trainer/target_qf2']
+
     trainer = AWACTrainer(
         env=eval_env,
         policy=policy,
@@ -200,21 +211,30 @@ if __name__ == '__main__':
     parser.add_argument("--task-encoder", default="", type=str)
     parser.add_argument("--encoder-type", default='image', choices=('image', 'trajectory'))
     parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
+    parser.add_argument("--checkpoint", type=str, default=None)
     args = parser.parse_args()
 
     assert (args.embedding_mode == 'one-hot') ^ (args.task_encoder != "")
 
     alg = 'BC' if args.use_bc else 'AWAC-Pixel'
-    print(args.buffers)
-    buffers = set()
-    for buffer_path in args.buffers:
-        if '.pkl' in buffer_path or '.npy' in buffer_path:
-            buffers.add(buffer_path)
+
+    if args.checkpoint is None:
+        buffers = set()
+        for buffer_path in args.buffers:
+            if '.pkl' in buffer_path or '.npy' in buffer_path:
+                buffers.add(buffer_path)
         else:
             path = Path(buffer_path)
             buffers.update(list(path.rglob('*.pkl')))
             buffers.update(list(path.rglob('*.npy')))
-    buffers = [str(b) for b in buffers]
+        buffers = [str(b) for b in buffers]
+    else:
+        import json
+        dirname = os.path.dirname(args.checkpoint)
+        checkpoint_variant_path = os.path.join(dirname, 'variant.json')
+        data = json.load(open(checkpoint_variant_path, 'r'))
+        buffers = data["buffers"]
+        args.use_robot_state = data['use_robot_state']
     print(buffers)
 
     variant = dict(
@@ -277,7 +297,8 @@ if __name__ == '__main__':
         use_task_encoder_resnet=False,
         embedding_mode=args.embedding_mode,
         use_next_obs_in_context=False,
-        transformer_encoder_keys=['observations']
+        transformer_encoder_keys=['observations'],
+        checkpoint=args.checkpoint
     )
 
     variant['cnn'] = args.cnn
@@ -316,7 +337,7 @@ if __name__ == '__main__':
             image_augmentation=True,
             image_augmentation_padding=4,
         )
-    variant['cnn_params']['augmentation_type'] = 'warp_perspective'
+    variant['cnn_params']['augmentation_type'] = 'random_crop'
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:
