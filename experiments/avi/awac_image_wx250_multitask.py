@@ -223,10 +223,10 @@ if __name__ == '__main__':
         for buffer_path in args.buffers:
             if '.pkl' in buffer_path or '.npy' in buffer_path:
                 buffers.add(buffer_path)
-        else:
-            path = Path(buffer_path)
-            buffers.update(list(path.rglob('*.pkl')))
-            buffers.update(list(path.rglob('*.npy')))
+            else:
+                path = Path(buffer_path)
+                buffers.update(list(path.rglob('*.pkl')))
+                buffers.update(list(path.rglob('*.npy')))
         buffers = [str(b) for b in buffers]
     else:
         import json
