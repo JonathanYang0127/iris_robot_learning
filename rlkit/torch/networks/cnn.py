@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch import nn as nn
-from kornia.geometry.transform import (warp_affine, warp_perspective, 
+from kornia.geometry.transform import (warp_affine, warp_perspective,
     get_rotation_matrix2d, get_perspective_transform)
 
 from rlkit.policies.base import Policy
@@ -135,7 +135,7 @@ class CNN(nn.Module):
         if self.output_conv_channels:
             self.last_fc = None
         else:
-            self.fc_layers, self.fc_norm_layers, self.last_fc = self.initialize_fc_layers(self.hidden_sizes, 
+            self.fc_layers, self.fc_norm_layers, self.last_fc = self.initialize_fc_layers(self.hidden_sizes,
                 self.output_size, self.conv_output_flat_size, self.added_fc_input_size, init_w)
 
         if self.image_augmentation:
@@ -156,8 +156,8 @@ class CNN(nn.Module):
     def initialize_fc_layers(self, hidden_sizes, output_size, conv_output_flat_size, added_fc_input_size, init_w):
         fc_layers = nn.ModuleList()
         fc_norm_layers = nn.ModuleList()
-    
-        
+
+
         fc_input_size = conv_output_flat_size
         # used only for injecting input directly into fc layers
         fc_input_size += added_fc_input_size
@@ -185,7 +185,7 @@ class CNN(nn.Module):
         conv_input = input.narrow(start=0,
                                   length=self.conv_input_length,
                                   dim=1).contiguous()
-        # reshape from batch of flattened images into (channels, w, h)
+        # reshape from batch of flattened images into (channels, h, w)
         h = conv_input.view(conv_input.shape[0],
                             self.input_channels,
                             self.input_height,
@@ -472,7 +472,7 @@ class WarpPerspective:
         self.warp_pixels = warp_pixels
         self.num_warps = num_warps
         src = np.array([[[0, 0], [0, size], [size, 0], [size, size]]])
-        
+
         self.warps = []
         for i in range(num_warps):
             dst_jitter = np.random.uniform(-warp_pixels, warp_pixels, size=(1, 4, 2))
@@ -488,7 +488,7 @@ class WarpPerspective:
 class WarpAffine:
     def __init__(self, size, warp_angle=10, num_warps=1000):
         self.size = size
-        self.warp_angle = warp_angle 
+        self.warp_angle = warp_angle
         self.num_warps = num_warps
         center = ptu.from_numpy(np.array([[size // 2, size // 2]]))
         scale = ptu.from_numpy(np.array([[1, 1]]))
@@ -503,4 +503,3 @@ class WarpAffine:
         b, *_ = tensor.size()
         warp_matrix = ptu.from_numpy(self.warps[np.random.randint(0, self.num_warps, size=b)])
         return warp_affine(tensor, warp_matrix, dsize=(self.size, self.size))
-
