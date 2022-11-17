@@ -34,6 +34,30 @@ class max_q_policy:
         self.qf1.eval()
         self.policy.eval()
 
+class DeltaPoseToCommand:
+    def __init__(self, init_obs):
+        self._previous_obs = init_obs
+        self._obs = obs
+        
+        from sklearn import linear_model
+        from sklearn.metrics import mean_squared_error
+        import pickle
+
+        self.model_path = '/iris/u/jyang27/dev/iris_robots/widowx_scripts/linear_cdp_model.pkl'
+        with open(self.model_path, 'rb') as f:
+            self.model = pickle.load(f)
+        
+    def postprocess_obs_action(self, obs, action):
+        self._previous_obs = self._obs
+        self._obs = obs
+        adp = action.tolist()
+        adp += self._obs['current_pose'].tolist()
+        adp += self._obs['desired_pose'].tolist()
+        adp += self._previous_obs['current_pose'].tolist()
+        adp += self._previous_obs['desired_pose'].tolist()
+        adp = np.array(adp).reshape(1, -1)
+        return self.model.predict(adp)[0]
+
 
 def process_image(image):
     ''' ObsDictReplayBuffer wants flattened (channel, height, width) images float32'''
@@ -44,8 +68,11 @@ def process_image(image):
         image = image.flatten()
     return image
 
-def process_obs(obs, task):
-    observation_keys = ['image', 'desired_pose', 'current_pose','joint_positions', 'joint_velocities', 'task_embedding']
+def process_obs(obs, task, use_robot_state):
+    if use_robot_state:
+        observation_keys = ['image', 'desired_pose', 'current_pose','joint_positions', 'joint_velocities', 'task_embedding']
+    else:
+        observation_keys = ['image', 'task_embedding']
     obs['image'] = process_image(obs['images'][0]['array'])
     obs['task_embedding'] = task
     return ptu.from_numpy(np.concatenate([obs[k] for k in observation_keys]))
@@ -68,6 +95,9 @@ if __name__ == '__main__':
     parser.add_argument("--task-encoder", default=None)
     parser.add_argument("--sample-trajectory", type=str, default=None)
     parser.add_argument("--use-checkpoint-encoder", action='store_true', default=False)
+    parser.add_argument("--use-robot-state", action='store_true', default=False)
+    parser.add_argument("--achieved-action-relabelling", action="store_true", default=False)
+    parser.add_argument("--robot-model", type=str, choices=('wx250s', 'franka'), default='wx250s')
     args = parser.parse_args()
 
     assert args.num_tasks != 0 or args.task_embedding
@@ -76,8 +106,10 @@ if __name__ == '__main__':
 
     ptu.set_gpu_mode(True)
 
-
-    env = RobotEnv(robot_model='wx250s', control_hz=20, use_local_cameras=True, camera_types='cv2', blocking=False)
+    if args.robot_model == 'wx250s':
+    	env = RobotEnv(robot_model='wx250s', control_hz=20, use_local_cameras=True, camera_types='cv2', blocking=False)
+    else:
+        env = RobotEnv('172.16.0.21', use_local_cameras=True)
     env.reset()
 
     checkpoint_path = args.checkpoint_path
@@ -107,6 +139,8 @@ if __name__ == '__main__':
 
     for i in range(num_trajs):
         obs = env.reset()
+        if args.achieved_action_relabelling:
+            action_postprocessor = DeltaPoseToCommand(obs)
 
         images = []
 
@@ -145,8 +179,10 @@ if __name__ == '__main__':
 
         for j in range(args.num_timesteps):
             obs = env.get_observation()
-            obs_flat = process_obs(obs, task)
+            obs_flat = process_obs(obs, task, args.use_robot_state)
             action, info = eval_policy.get_action(obs_flat)
+            if args.achieved_action_relabelling:
+                action = action_postprocessor.postprocess_obs_action(obs, action)
             action = process_action(action)
             env.step(action)
 
