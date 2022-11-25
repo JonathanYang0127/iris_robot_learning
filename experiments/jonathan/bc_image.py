@@ -16,7 +16,8 @@ from rlkit.launchers.launcher_util import setup_logger
 from rlkit.core import logger
 from rlkit.torch.networks import Clamp
 from rlkit.misc.wx250_utils import (add_multitask_data_to_singletask_buffer_real_robot,
-    add_multitask_data_to_multitask_buffer_real_robot, DummyEnv)
+    add_multitask_data_to_multitask_buffer_real_robot, DummyEnv,
+    configure_dataloader_params)
 from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet, TransformerEncoderDecoderNet
 
 import numpy as np
@@ -39,12 +40,15 @@ def experiment(variant):
     action_dim = eval_env.action_space.low.size
 
     if variant['use_robot_state']:
-        observation_keys = ['image', 'desired_pose', 'current_pose','joint_positions', 'joint_velocities', 'task_embedding']
+        observation_keys = ['image', 'desired_pose', 'current_pose', 'task_embedding']
         state_observation_dim = sum([eval_env.observation_space.spaces[k].low.size for k in observation_keys if
             k != 'image' and k != 'task_embedding'])
     else:
         observation_keys = ['image', 'task_embedding']
         state_observation_dim = 0
+
+    if variant['dataloader_params']['stack_frames']:
+        observation_keys = ['previous_image'] + observation_keys
 
     if variant['cnn'] == 'medium':
         cnn_class = CNN
@@ -188,7 +192,7 @@ if __name__ == '__main__':
     parser.add_argument('--use-robot-state', action='store_true', default=False)
     parser.add_argument('--use-negative-rewards', action='store_true',
                         default=False)
-    parser.add_argument('--cnn', required=True, choices=('medium', 'impala'))
+    parser.add_argument('--cnn', required=True, choices=('small', 'medium', 'impala'))
     parser.add_argument("--gpu", default='0', type=str)
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument("--use-bc", action="store_true", default=False)
@@ -196,6 +200,9 @@ if __name__ == '__main__':
     parser.add_argument("--task-encoder", default="", type=str)
     parser.add_argument("--encoder-type", default='image', choices=('image', 'trajectory'))
     parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
+    parser.add_argument("--stack-frames", action="store_true", default=False)
+    parser.add_argument("--action-relabelling", type=str, choices=('linear', 'achieved'),
+            default=None)
     args = parser.parse_args()
 
     assert (args.embedding_mode == 'one-hot') ^ (args.task_encoder != "")
@@ -266,6 +273,11 @@ if __name__ == '__main__':
             clip_score=args.clip_score,
         ),
 
+        dataloader_params=dict(
+            stack_frames=args.stack_frames,
+            action_relabelling=args.action_relabelling
+        ),
+
         task_encoder_checkpoint=args.task_encoder,
         task_encoder_type=args.encoder_type,
         task_encoder_latent_dim=2,
@@ -277,7 +289,24 @@ if __name__ == '__main__':
 
     variant['cnn'] = args.cnn
 
-    if variant['cnn'] == 'medium':
+    if variant['cnn'] == 'small':
+        variant['cnn_params'] = dict(
+            input_width=128,
+            input_height=128,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels = [8, 8, 8],
+            strides=[2, 1, 1],
+            hidden_sizes=[512, 256, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            image_augmentation=True,
+            image_augmentation_padding=8
+        )
+    elif variant['cnn'] == 'medium':
         variant['cnn_params'] = dict(
             input_width=128,
             input_height=128,
@@ -311,6 +340,9 @@ if __name__ == '__main__':
             image_augmentation=True,
             image_augmentation_padding=4,
         )
+
+    if args.stack_frames:
+        variant['cnn_params']['input_channels'] *= 2
     variant['cnn_params']['augmentation_type'] = 'random_crop'#'warp_perspective'
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
@@ -318,6 +350,10 @@ if __name__ == '__main__':
         variant['num_trajs_limit'] = args.num_trajs_limit
     else:
         variant['num_trajs_limit'] = None
+
+
+    '''Configure dataloader params'''
+    configure_dataloader_params(variant)
 
     enable_gpus(args.gpu)
     ptu.set_gpu_mode(True)

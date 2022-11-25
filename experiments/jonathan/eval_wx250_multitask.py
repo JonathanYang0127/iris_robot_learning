@@ -7,6 +7,7 @@ import pickle
 import torch
 import numpy as np
 from PIL import Image
+from datetime import datetime
 
 import rlkit.torch.pytorch_util as ptu
 
@@ -68,12 +69,18 @@ def process_image(image):
         image = image.flatten()
     return image
 
-def process_obs(obs, task, use_robot_state):
+def process_obs(obs, task, use_robot_state, prev_obs=None):
     if use_robot_state:
         observation_keys = ['image', 'desired_pose', 'current_pose','joint_positions', 'joint_velocities', 'task_embedding']
     else:
         observation_keys = ['image', 'task_embedding']
+
+    if prev_obs:
+        observation_keys = ['previous_image'] + observation_keys
+
     obs['image'] = process_image(obs['images'][0]['array'])
+    if prev_obs is not None:
+        obs['previous_image'] = process_image(prev_obs['images'][0]['array'])
     obs['task_embedding'] = task
     return ptu.from_numpy(np.concatenate([obs[k] for k in observation_keys]))
 
@@ -88,6 +95,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--checkpoint-path", type=str, required=True)
     parser.add_argument("-v", "--video-save-dir", type=str, default="")
+    parser.add_argument("-d", "--data-save-dir", type=str, default=None)
     parser.add_argument("-n", "--num-timesteps", type=int, default=15)
     parser.add_argument("--q-value-eval", default=False, action='store_true')
     parser.add_argument("--num-tasks", type=int, default=0)
@@ -98,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument("--use-robot-state", action='store_true', default=False)
     parser.add_argument("--achieved-action-relabelling", action="store_true", default=False)
     parser.add_argument("--robot-model", type=str, choices=('wx250s', 'franka'), default='wx250s')
+    parser.add_argument("--stack-frames", action='store_true', default=False)
     args = parser.parse_args()
 
     assert args.num_tasks != 0 or args.task_embedding
@@ -109,7 +118,7 @@ if __name__ == '__main__':
     if args.robot_model == 'wx250s':
     	env = RobotEnv(robot_model='wx250s', control_hz=20, use_local_cameras=True, camera_types='cv2', blocking=False)
     else:
-        env = RobotEnv('172.16.0.21', use_local_cameras=True)
+        env = RobotEnv('172.16.0.21', use_robot_cameras=True)
     env.reset()
 
     checkpoint_path = args.checkpoint_path
@@ -177,14 +186,34 @@ if __name__ == '__main__':
         print("Eval Traj {}".format(i))
 
 
+        if args.stack_frames:
+            prev_obs = obs
+        if args.data_save_dir is not None:
+            trajectory = []
+
         for j in range(args.num_timesteps):
             obs = env.get_observation()
-            obs_flat = process_obs(obs, task, args.use_robot_state)
+            if args.stack_frames:
+                obs_flat = process_obs(obs, task, args.use_robot_state, prev_obs=prev_obs)
+            else:
+                obs_flat = process_obs(obs, task, args.use_robot_state)
             action, info = eval_policy.get_action(obs_flat)
+
+            if args.data_save_dir is not None:
+                transition = [obs, action]
+            
             if args.achieved_action_relabelling:
                 action = action_postprocessor.postprocess_obs_action(obs, action)
+
+            if args.data_save_dir is not None:
+                transition.append(action)
+                trajectory.append(transition)
+
             action = process_action(action)
             env.step(action)
+
+            if args.stack_frames:
+                prev_obs = obs
 
             if args.video_save_dir:
                 if full_image:
@@ -192,6 +221,14 @@ if __name__ == '__main__':
                 else:
                     image = np.transpose(obs['images'][0]['array'], (1, 2, 0))
                 images.append(Image.fromarray(image))
+
+        #Save Trajectory
+        if args.data_save_dir is not None:
+            now = datetime.now()
+            dt_string = now.strftime("%d-%m-%Y_%H-%M-%S")
+
+            with open(os.path.join(args.data_save_dir, 'traj_{}.pkl'.format(dt_string)), 'wb+') as f:
+                pickle.dump(trajectory, f)
 
         # Save Video
         if args.video_save_dir:

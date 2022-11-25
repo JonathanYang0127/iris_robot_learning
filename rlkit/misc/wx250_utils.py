@@ -3,7 +3,18 @@ import numpy as np
 import random
 import torch
 import rlkit.torch.pytorch_util as ptu
+from scipy.spatial.transform import Rotation as R
 import copy
+
+_STACK_FRAMES = False
+_ACTION_RELABELLING = None
+
+
+def configure_dataloader_params(variant):
+    global _STACK_FRAMES, _ACTION_RELABELLING
+    _STACK_FRAMES = variant['dataloader_params']['stack_frames']
+    _ACTION_RELABELLING = variant['dataloader_params']['action_relabelling']
+
 
 class DummyEnv:
 
@@ -15,6 +26,10 @@ class DummyEnv:
                 np.asarray([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
                 dtype=np.float32)
         self.observation_space = spaces.dict.Dict({
+            "previous_image": spaces.Box(
+                low=np.array([0]*self.image_size*self.image_size*3),
+                high=np.array([255]*self.image_size*self.image_size*3),
+                dtype=np.uint8),
             "image": spaces.Box(
                 low=np.array([0]*self.image_size*self.image_size*3),
                 high=np.array([255]*self.image_size*self.image_size*3),
@@ -42,41 +57,48 @@ class DummyEnv:
         raise NotImplementedError
 
 
-def relabel_data(data):
+def angle_diff(target, source):
+    result = R.from_euler('xyz', target) * R.from_euler('xyz', source).inv()
+    return result.as_euler('xyz')
+
+
+def pose_diff(target, source):
+    diff = np.zeros(len(target))
+    diff[:3] = target[:3] - source[:3]
+    diff[3:6] = angle_diff(target[3:6], source[3:6])
+    diff[6] = target[6] - source[6]
+    return diff
+
+
+def relabel_actions_linear(data):
+    from sklearn import linear_model
+    from sklearn.metrics import mean_squared_error
+    import pickle
+
+    PATH = '/iris/u/jyang27/dev/iris_robots/widowx_scripts/linear_cdp_model.pkl'
+    with open(PATH, 'rb') as f:
+        model = pickle.load(f)
+    for i in range(len(data)):
+        path = data[i]
+        #TODO: Handle edge case when there is no previous observation at the beginning
+        for t in range(1, len(path['observations']) - 1):
+            current_pose = path['observations'][t]['current_pose']
+            next_achieved_pose = path['observations'][t + 1]['current_pose']
+            adp = pose_diff(next_achieved_pose, current_pose).tolist()
+            for k in range(0, 2):
+                adp += copy.deepcopy(path['observations'][t-k]['current_pose']).tolist()
+                adp += copy.deepcopy(path['observations'][t-k]['desired_pose']).tolist()
+                #adp += copy.deepcopy(path['observations'][t-k]['joint_velocities']).tolist()
+            #adp += copy.deepcopy(next_achieved_pose).tolist()
+            adp = np.array(adp)
+            data[i]['actions'][t] = model.predict(adp)
+    return data
+
+
+def relabel_actions_nonlinear(data):
     import torch
     import torch.nn as nn
     checkpoint = '/iris/u/jyang27/dev/iris_robots/widowx_scripts/checkpoints_cdp_normalized/output_99900000.pt'
-    x_mean, x_std = np.array([-1.18264896e-04, -6.12960210e-05, -1.21611653e-04,  1.87867629e-03,
-        5.39370408e-04, -3.54309147e-03, -3.69889551e-03,  2.13250757e-01,
-       -3.63479105e-03,  1.13428987e-01,  6.58944349e-02, -1.45073349e+00,
-       -8.18877650e-02,  7.33097816e-01,  2.03012627e-01,  3.74388412e-03,
-        1.15490606e-01,  3.40435020e-01, -1.35268215e+00,  1.40643964e-01,
-        4.16875775e-01, -6.71489714e-03, -1.70911032e-02,  2.05775884e-02,
-        1.57008383e-03, -2.14300624e-02, -5.31297725e-03,  2.13365561e-01,
-       -3.57174906e-03,  1.13556635e-01,  6.21405608e-02, -1.45127918e+00,
-       -8.38938782e-02,  7.36793169e-01,  2.03269970e-01,  3.71451323e-03,
-        1.15503602e-01,  3.36357247e-01, -1.35370831e+00,  1.38559764e-01,
-        4.11598181e-01, -6.75485685e-03, -1.63784883e-02,  2.06558428e-02,
-        1.54344401e-03, -2.17131104e-02, -5.62433005e-03,  2.13132492e-01,
-       -3.69608707e-03,  1.13307375e-01,  6.77731112e-02, -1.45019412e+00,
-       -8.54308565e-02,  7.29398920e-01]), np.array([1.23669478e-03, 1.48516601e-03, 2.17702979e-03, 4.63521174e-01,
-       4.29992223e-03, 6.21580020e-01, 1.63691752e-02, 4.11308446e-02,
-       7.49869543e-02, 6.17511719e-02, 1.85217339e+00, 7.81366552e-02,
-       1.92467076e+00, 3.41713682e-01, 5.56665760e-02, 8.66267518e-02,
-       8.97607208e-02, 2.23733857e+00, 1.24168990e-01, 1.46854508e+00,
-       4.92372058e-01, 1.11235653e-01, 1.31411771e-01, 8.91964575e-02,
-       7.11472804e-02, 1.54575382e-01, 2.04479587e-01, 4.10605037e-02,
-       7.49626141e-02, 6.18620879e-02, 1.84180877e+00, 7.79690100e-02,
-       1.93640908e+00, 3.40930207e-01, 5.54956107e-02, 8.65781454e-02,
-       8.97131176e-02, 2.23066613e+00, 1.24278704e-01, 1.48389012e+00,
-       4.91418124e-01, 1.10665713e-01, 1.31070933e-01, 8.88201365e-02,
-       7.08571317e-02, 1.54311705e-01, 2.03996488e-01, 4.12024466e-02,
-       7.50107412e-02, 6.16437085e-02, 1.86230982e+00, 7.83045626e-02,
-       1.91304946e+00, 3.42430888e-01])
-    y_mean, y_std = np.array([-0.01049738,  0.00741228,  0.00206169,  0.28555748,  0.09901281,
-        0.2241386 , -0.31105257]), np.array([0.04346715, 0.05537778, 0.08476445, 2.6374713 , 0.1143113 ,
-       2.09822954, 0.82471913])
-
     model = nn.Sequential(
             nn.Linear(54, 512),
             nn.ReLU(),
@@ -90,70 +112,100 @@ def relabel_data(data):
     for i in range(len(data)):
         path = data[i]
         #TODO: Handle edge case when there is no previous observation at the beginning
-        for t in range(1, len(path['observations']) - 1):
+        for t in range(0, len(path['observations']) - 1):
             current_pose = path['observations'][t]['current_pose']
             next_achieved_pose = path['observations'][t + 1]['current_pose']
             adp = (next_achieved_pose - current_pose).tolist()
             for k in range(0, 2):
-                adp += copy.deepcopy(path['observations'][t-k]['current_pose']).tolist()
-                adp += copy.deepcopy(path['observations'][t-k]['desired_pose']).tolist()
-                adp += copy.deepcopy(path['observations'][t-k]['joint_velocities']).tolist()
-            adp += copy.deepcopy(next_achieved_pose).tolist()
+                index = 0 if t - k < 0 else t - k
+                adp += copy.deepcopy(path['observations'][index]['current_pose']).tolist()
+                adp += copy.deepcopy(path['observations'][index]['desired_pose']).tolist()
+                #adp += copy.deepcopy(path['observations'][index]['joint_velocities']).tolist()
+            #adp += copy.deepcopy(next_achieved_pose).tolist()
             adp = np.array(adp)
-            adp = torch.Tensor((adp - x_mean) / x_std).cuda()
-            data[i]['actions'][t] = model(adp).detach().cpu().numpy() * y_std + y_mean
+            adp = torch.Tensor(adp).cuda()
+            data[i]['actions'][t] = model(adp).detach().cpu().numpy()
     return data
 
 
+def relabel_achieved_actions(data):
+    for i in range(len(data)):
+        path = data[i]
+        for t in range(0, len(path['observations']) - 1):
+            current_pose = path['observations'][t]['current_pose']
+            next_achieved_pose = path['observations'][t+1]['current_pose']
+            data[i]['actions'][t] = pose_diff(next_achieved_pose, current_pose)
+    return data
+
+
+def stack_frames(data):
+    image_shape = data[0]['observations'][0]['image'].shape
+    image_type = data[0]['observations'][0]['image'].dtype
+    channel_dim = min(image_shape)
+    assert image_shape[2] == channel_dim     #height, width, channel
+    
+    for i in range(len(data)):
+        pathlength = len(data[i]['observations'])
+        for j in range(pathlength):
+            previous_image = data[i]['observations'][max(0, j - 1)]['image']
+            data[i]['observations'][j]['previous_image'] = previous_image
+            data[i]['next_observations'][j]['previous_image'] = data[i]['observations'][j]['image']
+    return data
+
 def load_data(data_object):
     if isinstance(data_object, str):
-        try:
-            if '.pkl' in data_object:
-                with open(data_object, 'rb') as handle:
-                    data = pickle.load(handle)
-            elif '.npy' in data_object:
-                with open(data_object, 'rb') as handle:
-                    data = np.load(handle, allow_pickle=True)
+        if '.pkl' in data_object:
+            with open(data_object, 'rb') as handle:
+                data = pickle.load(handle)
+        elif '.npy' in data_object:
+            with open(data_object, 'rb') as handle:
+                data = np.load(handle, allow_pickle=True)
 
-            #Create next_observations if it doesn't exist
+        #Create next_observations if it doesn't exist
+        for i in range(len(data)):
+            if 'next_observations' not in data[i].keys():
+                pathlength = len(data[i]['observations'])
+                data[i]['next_observations'] = copy.deepcopy(data[i]['observations'])
+                for j in range(pathlength - 1):
+                    data[i]['next_observations'][j] = copy.deepcopy(data[i]['observations'][j + 1])
+                    
+                #hack that sets next observation of the last timestep to the observation
+                #a better way to handle this might be to delete the last timestep
+                data[i]['next_observations'][pathlength - 1] = \
+                    copy.deepcopy(data[i]['observations'][pathlength - 1])
+
+        # Hack to create transfer rgb data from "images" to "image"
+        if 'image' not in data[0]['observations'][0].keys():
             for i in range(len(data)):
-                if 'next_observations' not in data[i].keys():
-                    pathlength = len(data[i]['observations'])
-                    data[i]['next_observations'] = copy.deepcopy(data[i]['observations'])
-                    for j in range(pathlength - 1):
-                        data[i]['next_observations'][j] = copy.deepcopy(data[i]['observations'][j + 1])
-                    #hack that sets next observation of the last timestep to the observation
-                    #a better way to handle this might be to delete the last timestep
-                    data[i]['next_observations'][pathlength - 1] = \
-                        copy.deepcopy(data[i]['observations'][pathlength - 1])
+                pathlength = len(data[i]['observations'])
+                for j in range(pathlength):
+                    data[i]['observations'][j]['image'] = \
+                        copy.deepcopy(data[i]['observations'][j]['images'][0]['array'])
+                    data[i]['next_observations'][j]['image'] = \
+                        copy.deepcopy(data[i]['next_observations'][j]['images'][0]['array'])
 
-            # Hack to create transfer rgb data from "images" to "image"
-            if 'image' not in data[0]['observations'][0].keys():
-                for i in range(len(data)):
-                    pathlength = len(data[i]['observations'])
-                    for j in range(pathlength):
-                        data[i]['observations'][j]['image'] = \
-                            copy.deepcopy(data[i]['observations'][j]['images'][0]['array'])
-                        data[i]['next_observations'][j]['image'] = \
-                            copy.deepcopy(data[i]['next_observations'][j]['images'][0]['array'])
-
-            #Zero rewards and terminals if it doesn't exist
-            if 'rewards' not in data[0].keys():
-                for i in range(len(data)):
-                    data[i]['rewards'] = np.zeros((len(data[i]['observations']), 1))
-            if 'terminals' not in data[0].keys():
-                for i in range(len(data)):
-                    data[i]['terminals'] = np.zeros((len(data[i]['observations']), 1))
-
-            #Relabel data
-            data = relabel_data(data)
-
-            #Throw away final transitions (for consistent relabelling and next observation generation)
+        #Zero rewards and terminals if it doesn't exist
+        if 'rewards' not in data[0].keys():
             for i in range(len(data)):
-                for k in ['observations', 'next_observations', 'actions', 'rewards', 'terminals']:
-                    np.delete(data[i][k], -1)
-        except:
-            print("Failed to open {}".format(data_object))
+                data[i]['rewards'] = np.zeros((len(data[i]['observations']), 1))
+        if 'terminals' not in data[0].keys():
+            for i in range(len(data)):
+                data[i]['terminals'] = np.zeros((len(data[i]['observations']), 1))
+
+        #Relabel actions
+        if _ACTION_RELABELLING == 'achieved':
+            data = relabel_achieved_actions(data)
+        elif _ACTION_RELABELLING == 'linear':
+            data = relabel_actions_linear(data)
+
+        #Stack frames
+        if _STACK_FRAMES:
+            data = stack_frames(data)
+
+        #Throw away final transitions (for consistent relabelling and next observation generation)
+        for i in range(len(data)): 
+            for k in ['observations', 'next_observations', 'actions', 'rewards', 'terminals']:
+                np.delete(data[i][k], -1)
         return data
     elif isinstance(data_object, list) or isinstance(data_object, np.ndarray):
         return data_object
@@ -162,9 +214,10 @@ def load_data(data_object):
 
 def process_image(image):
     ''' ObsDictReplayBuffer wants flattened (channel, height, width) images float32'''
+    channel_dim = min(image.shape)
     if image.dtype == np.uint8:
         image =  image.astype(np.float32) / 255.0
-    if len(image.shape) == 3 and image.shape[0] != 3 and image.shape[2] == 3:
+    if len(image.shape) == 3 and image.shape[0] != channel_dim and image.shape[2] == channel_dim:
         image = np.transpose(image, (2, 0, 1))
         image = image.flatten()
     return image
@@ -185,9 +238,12 @@ def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=
     if validation_replay_buffer is None:
         for path in paths:
             for i in range(len(path['observations'])):
-                path['observations'][i]['image'] = process_image(path['observations'][i]['image'])
+                path['observations'][i]['image'] = process_image(path['observations'][i]['image']) 
                 path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
-            replay_buffer.add_path(path)
+                if _STACK_FRAMES:
+                    path['observations'][i]['previous_image'] = process_image(path['observations'][i]['previous_image'])
+                    path['next_observations'][i]['previous_image'] = process_image(path['next_observations'][i]['previous_image'])
+            replay_buffer.add_path(path) 
     else:
         num_train = int(validation_fraction*len(paths))
         random.shuffle(paths)
