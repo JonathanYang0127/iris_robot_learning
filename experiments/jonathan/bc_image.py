@@ -47,6 +47,10 @@ def experiment(variant):
         observation_keys = ['image', 'task_embedding']
         state_observation_dim = 0
 
+    if variant['embedding_mode'] == 'None':
+	task_embedding_dim = 0
+	observation_keys = observation_keys[:-1]
+
     if variant['dataloader_params']['stack_frames']:
         observation_keys = ['previous_image'] + observation_keys
 
@@ -199,7 +203,7 @@ if __name__ == '__main__':
     parser.add_argument("--num-trajs-limit", default=0, type=int)
     parser.add_argument("--task-encoder", default="", type=str)
     parser.add_argument("--encoder-type", default='image', choices=('image', 'trajectory'))
-    parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch'), required=True)
+    parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch', 'None'), required=True)
     parser.add_argument("--stack-frames", action="store_true", default=False)
     parser.add_argument("--action-relabelling", type=str, choices=('linear', 'achieved'),
             default=None)
