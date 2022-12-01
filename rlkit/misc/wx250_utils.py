@@ -7,14 +7,18 @@ from scipy.spatial.transform import Rotation as R
 import copy
 
 _STACK_FRAMES = False
+_DOWNSAMPLE_IMAGE = False
+_MIXUP = False
 _ACTION_RELABELLING = None
-
+_ACTION_ALIGNMENT = False
 
 def configure_dataloader_params(variant):
-    global _STACK_FRAMES, _ACTION_RELABELLING
+    global _STACK_FRAMES, _DOWNSAMPLE_IMAGE, _MIXUP, _ACTION_RELABELLING, _ACTION_ALIGNMENT
     _STACK_FRAMES = variant['dataloader_params']['stack_frames']
+    _DOWNSAMPLE_IMAGE = variant['dataloader_params']['downsample_image']
+    _MIXUP = variant['dataloader_params']['mixup']
     _ACTION_RELABELLING = variant['dataloader_params']['action_relabelling']
-
+    _ACTION_ALIGNMENT = variant['dataloader_params']['align_actions']
 
 class DummyEnv:
 
@@ -42,6 +46,8 @@ class DummyEnv:
                                        dtype=np.float64),
             "joint_velocities": spaces.Box(-np.full(6, np.inf), np.full(6, np.inf),
                                           dtype=np.float64),
+            "mixup_distance": spaces.Box(-np.full(7, np.inf), np.full(7, np.inf),
+                                       dtype=np.float64),
         })
         if task_embedding_dim > 0:
             self.observation_space.spaces.update({
@@ -134,7 +140,7 @@ def relabel_achieved_actions(data):
         for t in range(0, len(path['observations']) - 1):
             current_pose = path['observations'][t]['current_pose']
             next_achieved_pose = path['observations'][t+1]['current_pose']
-            data[i]['actions'][t] = pose_diff(next_achieved_pose, current_pose)
+            data[i]['actions'][t] = 100 * pose_diff(next_achieved_pose, current_pose)
     return data
 
 
@@ -192,11 +198,36 @@ def load_data(data_object):
             for i in range(len(data)):
                 data[i]['terminals'] = np.zeros((len(data[i]['observations']), 1))
 
+
+        if _MIXUP:
+            for i in range(len(data)):
+                closed_pose = None
+                for j in range(len(data[i]['actions'])):
+                    if data[i]['actions'][j][6] > 0.5:
+                        closed_pose = data[i]['observations'][j]['current_pose']
+                        break
+
+                for j in range(len(data[i]['actions'])):
+                    data[i]['observations'][j]['mixup_distance'] = \
+                        100 * pose_diff(data[i]['observations'][j]['current_pose'], closed_pose)
+                    data[i]['next_observations'][j]['mixup_distance'] = \
+                        100 * pose_diff(data[i]['next_observations'][j]['current_pose'], closed_pose)
+
         #Relabel actions
         if _ACTION_RELABELLING == 'achieved':
             data = relabel_achieved_actions(data)
         elif _ACTION_RELABELLING == 'linear':
             data = relabel_actions_linear(data)
+
+        #Align actions
+        if _ACTION_ALIGNMENT:
+            for i in range(len(data)):
+                pathlength = len(data[i]['observations'])
+                for j in range(pathlength):
+                    if 'franka' in data_object:
+                        data[i]['actions'][j][3] *= -1
+                        data[i]['actions'][j][4] *= -1
+                        data[i]['actions'][j][5] *= -1
 
         #Stack frames
         if _STACK_FRAMES:
@@ -215,12 +246,16 @@ def load_data(data_object):
 def process_image(image):
     ''' ObsDictReplayBuffer wants flattened (channel, height, width) images float32'''
     channel_dim = min(image.shape)
+    image_size = max(image.shape)
     if image.dtype == np.uint8:
         image =  image.astype(np.float32) / 255.0
     if len(image.shape) == 3 and image.shape[0] != channel_dim and image.shape[2] == channel_dim:
         image = np.transpose(image, (2, 0, 1))
-        image = image.flatten()
-    return image
+    if _DOWNSAMPLE_IMAGE and image_size != 64:
+        #TODO: try cv2 resizing
+        image = image[:,::2, ::2]
+    
+    return image.flatten()
 
 def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=None,
                        validation_fraction=0.8, num_trajs_limit=None):

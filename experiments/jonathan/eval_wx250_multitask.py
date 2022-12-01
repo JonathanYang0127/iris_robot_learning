@@ -36,9 +36,9 @@ class max_q_policy:
         self.policy.eval()
 
 class DeltaPoseToCommand:
-    def __init__(self, init_obs):
+    def __init__(self, init_obs, normalize=False):
         self._previous_obs = init_obs
-        self._obs = obs
+        self._obs = init_obs
         
         from sklearn import linear_model
         from sklearn.metrics import mean_squared_error
@@ -47,7 +47,16 @@ class DeltaPoseToCommand:
         self.model_path = '/iris/u/jyang27/dev/iris_robots/widowx_scripts/linear_cdp_model.pkl'
         with open(self.model_path, 'rb') as f:
             self.model = pickle.load(f)
-        
+
+        if normalize:
+            self.normalization_path = '/iris/u/jyang27/dev/iris_robots/widowx_scripts/action_normalization_mean.pkl' 
+            with open(self.normalization_path, 'rb') as f:
+                self.x_mean, self.x_std, self.y_mean, self.y_std = pickle.load(f)  
+        else:
+            x_mean, x_std = np.mean(x_train, axis=0), np.std(x_train, axis=0)
+            y_mean, y_std = np.mean(y_train, axis=0), np.std(y_train, axis=0)
+    
+ 
     def postprocess_obs_action(self, obs, action):
         self._previous_obs = self._obs
         self._obs = obs
@@ -57,19 +66,20 @@ class DeltaPoseToCommand:
         adp += self._previous_obs['current_pose'].tolist()
         adp += self._previous_obs['desired_pose'].tolist()
         adp = np.array(adp).reshape(1, -1)
-        return self.model.predict(adp)[0]
+        return self.model.predict((adp - self.x_mean)/self.x_std)[0]*self.y_std + self.y_mean
 
 
-def process_image(image):
+def process_image(image, downsample=False):
     ''' ObsDictReplayBuffer wants flattened (channel, height, width) images float32'''
     if image.dtype == np.uint8:
         image =  image.astype(np.float32) / 255.0
     if len(image.shape) == 3 and image.shape[0] != 3 and image.shape[2] == 3:
         image = np.transpose(image, (2, 0, 1))
-        image = image.flatten()
-    return image
+    if downsample:
+        image = image[:,::2, ::2]
+    return image.flatten()
 
-def process_obs(obs, task, use_robot_state, prev_obs=None):
+def process_obs(obs, task, use_robot_state, prev_obs=None, downsample=False):
     if use_robot_state:
         observation_keys = ['image', 'desired_pose', 'current_pose','joint_positions', 'joint_velocities', 'task_embedding']
     else:
@@ -78,9 +88,12 @@ def process_obs(obs, task, use_robot_state, prev_obs=None):
     if prev_obs:
         observation_keys = ['previous_image'] + observation_keys
 
-    obs['image'] = process_image(obs['images'][0]['array'])
+    if task is None:
+        observation_keys = observation_keys[:-1]
+
+    obs['image'] = process_image(obs['images'][0]['array'], downsample=downsample)
     if prev_obs is not None:
-        obs['previous_image'] = process_image(prev_obs['images'][0]['array'])
+        obs['previous_image'] = process_image(prev_obs['images'][0]['array'], downsample=downsample)
     obs['task_embedding'] = task
     return ptu.from_numpy(np.concatenate([obs[k] for k in observation_keys]))
 
@@ -105,11 +118,12 @@ if __name__ == '__main__':
     parser.add_argument("--use-checkpoint-encoder", action='store_true', default=False)
     parser.add_argument("--use-robot-state", action='store_true', default=False)
     parser.add_argument("--achieved-action-relabelling", action="store_true", default=False)
+    parser.add_argument("--normalize-relabelling", action="store_true", default=False)
     parser.add_argument("--robot-model", type=str, choices=('wx250s', 'franka'), default='wx250s')
     parser.add_argument("--stack-frames", action='store_true', default=False)
+    parser.add_argument("--downsample-image", action='store_true', default=False)
     args = parser.parse_args()
 
-    assert args.num_tasks != 0 or args.task_embedding
     if not os.path.exists(args.video_save_dir) and args.video_save_dir:
         os.mkdir(args.video_save_dir)
 
@@ -138,6 +152,11 @@ if __name__ == '__main__':
             eval_policy = pickle.load(handle)
 
     eval_policy.eval()
+    eval_policy.color_jitter = False    
+    try:
+        norm =  eval_policy.feature_norm 
+    except:
+        eval_policy.feature_norm = False
 
     if args.task_encoder:
         from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet
@@ -149,20 +168,23 @@ if __name__ == '__main__':
     for i in range(num_trajs):
         obs = env.reset()
         if args.achieved_action_relabelling:
-            action_postprocessor = DeltaPoseToCommand(obs)
+            action_postprocessor = DeltaPoseToCommand(obs, normalize=args.normalize_relabelling)
 
         images = []
 
         if not args.task_embedding:
-            valid_task_idx = False
-            while not valid_task_idx:
-                task_idx = "None"
-                while not task_idx.isnumeric():
-                    task_idx = input("Enter task idx to continue...")
-                task_idx = int(task_idx)
-                valid_task_idx = task_idx in list(range(args.num_tasks))
-            task = np.array([0] * args.num_tasks)
-            task[task_idx] = 1
+            if args.num_tasks != 0:
+                valid_task_idx = False
+                while not valid_task_idx:
+                    task_idx = "None"
+                    while not task_idx.isnumeric():
+                        task_idx = input("Enter task idx to continue...")
+                    task_idx = int(task_idx)
+                    valid_task_idx = task_idx in list(range(args.num_tasks))
+                task = np.array([0] * args.num_tasks)
+                task[task_idx] = 1
+            else:
+                task = None
         else:
             if args.task_encoder or args.use_checkpoint_encoder:
                 if args.sample_trajectory is None:
@@ -194,9 +216,11 @@ if __name__ == '__main__':
         for j in range(args.num_timesteps):
             obs = env.get_observation()
             if args.stack_frames:
-                obs_flat = process_obs(obs, task, args.use_robot_state, prev_obs=prev_obs)
+                obs_flat = process_obs(obs, task, args.use_robot_state, prev_obs=prev_obs,
+                        downsample=args.downsample_image)
             else:
-                obs_flat = process_obs(obs, task, args.use_robot_state)
+                obs_flat = process_obs(obs, task, args.use_robot_state,
+                            downsample=args.downsample_image)
             action, info = eval_policy.get_action(obs_flat)
 
             if args.data_save_dir is not None:
@@ -216,10 +240,7 @@ if __name__ == '__main__':
                 prev_obs = obs
 
             if args.video_save_dir:
-                if full_image:
-                    image = obs['full_image']
-                else:
-                    image = np.transpose(obs['images'][0]['array'], (1, 2, 0))
+                image = obs['images'][0]['array']
                 images.append(Image.fromarray(image))
 
         #Save Trajectory

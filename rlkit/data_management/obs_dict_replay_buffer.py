@@ -235,7 +235,49 @@ class ObsDictReplayBuffer(ReplayBuffer):
             'indices': np.array(indices).reshape(-1, 1),
         }
         return batch
+   
+    def get_mixup_transition(self, distance):
+        sample_weight = np.zeros(self._size)
+        for j in range(self._size):
+            d2 = self._obs['mixup_distance'][j]
+            sample_weight[j] = np.exp(np.linalg.norm(distance - d2))
+        sample_weight /= np.sum(sample_weight)
+        mixup_idx = np.random.choice(np.arange(self._size), p=sample_weight)
+        transition = {
+            'observations':np.concatenate([self._obs[k][mixup_idx] for k
+                in self.observation_keys]),
+            'actions': self._actions[mixup_idx],
+        }
+        return transition
+        
+    def get_mixup_batch(self, batch):
+        obs = np.zeros(batch['observations'].shape)
+        next_obs = np.zeros(batch['next_observations'].shape)
+        actions = np.zeros(batch['actions'].shape)
+        rewards = np.zeros(batch['rewards'].shape)
+        terminals = np.zeros(batch['rewards'].shape)
 
+        for i, index in enumerate(batch['indices']):
+            d1 = self._obs['mixup_distance'][index]
+            sample_weight = []
+            for j in range(self._size):
+                d2 = self._obs['mixup_distance'][j]
+                sample_weight.append(np.linalg.norm(d1 - d2))
+            mixup_idx = np.random.choice(np.arange(self._size), p=sample_weight)
+            obs[i] = np.concatenate([self._obs[k][mixup_index] for k 
+                in self.observation_keys])
+            actions[i] = self._actions[mixup_index]
+        
+        batch = {
+            'observations': obs,
+            'actions': actions,
+            'rewards': rewards,
+            'terminals': terminals,
+            'next_observations': next_obs,
+            'indices': np.array(indices).reshape(-1, 1),
+        }
+        return batch
+ 
     def random_trajectory(self, batch_size):
         """
         Be careful that the buffer hasn't wrapped around before calling this function.

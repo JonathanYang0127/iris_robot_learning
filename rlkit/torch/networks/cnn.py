@@ -3,6 +3,7 @@ import torch
 from torch import nn as nn
 from kornia.geometry.transform import (warp_affine, warp_perspective,
     get_rotation_matrix2d, get_perspective_transform)
+from torchvision.transforms import ColorJitter
 
 from rlkit.policies.base import Policy
 from rlkit.pythonplusplus import identity
@@ -44,6 +45,8 @@ class CNN(nn.Module):
             image_augmentation=False,
             image_augmentation_padding=4,
             augmentation_type='random_crop',
+            feature_norm=False,
+            color_jitter=False,
             fc_dropout=0.0,
             fc_dropout_length=0,
     ):
@@ -81,6 +84,15 @@ class CNN(nn.Module):
         self.fc_dropout_length = fc_dropout_length
         self.hidden_sizes = hidden_sizes
         self.init_w = init_w
+        self.feature_norm = feature_norm
+        self.color_jitter = color_jitter
+        if self.color_jitter:
+            assert self.input_channels == 3
+            self.color_jitter_transform = ColorJitter(
+                    brightness=(0.5,1.5), 
+                    contrast=(1), 
+                    saturation=(0.5,1.5), 
+                    hue=(-0.1,0.1))
 
         self.conv_layers = nn.ModuleList()
         self.conv_norm_layers = nn.ModuleList()
@@ -185,17 +197,23 @@ class CNN(nn.Module):
         conv_input = input.narrow(start=0,
                                   length=self.conv_input_length,
                                   dim=1).contiguous()
-        # reshape from batch of flattened images into (channels, h, w)
+        # reshape from batch of flattened images into (batch, channels, h, w)
         h = conv_input.view(conv_input.shape[0],
                             self.input_channels,
                             self.input_height,
                             self.input_width)
+
+        if self.color_jitter:
+            h = self.color_jitter_transform(h)
 
         if h.shape[0] > 1 and self.image_augmentation:
             # h.shape[0] > 1 ensures we apply this only during training
             h = self.augmentation_transform(h)
 
         h = self.apply_forward_conv(h)
+        
+        if self.feature_norm:
+            h = h / (torch.norm(h, dim=(1, 2, 3), keepdim=True).detach())
 
         if self.output_conv_channels:
             return h

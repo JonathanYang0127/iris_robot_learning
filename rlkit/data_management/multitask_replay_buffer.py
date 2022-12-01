@@ -73,12 +73,22 @@ class MultiTaskReplayBuffer(ReplayBuffer):
     def terminate_episode(self, task):
         self.task_buffers[task].terminate_episode()
 
-    def random_batch(self, task, batch_size, sequence=False):
+    def random_batch(self, task, batch_size, sequence=False, mixup=False):
         if sequence:
             batch = self.task_buffers[task].random_sequence(batch_size)
         else:
             try:
                 batch = self.task_buffers[task].random_batch(batch_size)
+                if mixup:
+                    obs = np.zeros(batch['observations'].shape)
+                    actions = np.zeros(batch['actions'].shape)
+                    for i, idx in enumerate(batch['indices']):
+                        distance = self.task_buffers[task]._obs['mixup_distance'][idx]
+                        mixup_task_idx = np.random.choice(self.task_indices)
+                        transition = self.task_buffers[mixup_task_idx].get_mixup_transition(distance)
+                        lmda = np.random.uniform()
+                        batch['observations'][i] = lmda * batch['observations'][i] + (1 - lmda) * transition['observations']
+                        batch['actions'][i] = lmda * batch['actions'][i] + (1 - lmda) * transition['actions'] 
             except KeyError:
                 import ipdb; ipdb.set_trace()
                 print(task)
@@ -109,7 +119,7 @@ class MultiTaskReplayBuffer(ReplayBuffer):
         for buffer in self.task_buffers.values():
             buffer.clear()
 
-    def sample_batch(self, indices, batch_size):
+    def sample_batch(self, indices, batch_size, mixup=False):
         """
         sample batch of training data from a list of tasks for training the
         actor-critic.
@@ -122,7 +132,7 @@ class MultiTaskReplayBuffer(ReplayBuffer):
         # this batch consists of transitions sampled randomly from replay buffer
         # rewards are always dense
         # batches = [np_to_pytorch_batch(self.replay_buffer.random_batch(idx, batch_size=self.batch_size)) for idx in indices]
-        batches = [self.random_batch(idx, batch_size=batch_size) for idx in indices]
+        batches = [self.random_batch(idx, batch_size=batch_size, mixup=mixup) for idx in indices]
         unpacked = [self.unpack_batch(batch) for batch in batches]
         # group like elements together
         unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
@@ -223,6 +233,7 @@ class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):
             use_next_obs_in_context,
             sparse_rewards,
             observation_keys,
+            internal_keys=None,
             path_len=None,
             use_ground_truth_context=False,
             ground_truth_tasks=None,
@@ -257,6 +268,7 @@ class ObsDictMultiTaskReplayBuffer(MultiTaskReplayBuffer):
             env,
             path_len=path_len,
             observation_keys=observation_keys,
+            internal_keys=internal_keys,
             # env_info_sizes=env_info_sizes,
         )) for idx in task_indices])
 

@@ -103,6 +103,8 @@ class AWACTrainer(TorchTrainer):
 
             meta_batch_size=4,
             train_tasks=[],
+
+            mixup=False,
             **kwargs
     ):
         super().__init__()
@@ -247,6 +249,8 @@ class AWACTrainer(TorchTrainer):
         self.meta_batch_size = meta_batch_size
         self.train_tasks = train_tasks
 
+        self.mixup = mixup
+
     def get_batch_from_buffer(self, replay_buffer, batch_size):
         batch = replay_buffer.random_batch(batch_size)
         batch = np_to_pytorch_batch(batch)
@@ -257,6 +261,7 @@ class AWACTrainer(TorchTrainer):
         batch = replay_buffer.sample_batch(
             task_indices,
             batch_size,
+            mixup=self.mixup,
         )
         batch = np_to_pytorch_batch(batch)
         t, b, _ = batch['observations'].size()

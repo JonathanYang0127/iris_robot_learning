@@ -28,7 +28,7 @@ from rlkit.launchers.config import LOCAL_LOG_DIR
 
 
 def experiment(variant):
-    image_size = 128
+    image_size = variant['image_size']
     if variant['task_encoder_checkpoint'] == '':
         task_embedding_dim = len(variant['buffers'])
     else:
@@ -48,8 +48,8 @@ def experiment(variant):
         state_observation_dim = 0
 
     if variant['embedding_mode'] == 'None':
-	task_embedding_dim = 0
-	observation_keys = observation_keys[:-1]
+        task_embedding_dim = 0
+        observation_keys = observation_keys[:-1]
 
     if variant['dataloader_params']['stack_frames']:
         observation_keys = ['previous_image'] + observation_keys
@@ -106,14 +106,20 @@ def experiment(variant):
     else:
         task_encoder = None
 
-    replay_buffer = ObsDictMultiTaskReplayBuffer(
-        int(1E6),
-        expl_env,
-        np.arange(num_tasks),
+    buffer_kwargs = dict(
         use_next_obs_in_context=variant['use_next_obs_in_context'],
         sparse_rewards=False,
         observation_keys=observation_keys
     )
+    if variant['trainer_kwargs']['mixup']:
+        buffer_kwargs['internal_keys'] = ['mixup_distance']
+    replay_buffer = ObsDictMultiTaskReplayBuffer(
+        int(1E6),
+        expl_env,
+        np.arange(num_tasks),
+        **buffer_kwargs,
+    )
+    
     buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
     add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
             task_encoder=task_encoder, embedding_mode=variant['embedding_mode'],
@@ -205,11 +211,16 @@ if __name__ == '__main__':
     parser.add_argument("--encoder-type", default='image', choices=('image', 'trajectory'))
     parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch', 'None'), required=True)
     parser.add_argument("--stack-frames", action="store_true", default=False)
+    parser.add_argument("--downsample-image", action="store_true", default=False)
     parser.add_argument("--action-relabelling", type=str, choices=('linear', 'achieved'),
             default=None)
+    parser.add_argument("--align-actions", action="store_true", default=False)
+    parser.add_argument("--feature-norm", action="store_true", default=False)
+    parser.add_argument("--color-jitter", action="store_true", default=False)
+    parser.add_argument("--mixup", action="store_true", default=False)
     args = parser.parse_args()
 
-    assert (args.embedding_mode == 'one-hot') ^ (args.task_encoder != "")
+    assert (args.embedding_mode == 'one-hot' or args.embedding_mode == 'None') ^ (args.task_encoder != "")
 
     alg = 'BC' if args.use_bc else 'AWAC-Pixel'
     print(args.buffers)
@@ -275,11 +286,16 @@ if __name__ == '__main__':
 
             awr_use_mle_for_vf=True,
             clip_score=args.clip_score,
+
+            mixup=args.mixup,
         ),
 
         dataloader_params=dict(
             stack_frames=args.stack_frames,
-            action_relabelling=args.action_relabelling
+            action_relabelling=args.action_relabelling,
+            downsample_image=args.downsample_image,
+            align_actions=args.align_actions,
+            mixup=args.mixup
         ),
 
         task_encoder_checkpoint=args.task_encoder,
@@ -292,11 +308,14 @@ if __name__ == '__main__':
     )
 
     variant['cnn'] = args.cnn
+    variant['image_size'] = 128
+    if args.downsample_image:
+        variant['image_size'] = 64
 
     if variant['cnn'] == 'small':
         variant['cnn_params'] = dict(
-            input_width=128,
-            input_height=128,
+            input_width=variant['image_size'],
+            input_height=variant['image_size'],
             input_channels=3,
             kernel_sizes=[3, 3, 3],
             n_channels = [8, 8, 8],
@@ -308,12 +327,12 @@ if __name__ == '__main__':
             pool_strides=[2, 2, 1],
             pool_paddings=[0, 0, 0],
             image_augmentation=True,
-            image_augmentation_padding=8
+            image_augmentation_padding=4
         )
     elif variant['cnn'] == 'medium':
         variant['cnn_params'] = dict(
-            input_width=128,
-            input_height=128,
+            input_width=variant['image_size'],
+            input_height=variant['image_size'],
             input_channels=3,
             kernel_sizes=[3, 3, 3],
             n_channels=[16, 16, 16],
@@ -348,6 +367,8 @@ if __name__ == '__main__':
     if args.stack_frames:
         variant['cnn_params']['input_channels'] *= 2
     variant['cnn_params']['augmentation_type'] = 'random_crop'#'warp_perspective'
+    variant['cnn_params']['feature_norm'] = args.feature_norm
+    variant['cnn_params']['color_jitter'] = args.color_jitter
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:
