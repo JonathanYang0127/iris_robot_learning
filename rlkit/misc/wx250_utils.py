@@ -167,6 +167,16 @@ def load_data(data_object):
             with open(data_object, 'rb') as handle:
                 data = np.load(handle, allow_pickle=True)
 
+        #Align actions
+        if _ACTION_ALIGNMENT:
+            for i in range(len(data)):
+                pathlength = len(data[i]['observations'])
+                for j in range(pathlength):
+                    if 'franka' in data_object:
+                        data[i]['actions'][j][3:6] *= -1
+                        data[i]['observations'][j]['current_pose'][3:6] *= -1
+                        data[i]['observations'][j]['desired_pose'][3:6] *= -1
+
         #Create next_observations if it doesn't exist
         for i in range(len(data)):
             if 'next_observations' not in data[i].keys():
@@ -218,17 +228,7 @@ def load_data(data_object):
             data = relabel_achieved_actions(data)
         elif _ACTION_RELABELLING == 'linear':
             data = relabel_actions_linear(data)
-
-        #Align actions
-        if _ACTION_ALIGNMENT:
-            for i in range(len(data)):
-                pathlength = len(data[i]['observations'])
-                for j in range(pathlength):
-                    if 'franka' in data_object:
-                        data[i]['actions'][j][3] *= -1
-                        data[i]['actions'][j][4] *= -1
-                        data[i]['actions'][j][5] *= -1
-
+        
         #Stack frames
         if _STACK_FRAMES:
             data = stack_frames(data)
