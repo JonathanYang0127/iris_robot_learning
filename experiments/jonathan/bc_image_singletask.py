@@ -33,7 +33,7 @@ def experiment(variant):
         task_embedding_dim = len(variant['buffers'])
     else:
         task_embedding_dim = variant['task_encoder_latent_dim']
-    num_tasks = len(variant['buffers'])
+    num_tasks = 1 #len(variant['buffers'])
     eval_env = DummyEnv(image_size=image_size, task_embedding_dim=task_embedding_dim)
     expl_env = eval_env
     print(eval_env.observation_space.spaces)
@@ -111,18 +111,22 @@ def experiment(variant):
         sparse_rewards=False,
         observation_keys=observation_keys
     )
-    
+    if variant['trainer_kwargs']['mixup']:
+        buffer_kwargs['internal_keys'] = ['mixup_distance']
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         int(1E6),
         expl_env,
-        np.arange(num_tasks),
+        np.arange(1),
         **buffer_kwargs,
     )
     
-    buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
+    buffer_params = {0: b for b in variant['buffers']}
     add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
             task_encoder=task_encoder, embedding_mode=variant['embedding_mode'],
             encoder_type=variant['task_encoder_type'])
+
+    if variant['trainer_kwargs']['mixup']:
+        replay_buffer.task_buffers[0].precompute_mixup_probs()
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
@@ -139,7 +143,7 @@ def experiment(variant):
         buffer_policy=buffer_policy,
         multitask=True,
         meta_batch_size=variant['meta_batch_size'],
-        train_tasks=np.arange(num_tasks),
+        train_tasks=np.arange(1),
         **variant['trainer_kwargs']
     )
 
@@ -165,8 +169,8 @@ def experiment(variant):
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
         multi_task=True,
-        train_tasks=np.arange(num_tasks),
-        eval_tasks=np.arange(num_tasks),
+        train_tasks=np.arange(1),
+        eval_tasks=np.arange(1),
         meta_batch_size=variant['meta_batch_size'],
         num_epochs=variant['num_epochs'],
         num_eval_steps_per_epoch=variant['num_eval_steps_per_epoch'],
@@ -216,9 +220,10 @@ if __name__ == '__main__':
     parser.add_argument("--align-actions", action="store_true", default=False)
     parser.add_argument("--feature-norm", action="store_true", default=False)
     parser.add_argument("--color-jitter", action="store_true", default=False)
+    parser.add_argument("--mixup", action="store_true", default=False)
     args = parser.parse_args()
 
-    assert (args.embedding_mode == 'one-hot' or args.embedding_mode == 'None') ^ (args.task_encoder != "")
+    assert args.embedding_mode == 'None'
 
     alg = 'BC' if args.use_bc else 'AWAC-Pixel'
     print(args.buffers)
@@ -285,7 +290,7 @@ if __name__ == '__main__':
             awr_use_mle_for_vf=True,
             clip_score=args.clip_score,
 
-            mixup=False,
+            mixup=args.mixup,
         ),
 
         dataloader_params=dict(
@@ -293,7 +298,7 @@ if __name__ == '__main__':
             action_relabelling=args.action_relabelling,
             downsample_image=args.downsample_image,
             align_actions=args.align_actions,
-            mixup=False
+            mixup=args.mixup
         ),
 
         task_encoder_checkpoint=args.task_encoder,

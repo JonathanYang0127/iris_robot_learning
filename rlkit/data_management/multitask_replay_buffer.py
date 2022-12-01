@@ -8,7 +8,7 @@ from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
 from gym.spaces import Box, Discrete, Tuple
 from collections import OrderedDict
-
+from rlkit.misc.numba_util import *
 
 class MultiTaskReplayBuffer(ReplayBuffer):
     def __init__(
@@ -80,15 +80,9 @@ class MultiTaskReplayBuffer(ReplayBuffer):
             try:
                 batch = self.task_buffers[task].random_batch(batch_size)
                 if mixup:
-                    obs = np.zeros(batch['observations'].shape)
-                    actions = np.zeros(batch['actions'].shape)
-                    for i, idx in enumerate(batch['indices']):
-                        distance = self.task_buffers[task]._obs['mixup_distance'][idx]
-                        mixup_task_idx = np.random.choice(self.task_indices)
-                        transition = self.task_buffers[mixup_task_idx].get_mixup_transition(distance)
-                        lmda = np.random.uniform()
-                        batch['observations'][i] = lmda * batch['observations'][i] + (1 - lmda) * transition['observations']
-                        batch['actions'][i] = lmda * batch['actions'][i] + (1 - lmda) * transition['actions'] 
+                    mixup_batch = self.task_buffers[task].get_mixup_batch(batch)
+                    batch['observations'], batch['actions'] = generate_mixup_nb(batch_size, batch['observations'], 
+                        batch['actions'], mixup_batch['observations'], mixup_batch['actions']) 
             except KeyError:
                 import ipdb; ipdb.set_trace()
                 print(task)

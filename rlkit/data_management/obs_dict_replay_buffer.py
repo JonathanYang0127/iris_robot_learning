@@ -1,10 +1,13 @@
 import logging
 import numpy as np
+from numba import jit
 from gym.spaces import Dict, Discrete
 
 from rlkit.data_management.replay_buffer import ReplayBuffer
 import rlkit.data_management.images as image_np
 from rlkit.torch import pytorch_util as ptu
+from rlkit.misc.numba_util import *
+
 
 class ObsDictReplayBuffer(ReplayBuffer):
     """
@@ -103,6 +106,8 @@ class ObsDictReplayBuffer(ReplayBuffer):
         self._size = 0
 
         self._idx_to_future_obs_idx = np.ones((max_size, 2), dtype=np.int)
+        self._mixup_probs = None
+        self.mixup_mode = 'uniform'
 
         if isinstance(self.env.action_space, Discrete):
             raise NotImplementedError("TODO")
@@ -201,13 +206,13 @@ class ObsDictReplayBuffer(ReplayBuffer):
             # indices = np.where(biased_coin_flip, indices_1, indices_2)
         else:
             if self.bias_point is not None:
-                indices_1 = np.random.choice(np.arange(self.bias_point), batch_size)
-                indices_2 = np.random.choice(np.arange(self.bias_point, self._size), batch_size)
+                indices_1 = rand_choice_nb(arange_nb(self.bias_point), batch_size)
+                indices_2 = rand_choice_nb(arange_nb(self._size, start=self.bias_point), batch_size)
                 biased_coin_flip = (np.random.uniform(size=batch_size) <
                                     self.before_bias_point_probability)
                 indices = np.where(biased_coin_flip, indices_1, indices_2)
             else:
-                indices = np.random.randint(0, self._size, batch_size)
+                indices = rand_choice_nb(arange_nb(self._size), size=batch_size)
         return indices
 
     def random_batch(self, batch_size, biased_sampling=False):
@@ -221,10 +226,10 @@ class ObsDictReplayBuffer(ReplayBuffer):
             # obs = tuple(self._obs[k][indices] for k in self.observation_keys)
             # next_obs = tuple(self._next_obs[k][indices]
             #                  for k in self.observation_keys)
-            obs = np.concatenate([self._obs[k][indices] for k in
-                                  self.observation_keys], axis=1)
-            next_obs = np.concatenate([self._next_obs[k][indices] for k
-                                       in self.observation_keys], axis=1)
+            obs = concatenate_nb(tuple(self._obs[k][indices] for k in
+                                  self.observation_keys), axis=1)
+            next_obs = concatenate_nb(tuple(self._next_obs[k][indices] for k
+                                       in self.observation_keys), axis=1)
         terminals = self._terminals[indices]
         batch = {
             'observations': obs,
@@ -235,48 +240,48 @@ class ObsDictReplayBuffer(ReplayBuffer):
             'indices': np.array(indices).reshape(-1, 1),
         }
         return batch
-   
-    def get_mixup_transition(self, distance):
-        sample_weight = np.zeros(self._size)
-        for j in range(self._size):
-            d2 = self._obs['mixup_distance'][j]
-            sample_weight[j] = np.exp(np.linalg.norm(distance - d2))
-        sample_weight /= np.sum(sample_weight)
-        mixup_idx = np.random.choice(np.arange(self._size), p=sample_weight)
+  
+    def precompute_mixup_probs(self):
+        import scipy
+        md = self._obs['mixup_distance'][:self._size]
+        #self._mixup_probs = np.ones((self._size, self._size))
+        self._mixup_probs = scipy.spatial.distance_matrix(md, md)
+        self._mixup_probs /= np.sum(self._mixup_probs, axis=1, keepdims=True)
+
+    def get_mixup_transition(self, distance, index):
+        if self._mixup_probs is None:
+            if self.mixup_mode != 'uniform':
+                sample_weight = np.zeros(self._size)
+                for j in range(self._size):
+                    d2 = self._obs['mixup_distance'][j]
+                    sample_weight[j] = np.exp(np.linalg.norm(distance - d2))
+                sample_weight /= np.sum(sample_weight)
+                mixup_idx = np.random.choice(np.arange(self._size), p=sample_weight)
+            else:
+                mixup_idx = np.random.choice(np.arange(self._size))
+        else:
+            mixup_idx = rand_choice_prob_nb(np.arange(self._size), self._mixup_probs[index][0])
         transition = {
-            'observations':np.concatenate([self._obs[k][mixup_idx] for k
-                in self.observation_keys]),
+            'observations':concatenate_nb(tuple(self._obs[k][mixup_idx] for k
+                in self.observation_keys)),
             'actions': self._actions[mixup_idx],
         }
         return transition
         
     def get_mixup_batch(self, batch):
-        obs = np.zeros(batch['observations'].shape)
-        next_obs = np.zeros(batch['next_observations'].shape)
-        actions = np.zeros(batch['actions'].shape)
-        rewards = np.zeros(batch['rewards'].shape)
-        terminals = np.zeros(batch['rewards'].shape)
+        obs = np.empty(batch['observations'].shape)
+        actions = np.empty(batch['actions'].shape)
 
         for i, index in enumerate(batch['indices']):
-            d1 = self._obs['mixup_distance'][index]
-            sample_weight = []
-            for j in range(self._size):
-                d2 = self._obs['mixup_distance'][j]
-                sample_weight.append(np.linalg.norm(d1 - d2))
-            mixup_idx = np.random.choice(np.arange(self._size), p=sample_weight)
-            obs[i] = np.concatenate([self._obs[k][mixup_index] for k 
-                in self.observation_keys])
-            actions[i] = self._actions[mixup_index]
-        
-        batch = {
+            mixup_idx = rand_choice_prob_nb(np.arange(self._size), self._mixup_probs[index][0])
+            obs[i] = concatenate_nb(tuple(self._obs[k][mixup_idx] for k 
+                in self.observation_keys))
+            actions[i] = self._actions[mixup_idx]
+
+        return {
             'observations': obs,
             'actions': actions,
-            'rewards': rewards,
-            'terminals': terminals,
-            'next_observations': next_obs,
-            'indices': np.array(indices).reshape(-1, 1),
         }
-        return batch
  
     def random_trajectory(self, batch_size):
         """
