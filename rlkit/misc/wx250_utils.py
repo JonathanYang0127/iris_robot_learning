@@ -11,6 +11,7 @@ _DOWNSAMPLE_IMAGE = False
 _MIXUP = False
 _ACTION_RELABELLING = None
 _ACTION_ALIGNMENT = False
+_CONTINUOUS_TO_BLOCKING = False
 
 def configure_dataloader_params(variant):
     global _STACK_FRAMES, _DOWNSAMPLE_IMAGE, _MIXUP, _ACTION_RELABELLING, _ACTION_ALIGNMENT
@@ -19,6 +20,7 @@ def configure_dataloader_params(variant):
     _MIXUP = variant['dataloader_params']['mixup']
     _ACTION_RELABELLING = variant['dataloader_params']['action_relabelling']
     _ACTION_ALIGNMENT = variant['dataloader_params']['align_actions']
+    _CONTINUOUS_TO_BLOCKING = variant['dataloader_params']['continuous_to_blocking']
 
 class DummyEnv:
 
@@ -68,11 +70,12 @@ def angle_diff(target, source):
     return result.as_euler('xyz')
 
 
-def pose_diff(target, source):
+def pose_diff(target, source, robot_type=None):
     diff = np.zeros(len(target))
     diff[:3] = target[:3] - source[:3]
     diff[3:6] = angle_diff(target[3:6], source[3:6])
     diff[6] = target[6] - source[6]
+
     return diff
 
 
@@ -140,7 +143,51 @@ def relabel_achieved_actions(data):
         for t in range(0, len(path['observations']) - 1):
             current_pose = path['observations'][t]['current_pose']
             next_achieved_pose = path['observations'][t+1]['current_pose']
-            data[i]['actions'][t] = 100 * pose_diff(next_achieved_pose, current_pose)
+            data[i]['actions'][t] = pose_diff(next_achieved_pose, current_pose)
+    return data
+
+
+
+def _limit_velocity(self, lin_vel, rot_vel, robot_type):
+    """Scales down the linear and angular magnitudes of the action"""
+
+    hz = 20
+    if robot_type == 'wx250':
+        max_lin_vel = 1.5
+        max_rot_vel = 6.0
+    elif robot_type == 'franka':
+        max_lin_vel = 1.0
+        max_rot_vel = 2.0
+
+    lin_vel_norm = np.linalg.norm(lin_vel)
+    rot_vel_norm = np.linalg.norm(rot_vel)
+
+    if lin_vel_norm > 1: lin_vel = lin_vel / lin_vel_norm
+    if rot_vel_norm > 1: rot_vel = rot_vel / rot_vel_norm
+
+    lin_vel = lin_vel * max_lin_vel / hz
+    rot_vel = rot_vel * max_rot_vel / hz
+
+    return lin_vel, rot_vel
+
+
+def relabel_cdp_actions(data, robot_type):
+    for i in range(len(data)):
+        path = data[i]
+        for t in range(0, len(path['observations']) - 1):
+            current_pose = path['observations'][t]['current_pose']
+            next_desired_pose = path['observations'][t+1]['desired_pose']
+            action = path['actions'][t]
+
+            pos_action, angle_action, gripper = action[:3], action[3:6], action[-1]
+            lin_vel, rot_vel = limit_velocity(pos_action, angle_action, robot_type)
+            cdp = np.concatenate((lin_vel, rot_vel, [action[6]]))
+            
+            data[i]['actions'][t] = cdp
+            if robot_type == 'wx250':
+                data[i]['actions'][t][6] = (data[i]['actions'][t][6] - 0.010) / 0.025
+            elif robot_type == 'franka':
+                data[i]['actions'][t][6] += 1.0
     return data
 
 
@@ -160,6 +207,11 @@ def stack_frames(data):
 
 def load_data(data_object):
     if isinstance(data_object, str):
+        if 'franka' in data_object:
+            robot_type = 'franka'
+        elif 'wx250' in data_object:
+            robot_type = 'wx250'
+
         if '.pkl' in data_object:
             with open(data_object, 'rb') as handle:
                 data = pickle.load(handle)
@@ -167,12 +219,13 @@ def load_data(data_object):
             with open(data_object, 'rb') as handle:
                 data = np.load(handle, allow_pickle=True)
 
+
         #Align actions
         if _ACTION_ALIGNMENT:
             for i in range(len(data)):
                 pathlength = len(data[i]['observations'])
                 for j in range(pathlength):
-                    if 'franka' in data_object:
+                    if robot_type == 'franka':
                         data[i]['actions'][j][3:6] *= -1
                         data[i]['observations'][j]['current_pose'][3:6] *= -1
                         data[i]['observations'][j]['desired_pose'][3:6] *= -1
@@ -212,20 +265,38 @@ def load_data(data_object):
         if _MIXUP:
             for i in range(len(data)):
                 closed_pose = None
+                closed_index = -1
                 for j in range(len(data[i]['actions'])):
                     if data[i]['actions'][j][6] > 0.5:
                         closed_pose = data[i]['observations'][j]['current_pose']
+                        closed_index = j
                         break
 
                 for j in range(len(data[i]['actions'])):
-                    data[i]['observations'][j]['mixup_distance'] = \
-                        100 * pose_diff(data[i]['observations'][j]['current_pose'], closed_pose)
-                    data[i]['next_observations'][j]['mixup_distance'] = \
-                        100 * pose_diff(data[i]['next_observations'][j]['current_pose'], closed_pose)
+                    diff1 = pose_diff(data[i]['observations'][j]['current_pose'], closed_pose,
+                            robot_type)
+                    diff2 = pose_diff(data[i]['next_observations'][j]['current_pose'], closed_pose,
+                            robot_type)
+                    if j < closed_index:
+                        diff1[6] = 0
+                        diff2[6] = 0
+                    else:
+                        diff1[6] = 5
+                        diff2[6] = 5   
+                    data[i]['observations'][j]['mixup_distance'] = diff1
+                    data[i]['next_observations'][j]['mixup_distance'] = diff2
+
+        #If continuous to blocking, only use 1/20 timesteps
+        if _CONTINUOUS_TO_BLOCKING:
+            for i in range(len(data)):
+                for k in data[i].keys():
+                    data[i][k] = data[i][k][::20]
 
         #Relabel actions
-        if _ACTION_RELABELLING == 'achieved':
+        if _ACTION_RELABELLING == 'achieved' or _CONTINUOUS_TO_BLOCKING:
             data = relabel_achieved_actions(data)
+        elif _ACTION_RELABELLING == 'cdp':
+            data = relabel_cdp_actions(data, robot_type)
         elif _ACTION_RELABELLING == 'linear':
             data = relabel_actions_linear(data)
         
@@ -240,6 +311,7 @@ def load_data(data_object):
         return data
     elif isinstance(data_object, list) or isinstance(data_object, np.ndarray):
         return data_object
+        diff[6] *= 5
     else:
         raise NotImplementedError
 
@@ -258,7 +330,7 @@ def process_image(image):
     return image.flatten()
 
 def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=None,
-                       validation_fraction=0.8, num_trajs_limit=None):
+                       validation_fraction=0.2, num_trajs_limit=None):
     assert validation_fraction >= 0.0
     assert validation_fraction < 1.0
 
@@ -270,32 +342,29 @@ def add_data_to_buffer_real_robot(data, replay_buffer, validation_replay_buffer=
         random.shuffle(paths)
         paths = paths[:num_trajs_limit]
 
-    if validation_replay_buffer is None:
-        for path in paths:
-            for i in range(len(path['observations'])):
-                path['observations'][i]['image'] = process_image(path['observations'][i]['image']) 
-                path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
-                if _STACK_FRAMES:
-                    path['observations'][i]['previous_image'] = process_image(path['observations'][i]['previous_image'])
-                    path['next_observations'][i]['previous_image'] = process_image(path['next_observations'][i]['previous_image'])
-            replay_buffer.add_path(path) 
-    else:
-        num_train = int(validation_fraction*len(paths))
-        random.shuffle(paths)
-        train_paths = paths[:num_train]
-        val_paths = paths[:num_train]
+    num_val = int(validation_fraction * len(paths))
+    val_idxs = np.random.permutation(int(len(paths)))[:num_val]
 
-        for path in train_paths:
+    for path_idx, path in enumerate(paths):
+        for i in range(len(path['observations'])):
+            path['observations'][i]['image'] = process_image(path['observations'][i]['image']) 
+            path['next_observations'][i]['image'] = process_image(path['next_observations'][i]['image'])
+            if _STACK_FRAMES:
+                path['observations'][i]['previous_image'] = process_image(path['observations'][i]['previous_image'])
+                path['next_observations'][i]['previous_image'] = process_image(path['next_observations'][i]['previous_image'])
+        
+        if validation_replay_buffer is None or path_idx not in val_idxs:
             replay_buffer.add_path(path)
-
-        for path in val_paths:
+        else:
             validation_replay_buffer.add_path(path)
-
+    
     print("replay_buffer._size", replay_buffer._size)
+    if validation_replay_buffer is not None:
+        print("validation_buffer._size", validation_replay_buffer._size)
 
 # TODO: Add validation buffers
 def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer, task_encoder=None, embedding_mode='single',
-        encoder_type='image', num_tasks=None):
+        encoder_type='image', num_tasks=None, validation_replay_buffer=None, validation_fraction=0.2):
 
     assert isinstance(data_paths, dict)
     # assert 'task_embedding' in replay_buffer.observation_keys
@@ -333,6 +402,7 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
         encoder_batch = sample_func(data_paths.keys(), 100)
         z, mu, logvar = task_encoder.forward(ptu.from_numpy(encoder_batch['observations']))
         mu = torch.mean(mu.view(len(data_paths.keys()), 100, -1), dim=1)
+
     for task_idx, data_path in data_paths.items():
         paths = load_data(data_path)
         for path in paths:
@@ -357,19 +427,23 @@ def add_multitask_data_to_singletask_buffer_real_robot(data_paths, replay_buffer
                     pass
                 else:
                     raise NotImplementedError
+		
+        add_data_to_buffer_real_robot(paths, replay_buffer, 
+			validation_replay_buffer=validation_replay_buffer, validation_fraction=validation_fraction)
 
-        add_data_to_buffer_real_robot(paths, replay_buffer)
-
-def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_replay_buffer, task_encoder=None, embedding_mode='None',
-        encoder_type='image', num_tasks=None):
+def add_multitask_data_to_multitask_buffer_real_robot(data_paths, multitask_replay_buffer, 
+		multitask_validation_buffer=None, task_encoder=None, embedding_mode='None',
+        encoder_type='image', num_tasks=None, validation_fraction=0.2):
 
     assert isinstance(data_paths, dict)
 
     if num_tasks is None:
         num_tasks = len(data_paths.keys())
     for task, data_path in data_paths.items():
+        validation_buffer = None if multitask_validation_buffer is None else multitask_validation_buffer.task_buffers[task]
         add_multitask_data_to_singletask_buffer_real_robot({task: data_path}, multitask_replay_buffer.task_buffers[task],
-            task_encoder=task_encoder, embedding_mode=embedding_mode, encoder_type=encoder_type, num_tasks=num_tasks)
+        	validation_replay_buffer=validation_buffer, validation_fraction=validation_fraction, 
+			task_encoder=task_encoder, embedding_mode=embedding_mode, encoder_type=encoder_type, num_tasks=num_tasks)
 
 def add_reward_filtered_data_to_buffers_multitask(data_paths, observation_keys, *args):
     for arg in args:

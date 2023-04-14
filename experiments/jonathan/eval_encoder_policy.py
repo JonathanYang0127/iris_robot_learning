@@ -1,7 +1,7 @@
 from rlkit.envs.wrappers.normalized_box_env import NormalizedBoxEnv
 from iris_robots.robot_env import RobotEnv
 from iris_robots.transformations import add_angles, angle_diff, pose_diff
-
+from rlkit.torch.task_encoders.encoder_decoder_nets import TransformerEncoderDecoderNet
 
 import argparse
 import os
@@ -119,11 +119,11 @@ def process_image(image, downsample=False):
         image = image[:,::2, ::2]
     return image.flatten()
 
-def process_obs(obs, task, use_robot_state, prev_obs=None, downsample=False):
+def process_obs(obs, use_robot_state, prev_obs=None, downsample=False):
     if use_robot_state:
-        observation_keys = ['image', 'desired_pose', 'current_pose', 'task_embedding']
+        observation_keys = ['image', 'desired_pose', 'current_pose']
     else:
-        observation_keys = ['image', 'task_embedding']
+        observation_keys = ['image']
 
     if prev_obs:
         observation_keys = ['previous_image'] + observation_keys
@@ -131,10 +131,9 @@ def process_obs(obs, task, use_robot_state, prev_obs=None, downsample=False):
     if task is None:
         observation_keys = observation_keys[:-1]
 
-    obs['image'] = process_image(obs['images'][-1]['array'], downsample=downsample)
+    obs['image'] = process_image(obs['images'][0]['array'], downsample=downsample)
     if prev_obs is not None:
-        obs['previous_image'] = process_image(prev_obs['images'][-1]['array'], downsample=downsample)
-    obs['task_embedding'] = task
+        obs['previous_image'] = process_image(prev_obs['images'][0]['array'], downsample=downsample)
     return ptu.from_numpy(np.concatenate([obs[k] for k in observation_keys]))
 
 def process_action(action):
@@ -153,7 +152,6 @@ if __name__ == '__main__':
     parser.add_argument("--q-value-eval", default=False, action='store_true')
     parser.add_argument("--num-tasks", type=int, default=0)
     parser.add_argument("--task-embedding", default=False, action="store_true")
-    parser.add_argument("--task-encoder", default=None)
     parser.add_argument("--sample-trajectory", type=str, default=None)
     parser.add_argument("--use-checkpoint-encoder", action='store_true', default=False)
     parser.add_argument("--use-robot-state", action='store_true', default=False)
@@ -163,7 +161,6 @@ if __name__ == '__main__':
     parser.add_argument("--stack-frames", action='store_true', default=False)
     parser.add_argument("--downsample-image", action='store_true', default=False)
     parser.add_argument("--multi-head-idx", type=int, default=-1)
-    parser.add_argument("--blocking", action="store_true", default=False)
     args = parser.parse_args()
 
     if not os.path.exists(args.video_save_dir) and args.video_save_dir:
@@ -172,9 +169,9 @@ if __name__ == '__main__':
     ptu.set_gpu_mode(True)
 
     if args.robot_model == 'wx250s':
-    	env = RobotEnv(robot_model='wx250s', control_hz=20, use_local_cameras=True, camera_types='cv2', blocking=args.blocking)
+    	env = RobotEnv(robot_model='wx250s', control_hz=20, use_local_cameras=True, camera_types='cv2', blocking=False)
     else:
-        env = RobotEnv('172.16.0.21', use_robot_cameras=True, reverse_image=True)
+        env = RobotEnv('172.16.0.21', use_robot_cameras=True)
     obs = env.reset()
 
     if args.action_relabelling == 'achieved':
@@ -184,31 +181,20 @@ if __name__ == '__main__':
     _, ext = os.path.splitext(args.checkpoint_path)
 
     with open(args.checkpoint_path, 'rb') as handle:
-        if ext == ".pt":
-            params = torch.load(handle)
-            if args.q_value_eval:
-                eval_policy = max_q_policy(params['trainer/qf1'], params['trainer/policy'])
-            else:
-                eval_policy = params['evaluation/policy']
-            if args.use_checkpoint_encoder:
-                task_encoder = params['trainer/task_encoder']
-                task_encoder.to(ptu.device)
-        elif ext == ".pkl":
-            eval_policy = pickle.load(handle)
-
+        params = torch.load(handle)
+        from rlkit.torch.task_encoders.encoder_decoder_nets import TransformerEncoderDecoderNet
+        
+        net = TransformerEncoderDecoderNet(64, 2, 110,
+            image_augmentation=False,
+            encoder_keys=['observations'],
+            decoder_output_dim=7,
+            decoder_type='small'
+        )
+        net.load_state_dict(params)
+        eval_policy = net.decoder_net.cuda()
+        
     eval_policy.eval()
-    eval_policy.color_jitter = False    
-    try:
-        norm =  eval_policy.feature_norm 
-    except:
-        eval_policy.feature_norm = False
 
-    if args.task_encoder:
-        from rlkit.torch.task_encoders.encoder_decoder_nets import EncoderDecoderNet
-        net = EncoderDecoderNet(64, 2, encoder_resnet=False)
-        net.load_state_dict(torch.load(args.task_encoder))
-        net.to(ptu.device)
-        task_encoder = net.encoder_net
 
     for i in range(num_trajs):
         obs = env.reset()
@@ -216,41 +202,8 @@ if __name__ == '__main__':
             action_postprocessor.set_init_obs(obs)
 
         images = []
-
-        if not args.task_embedding:
-            if args.num_tasks != 0:
-                valid_task_idx = False
-                while not valid_task_idx:
-                    task_idx = "None"
-                    while not task_idx.isnumeric():
-                        task_idx = input("Enter task idx to continue...")
-                    task_idx = int(task_idx)
-                    valid_task_idx = task_idx in list(range(args.num_tasks))
-                task = np.array([0] * args.num_tasks)
-                task[task_idx] = 1
-            else:
-                task = None
-        else:
-            if args.task_encoder or args.use_checkpoint_encoder:
-                if args.sample_trajectory is None:
-                    env.move_to_state([-0.11982477,  0.2200,  0.07], 0, duration=1)
-                    input("Press enter to take image")
-                    obs = ptu.from_numpy(env.get_observation()['image'].reshape(1, 1, -1))
-                else:
-                    with open(args.sample_trajectory, 'rb') as f:
-                        path = pickle.load(f)
-                    obs = ptu.from_numpy(path['observations'][-1]['image'].reshape(1, 1, -1))
-                task = ptu.get_numpy(task_encoder(obs[0]))
-                task = task.reshape(-1)
-                print("task: ", task)
-                input("Press enter to continue")
-                obs = env.reset()
-            else:
-                task = "None"
-                while not isinstance(eval(task), list):
-                    task = input("Enter task embedding to continue...")
-                task = np.array(eval(task))
-        print("Eval Traj {}".format(i))
+        task = np.array([[0, 0]])
+        task = ptu.from_numpy(task)
 
 
         if args.stack_frames:
@@ -261,16 +214,17 @@ if __name__ == '__main__':
         for j in range(args.num_timesteps):
             obs = env.get_observation()
             if args.stack_frames:
-                obs_flat = process_obs(obs, task, args.use_robot_state, prev_obs=prev_obs,
+                obs_flat = process_obs(obs, args.use_robot_state, prev_obs=prev_obs,
                         downsample=args.downsample_image)
             else:
-                obs_flat = process_obs(obs, task, args.use_robot_state,
+                obs_flat = process_obs(obs, args.use_robot_state,
                             downsample=args.downsample_image)
             if args.multi_head_idx != -1:
-                dist = eval_policy(obs_flat.view(1, -1))[args.multi_head_idx]
-                action = dist.rsample()[0].detach().cpu().numpy()
+                dist = eval_policy(task, obs_flat.view(1, -1))[args.multi_head_idx]
+                action = dist
+                #action = dist.rsample()[0].detach().cpu().numpy()
             else:
-                action, info = eval_policy.get_action(obs_flat)
+                action = eval_policy(task, obs_flat.view(1, -1)).detach().cpu().numpy()[0]
 
             if args.data_save_dir is not None:
                 transition = [obs, action]

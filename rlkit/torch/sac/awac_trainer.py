@@ -51,7 +51,7 @@ class AWACTrainer(TorchTrainer):
             bc_num_pretrain_steps=0,
             q_num_pretrain1_steps=0,
             q_num_pretrain2_steps=0,
-            bc_batch_size=64,
+            pretrain_batch_size=64,
             alpha=1.0,
 
             policy_update_period=1,
@@ -199,7 +199,7 @@ class AWACTrainer(TorchTrainer):
         self.bc_num_pretrain_steps = bc_num_pretrain_steps
         self.q_num_pretrain1_steps = q_num_pretrain1_steps
         self.q_num_pretrain2_steps = q_num_pretrain2_steps
-        self.bc_batch_size = bc_batch_size
+        self.pretrain_batch_size = pretrain_batch_size
         self.rl_weight = rl_weight
         self.bc_weight = bc_weight
         self.eval_policy = MakeDeterministic(self.policy)
@@ -264,6 +264,9 @@ class AWACTrainer(TorchTrainer):
             mixup=self.mixup,
         )
         batch = np_to_pytorch_batch(batch)
+        return self.convert_multitask_batch_to_singletask(batch)
+
+    def convert_multitask_batch_to_singletask(self, batch):
         t, b, _ = batch['observations'].size()
         batch['observations'] = batch['observations'].view(t * b, -1)
         batch['actions'] = batch['actions'].view(t * b, -1)
@@ -272,11 +275,38 @@ class AWACTrainer(TorchTrainer):
         batch['terminals'] = batch['terminals'].view(t * b, 1)
         return batch
 
+    def run_bc_multi_head_batch(self, replay_buffer, policy):
+        batches = [np_to_pytorch_batch(replay_buffer.task_buffers[i].random_batch(self.pretrain_batch_size // len(self.train_tasks)))
+             for i in self.train_tasks]
+        
+        mse_loss, policy_loss, logp_loss = 0, 0, 0
+        for i, batch in enumerate(batches):
+            o = batch["observations"]
+            u = batch["actions"]
+            # g = batch["resampled_goals"]
+            # og = torch.cat((o, g), dim=1)
+            og = o
+            # pred_u, *_ = self.policy(og)
+            dist = policy(og)[i]
+            pred_u, _ = dist.rsample_and_logprob()
+            stats = dist.get_diagnostics()
+
+            mse = (pred_u - u) ** 2
+            mse_loss += mse.mean()
+
+            policy_logpp = dist.log_prob(u, )
+            logp_loss += -policy_logpp.mean()
+        
+        policy_loss = logp_loss
+
+        return policy_loss, logp_loss, mse_loss, stats
+
+
     def run_bc_batch(self, replay_buffer, policy):
         if self.multitask:
-            batch = self.get_multitask_batch_from_buffer(replay_buffer, self.bc_batch_size)
+            batch = self.get_multitask_batch_from_buffer(replay_buffer, self.pretrain_batch_size)
         else:
-            batch = self.get_batch_from_buffer(replay_buffer, self.bc_batch_size)
+            batch = self.get_batch_from_buffer(replay_buffer, self.pretrain_batch_size)
         o = batch["observations"]
         u = batch["actions"]
         # g = batch["resampled_goals"]
@@ -296,7 +326,165 @@ class AWACTrainer(TorchTrainer):
 
         return policy_loss, logp_loss, mse_loss, stats
 
-    def pretrain_policy_with_bc(self, policy, train_buffer, steps, test_buffer=None, label="policy", ):
+
+    def run_contrastive_triplet_batch(self, replay_buffer, policy):
+        assert self.multitask and len(self.train_tasks) == 1 and self.train_tasks[0] == 0
+        #Use multitask buffer, one task
+
+        anchor_batch, positive_batch, negative_batch = \
+            replay_buffer.random_anchor_positive_and_negative_batches(0, self.pretrain_batch_size)
+
+        validation_anchor, validation_positive, validation_negative = \
+            replay_buffer.random_anchor_positive_and_negative_batches(0, 20)
+
+        ao, po, no = ptu.from_numpy(anchor_batch["observations"]), \
+            ptu.from_numpy(positive_batch["observations"]), ptu.from_numpy(negative_batch["observations"])
+
+        av, pv, nv = ptu.from_numpy(validation_anchor["observations"]), \
+            ptu.from_numpy(validation_positive["observations"]), ptu.from_numpy(validation_negative["observations"])
+        '''       
+        import pdb; pdb.set_trace()
+        ao_test = ao.cpu().numpy()
+        po_test = po.cpu().numpy()
+        no_test = no.cpu().numpy()
+        import matplotlib.pyplot as plt
+        for i in range(20):
+            index = np.random.randint(256)
+            fig, ax = plt.subplots(1,3)
+            ax[0].imshow(ao_test[index].reshape(3, 64, 64).transpose(1, 2, 0))
+            ax[1].imshow(po_test[index].reshape(3, 64, 64).transpose(1, 2, 0))
+            ax[2].imshow(no_test[index].reshape(3, 64, 64).transpose(1, 2, 0))
+            plt.savefig('images/out{}.png'.format(i))
+            plt.close(fig)
+        import pdb; pdb.set_trace()
+        '''
+
+        dist, anchor_embeddings = policy(ao, intermediate_output_layer=self.intermediate_output_layer)
+        stats = dist.get_diagnostics()
+
+        _, positive_embeddings = policy(po, intermediate_output_layer=self.intermediate_output_layer)
+        _, negative_embeddings = policy(no, intermediate_output_layer=self.intermediate_output_layer)
+
+
+        _, anchor_val_embed = policy(av, intermediate_output_layer=self.intermediate_output_layer)
+        _, positive_val_embed = policy(pv, intermediate_output_layer=self.intermediate_output_layer)
+        _, negative_val_embed = policy(nv, intermediate_output_layer=self.intermediate_output_layer)
+
+        loss_func = torch.nn.TripletMarginLoss(margin=1.0, p=2)
+        loss = loss_func(anchor_embeddings, positive_embeddings, negative_embeddings)
+        validation_loss = loss_func(anchor_val_embed, positive_val_embed, negative_val_embed)
+        
+        return loss, validation_loss, stats
+
+        
+    def run_contrastive_metric_batch(self, replay_buffer, policy):
+        assert self.multitask and len(self.train_tasks) == 1 and self.train_tasks[0] == 0
+
+        anchor_batch, positive_batch, negative_batch = \
+            replay_buffer.random_anchor_positive_and_negative_batches(0, self.pretrain_batch_size)
+
+        ao, po, no = ptu.from_numpy(anchor_batch["observations"]), \
+            ptu.from_numpy(positive_batch["observations"]), ptu.from_numpy(negative_batch["observations"])
+
+        dist, anchor_embeddings = policy(ao, intermediate_output_layer=self.intermediate_output_layer)
+        stats = dist.get_diagnostics()
+        _, positive_embeddings = policy(po, intermediate_output_layer=self.intermediate_output_layer)
+        _, negative_embeddings = policy(no, intermediate_output_layer=self.intermediate_output_layer)
+
+        #Get distance metric 
+        anchor_distances = replay_buffer.task_buffers[0].get_mixup_distance(anchor_batch['indices'])
+        positive_distances = replay_buffer.task_buffers[0].get_mixup_distance(positive_batch['indices'])
+        negative_distances = replay_buffer.task_buffers[0].get_mixup_distance(negative_batch['indices'])
+
+        positive_distances = np.linalg.norm((anchor_distances - positive_distances), axis=-1)
+        negative_distances = np.linalg.norm((anchor_distances - negative_distances), axis=-1)
+        positive_distances = ptu.from_numpy(positive_distances)
+        negative_distances = ptu.from_numpy(negative_distances)
+
+        positive_embedding_distances = torch.linalg.norm(anchor_embeddings - positive_embeddings, dim=-1)
+        negative_embedding_distances = torch.linalg.norm(anchor_embeddings - negative_embeddings, dim=-1)
+
+        loss = ((positive_distances - positive_embedding_distances)**2).mean()
+        loss += ((negative_distances - negative_embedding_distances)**2).mean()
+        return loss, stats
+
+    
+    def run_contrastive_bc_batch(self, replay_buffer, policy):
+        assert self.multitask and len(self.train_tasks) == 1 and self.train_tasks[0] == 0
+
+        anchor_batch = replay_buffer.random_batch(0, self.pretrain_batch_size)
+        contrastive_batch = replay_buffer.random_batch(0, self.pretrain_batch_size)
+
+        ao, do = ptu.from_numpy(anchor_batch["observations"]), ptu.from_numpy(contrastive_batch["observations"])
+        actions = ptu.from_numpy(anchor_batch["actions"])
+        pred_dist, anchor_embeddings = policy.forward(ao, intermediate_output_layer=self.intermediate_output_layer)
+        stats = pred_dist.get_diagnostics()
+
+        _, contrastive_embeddings = policy.forward(do, intermediate_output_layer=self.intermediate_output_layer)
+
+        #Get distance metric
+        anchor_distances = replay_buffer.task_buffers[0].get_mixup_distance(anchor_batch['indices'])
+        contrastive_distances = replay_buffer.task_buffers[0].get_mixup_distance(contrastive_batch['indices'])
+        metric_distances = np.linalg.norm((anchor_distances - contrastive_distances), axis=-1)
+        metric_distances = ptu.from_numpy(metric_distances)
+
+        embedding_distances = (contrastive_embeddings - anchor_embeddings)
+        embedding_distances = torch.linalg.norm(embedding_distances, dim=-1)
+
+        contrastive_loss = ((embedding_distances - metric_distances)**2).mean()
+
+        pred_actions, _ = pred_dist.rsample_and_logprob()
+        bc_loss = (pred_actions - actions)**2
+        bc_loss = bc_loss.mean()
+
+        loss = bc_loss + contrastive_loss
+        return contrastive_loss, bc_loss, loss, stats
+        
+ 
+    def pretrain_contrastive(self, policy, train_buffer, steps, mode='metric', intermediate_output_layer=1):
+        self.intermediate_output_layer = intermediate_output_layer
+        optimizer = self.optimizers[policy]
+        prev_time = time.time()
+        for i in range(steps):
+            if mode == 'triplet':
+                train_loss, validation_loss, train_stats = self.run_contrastive_triplet_batch(train_buffer, policy)
+            elif mode == 'metric':
+                train_loss, train_stats = self.run_contrastive_metric_batch(train_buffer, policy)
+            elif mode == 'bc':
+                train_contrastive_loss, train_bc_loss, train_loss, train_stats = \
+                    self.run_contrastive_bc_batch(train_buffer, policy)            
+
+            optimizer.zero_grad()
+            train_loss.backward()
+            optimizer.step()
+
+            if i % self.pretraining_logging_period == 0:
+                stats = {
+                    "pretrain_contrastive/batch": i,
+                    "pretrain_contrastive/Train Loss": ptu.get_numpy(train_loss),
+                    "pretrain_contrastive/epoch_time": time.time() - prev_time,
+                }
+                if mode == 'bc':
+                    stats.update({
+                        "pretrain_contrastive/Train Contrastive Loss": ptu.get_numpy(train_contrastive_loss),
+                        "pretrain_contrastive/Train BC Loss": ptu.get_numpy(train_bc_loss),
+                    })
+                if mode == 'triplet':
+                    stats.update({
+                        "pretrain_contrastive/Validation Loss": ptu.get_numpy(validation_loss),
+                    })
+
+                logger.record_dict(stats)
+                logger.dump_tabular(with_prefix=True, with_timestamp=False)
+                prev_time = time.time()
+
+            if i % self.pretraining_dump_period == 0:
+                checkpoint_save_path = logger.get_snapshot_dir() + '/itr_{}.pt'.format(i // 1000)
+                snapshot = {"evaluation/policy": self.policy}
+                torch.save(snapshot, checkpoint_save_path)
+
+
+    def pretrain_policy_with_bc(self, policy, train_buffer, steps, test_buffer=None, label="policy", multi_head=False):
         logger.remove_tabular_output(
             'progress.csv', relative_to_snapshot_dir=True,
         )
@@ -307,7 +495,11 @@ class AWACTrainer(TorchTrainer):
         optimizer = self.optimizers[policy]
         prev_time = time.time()
         for i in range(steps):
-            train_policy_loss, train_logp_loss, train_mse_loss, train_stats = self.run_bc_batch(train_buffer, policy)
+            if not multi_head:
+                train_policy_loss, train_logp_loss, train_mse_loss, train_stats = self.run_bc_batch(train_buffer, policy)
+            else:
+                train_policy_loss, train_logp_loss, train_mse_loss, train_stats = self.run_bc_multi_head_batch(train_buffer, policy)
+
             train_policy_loss = train_policy_loss * self.bc_weight
 
             optimizer.zero_grad()
@@ -315,7 +507,11 @@ class AWACTrainer(TorchTrainer):
             optimizer.step()
 
             if test_buffer is not None:
-                test_policy_loss, test_logp_loss, test_mse_loss, test_stats = self.run_bc_batch(test_buffer, policy)
+                if not multi_head:
+                    test_policy_loss, test_logp_loss, test_mse_loss, test_stats = self.run_bc_batch(test_buffer, policy)
+                else:
+                    train_policy_loss, train_logp_loss, train_mse_loss, train_stats = self.run_bc_multi_head_batch(train_buffer, policy)
+
                 test_policy_loss = test_policy_loss * self.bc_weight
 
             if i % self.pretraining_logging_period==0:
@@ -366,7 +562,7 @@ class AWACTrainer(TorchTrainer):
         for i in range(self.q_num_pretrain1_steps):
             self.eval_statistics = dict()
 
-            train_data = replay_buffer.random_batch(self.bc_batch_size)
+            train_data = replay_buffer.random_batch(self.pretrain_batch_size)
             train_data = np_to_pytorch_batch(train_data)
             obs = train_data['observations']
             next_obs = train_data['next_observations']
@@ -386,7 +582,7 @@ class AWACTrainer(TorchTrainer):
             self.eval_statistics = dict()
             if i % self.pretraining_logging_period == 0:
                 self._need_to_update_eval_statistics=True
-            train_data = replay_buffer.random_batch(self.bc_batch_size)
+            train_data = replay_buffer.random_batch(self.pretrain_batch_size)
             train_data = np_to_pytorch_batch(train_data)
             obs = train_data['observations']
             next_obs = train_data['next_observations']
@@ -931,7 +1127,7 @@ class AWACTrainer(TorchTrainer):
                 })
 
             if self.validation_qlearning:
-                train_data = self.replay_buffer.validation_replay_buffer.random_batch(self.bc_batch_size)
+                train_data = self.replay_buffer.validation_replay_buffer.random_batch(self.pretrain_batch_size)
                 train_data = np_to_pytorch_batch(train_data)
                 obs = train_data['observations']
                 next_obs = train_data['next_observations']

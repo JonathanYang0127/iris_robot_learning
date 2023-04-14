@@ -88,6 +88,23 @@ class MultiTaskReplayBuffer(ReplayBuffer):
                 print(task)
         return batch
 
+    def random_anchor_and_positive_batches(self, task, batch_size):
+        anchor_batch = self.task_buffers[task].random_batch(batch_size)
+        positive_task = np.random.choice(self.task_indices)
+        positive_batch = self.task_buffers[positive_task].get_mixup_batch(anchor_batch)
+        
+        return anchor_batch, positive_batch 
+   
+    def random_anchor_positive_and_negative_batches(self, task, batch_size):
+        anchor_batch = self.task_buffers[task].random_batch(batch_size)
+        positive_task = np.random.choice(self.task_indices)
+        negative_task = np.random.choice(self.task_indices)
+        positive_batch = self.task_buffers[positive_task].get_mixup_batch(anchor_batch)
+        negative_batch = self.task_buffers[negative_task].get_negative_batch(anchor_batch)
+
+        return anchor_batch, positive_batch, negative_batch
+
+
     def random_trajectory(self, task, batch_size):
         return self.task_buffers[task].random_trajectory(batch_size)
 
@@ -156,7 +173,7 @@ class MultiTaskReplayBuffer(ReplayBuffer):
         unpacked = [[x[i] for x in unpacked] for i in range(len(unpacked[0]))]
         unpacked = [np.concatenate(x, axis=0) for x in unpacked]
 
-        obs, actions, rewards, next_obs, terms = unpacked
+        obs, actions, rewards, next_obs, terms = unpacked 
         return {
             'observations': obs,
             'actions': actions,

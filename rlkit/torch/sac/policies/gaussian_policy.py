@@ -240,8 +240,12 @@ class GaussianCNNPolicy(CNN, TorchStochasticPolicy):
             self.log_std = np.log(std)
             assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
 
-    def forward(self, obs):
-        h = super().forward(obs, return_last_activations=True)
+    def forward(self, obs, intermediate_output_layer=-1):
+        if intermediate_output_layer == -1:
+            h = super().forward(obs, return_last_activations=True)
+        else:
+            h, intermediate_output = super().forward(obs, return_last_activations=True, 
+                intermediate_output_layer=intermediate_output_layer)
         preactivation = self.last_fc(h)
         mean = self.output_activation(preactivation)
         if self.std is None:
@@ -258,7 +262,122 @@ class GaussianCNNPolicy(CNN, TorchStochasticPolicy):
             std = torch.from_numpy(np.array([self.std, ])).float().to(
                 ptu.device)
 
-        return MultivariateDiagonalNormal(mean, std)
+        if intermediate_output_layer == -1:
+            return MultivariateDiagonalNormal(mean, std)
+        else:
+            return MultivariateDiagonalNormal(mean, std), intermediate_output
+
+
+class GaussianCNNMultiHeadPolicy(CNN, TorchStochasticPolicy):
+    def __init__(
+            self,
+            hidden_sizes,
+            obs_dim,
+            action_dim,
+            std=None,
+            init_w=1e-3,
+            min_log_std=None,
+            max_log_std=None,
+            std_architecture="shared",
+            num_heads=2,
+            head_layers=[256, 256, 256],
+            **kwargs
+    ):
+        super().__init__(
+            hidden_sizes=hidden_sizes,
+            output_size=action_dim,
+            init_w=init_w,
+            output_activation=torch.tanh,
+            **kwargs
+        )
+        self.num_heads = num_heads
+        self.min_log_std = min_log_std
+        self.max_log_std = max_log_std
+        self.log_std = [None for i in range(num_heads)]
+        self.std = [std for i in range(num_heads)]
+        self.std_architecture = std_architecture
+        
+        fc_dim = self.last_fc_input_dim
+        self.heads = nn.ModuleList([])
+        self.activations = nn.ModuleList([])
+        self.head_input_activation = nn.ReLU()
+        for i in range(num_heads):
+            head = nn.ModuleList([]) 
+            activation = nn.ModuleList([])       
+            for j in range(len(head_layers)):
+                head.append(nn.Linear(fc_dim, head_layers[j]).cuda())
+                fc_dim = head_layers[j]
+                head[-1].weight.data.uniform_(-init_w, init_w)
+                head[-1].bias.data.uniform_(-init_w, init_w)
+                activation.append(nn.ReLU())
+            self.heads.append(head)
+            self.activations.append(activation)
+    
+        self.last_fcs = [nn.Linear(fc_dim, self.output_size).cuda() for i in range(num_heads)]
+        for i in range(num_heads):
+            self.last_fcs[i].weight.data.uniform_(-init_w, init_w)
+            self.last_fcs[i].bias.data.uniform_(-init_w, init_w)
+
+        if std is None:
+            if self.std_architecture == "shared":
+                last_hidden_size = obs_dim
+                if len(hidden_sizes) > 0:
+                    last_hidden_size = hidden_sizes[-1]
+                self.last_fc_log_std = nn.ModuleList([nn.Linear(last_hidden_size, action_dim)
+                    for i in range(num_heads)])
+                for i in range(num_heads):
+                    self.last_fc_log_std[i].weight.data.uniform_(-init_w, init_w)
+                    self.last_fc_log_std[i].bias.data.uniform_(-init_w, init_w)
+            elif self.std_architecture == "values":
+                self.log_std_logits = nn.ParameterList([nn.Parameter(
+                    ptu.zeros(action_dim, requires_grad=True)) for i in range(num_heads)])
+            else:
+                raise ValueError(self.std_architecture)
+        else:
+            self.log_std = np.log(std) 
+            assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
+
+    def forward(self, obs, intermediate_output_layer=-1):
+        if intermediate_output_layer == -1:
+            h = super().forward(obs, return_last_activations=True)
+        else:
+            h, intermediate_output = super().forward(obs, return_last_activations=True,
+                intermediate_output_layer=intermediate_output_layer)
+        preactivation = h
+        prev_h = self.head_input_activation(preactivation)
+
+        means = []
+        for i in range(self.num_heads):
+            h = prev_h
+            for j in range(len(self.heads[i])):
+                out = self.heads[i][j](h)
+                out = self.activations[i][j](h) 
+            mean = self.last_fcs[i](h)
+            mean = self.output_activation(mean)
+            means.append(mean)
+        
+        outputs = []
+        for i in range(self.num_heads):
+            if self.std[i] is None:
+                if self.std_architecture == "shared":
+                    log_std = torch.sigmoid(self.last_fc_log_std[i](h))
+                elif self.std_architecture == "values":
+                    log_std = torch.sigmoid(self.log_std_logits[i])
+                else:
+                    raise ValueError(self.std_architecture)
+                log_std = self.min_log_std + log_std * (
+                            self.max_log_std - self.min_log_std)
+                std = torch.exp(log_std)
+            else:
+                std = torch.from_numpy(np.array([self.std, ])).float().to(
+                    ptu.device)
+            
+            if intermediate_output_layer == -1:
+                outputs.append(MultivariateDiagonalNormal(means[i], std))
+            else:
+                outputs.append((MultivariateDiagonalNormal(means[i], std), intermediate_output))
+        
+        return outputs
 
 
 class GaussianIMPALACNNPolicy(IMPALACNN, TorchStochasticPolicy):

@@ -6,7 +6,7 @@ import os
 import rlkit.torch.pytorch_util as ptu
 from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 from rlkit.torch.sac.awac_trainer import AWACTrainer
-from rlkit.torch.sac.policies import GaussianCNNPolicy, GaussianIMPALACNNPolicy, MakeDeterministic
+from rlkit.torch.sac.policies import GaussianCNNMultiHeadPolicy, GaussianIMPALACNNPolicy, MakeDeterministic
 from rlkit.torch.networks.cnn import CNN, ConcatCNN
 from rlkit.torch.networks.impala_cnn import IMPALACNN, ConcatIMPALACNN
 from rlkit.data_management.obs_dict_replay_buffer import ObsDictReplayBuffer
@@ -33,7 +33,7 @@ def experiment(variant):
         task_embedding_dim = len(variant['buffers'])
     else:
         task_embedding_dim = variant['task_encoder_latent_dim']
-    num_tasks = len(variant['buffers'])
+    num_tasks = 3#len(variant['buffers'])
     eval_env = DummyEnv(image_size=image_size, task_embedding_dim=task_embedding_dim)
     expl_env = eval_env
     print(eval_env.observation_space.spaces)
@@ -57,7 +57,7 @@ def experiment(variant):
     if variant['cnn'] == 'medium':
         cnn_class = CNN
         concat_cnn_class = ConcatCNN
-        policy_class = GaussianCNNPolicy
+        policy_class = GaussianCNNMultiHeadPolicy
     if variant['cnn'] == 'impala':
         cnn_class = CNN
         concat_cnn_class = ConcatCNN
@@ -69,13 +69,15 @@ def experiment(variant):
         added_fc_input_size=state_observation_dim + task_embedding_dim,
     )
 
-    policy = GaussianCNNPolicy(max_log_std=0,
+    policy = GaussianCNNMultiHeadPolicy(max_log_std=0,
                                min_log_std=-6,
                                obs_dim=None,
                                action_dim=action_dim,
                                std_architecture="values",
+                               num_heads=num_tasks,
+                               head_layers=[],
                                **cnn_params)
-    buffer_policy = GaussianCNNPolicy(max_log_std=0,
+    buffer_policy = GaussianCNNMultiHeadPolicy(max_log_std=0,
                                       min_log_std=-6,
                                       obs_dim=None,
                                       action_dim=action_dim,
@@ -118,9 +120,17 @@ def experiment(variant):
         np.arange(num_tasks),
         **buffer_kwargs,
     )
-    
-    buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
-    add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
+
+    for b in variant['buffers']:
+        if 'wx250' in b:
+            if 'ee2' in b:
+                task = 1
+            else:
+                task = 0
+        else:
+            task = 2
+        buffer_params = {task: b}
+        add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
             task_encoder=task_encoder, embedding_mode=variant['embedding_mode'],
             encoder_type=variant['task_encoder_type'])
 
@@ -145,12 +155,12 @@ def experiment(variant):
     if args.pretrained_checkpoint != '':
         with open(args.pretrained_checkpoint, 'rb') as f:
             params = torch.load(f)
-            pretrained_policy = params['evaluation/policy']    
+            pretrained_policy = params['evaluation/policy']   
         for i in range(len(policy.conv_layers)):
             policy.conv_layers[i] = pretrained_policy.conv_layers[i]
             #policy.conv_layers[i].requires_grad = False
-        for i in range(len(pretrained_policy.fc_layers)):
-            print(policy.fc_layers[i].weight.shape, pretrained_policy.fc_layers[i].weight.shape)
+        for i in range(min(len(pretrained_policy.fc_layers), len(policy.fc_layers))):
+            assert policy.fc_layers[i].weight.shape == pretrained_policy.fc_layers[i].weight.shape
             policy.fc_layers[i] = pretrained_policy.fc_layers[i]
 
     trainer = AWACTrainer(
@@ -194,6 +204,7 @@ def experiment(variant):
             policy,
             replay_buffer,
             1000 * variant['num_epochs'],
+            multi_head=True
         )
     else:
         algorithm.train()
@@ -228,8 +239,8 @@ if __name__ == '__main__':
     parser.add_argument("--align-actions", action="store_true", default=False)
     parser.add_argument("--feature-norm", action="store_true", default=False)
     parser.add_argument("--color-jitter", action="store_true", default=False)
-    parser.add_argument("--continuous-to-blocking", action="store_true", default=False)
     parser.add_argument("--pretrained-checkpoint", type=str, default='')
+    parser.add_argument("--continuous-to-blocking", action="store_true", default=False)
     args = parser.parse_args()
 
     assert (args.embedding_mode == 'one-hot' or args.embedding_mode == 'None') ^ (args.task_encoder != "")
@@ -352,7 +363,7 @@ if __name__ == '__main__':
             kernel_sizes=[3, 3, 3],
             n_channels=[16, 16, 16],
             strides=[1, 1, 1],
-            hidden_sizes=[256, 256, 256, 256],
+            hidden_sizes=[256, 256],
             paddings=[1, 1, 1],
             pool_type='max2d',
             pool_sizes=[2, 2, 1],  # the one at the end means no pool

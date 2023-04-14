@@ -32,10 +32,10 @@ class SmallGPTConfig(GPTConfig):
     n_layer = 5
     n_head = 5
     n_embd = 240
-    encoder_keys = ['observations', 'actions']
+    encoder_keys = ['observations']
     space_fc_dims = dict(
-        observations=8,
-        actions=5,
+        observations=0,
+        actions=7,
         rewards=1,
     )
     pooling_mode='all'
@@ -45,15 +45,15 @@ class SmallGPTConfig(GPTConfig):
         input_width=64,
         input_height=64,
         input_channels=3,
-        kernel_sizes=[3, 3, 3],
-        n_channels=[8, 8, 8],
-        strides=[1, 1, 1],
-        hidden_sizes=[512, 256],
-        paddings=[1, 1, 1],
+        kernel_sizes=[3, 3],
+        n_channels=[4, 4],
+        strides=[2, 2],
+        hidden_sizes=[256],
+        paddings=[1, 1],
         pool_type='max2d',
-        pool_sizes=[2, 2, 1],
-        pool_strides=[2, 2, 1],
-        pool_paddings=[0, 0, 0],
+        pool_sizes=[2, 2],
+        pool_strides=[2, 2],
+        pool_paddings=[0, 0],
         image_augmentation=True,
         image_augmentation_padding=4,
         added_fc_input_size=0,

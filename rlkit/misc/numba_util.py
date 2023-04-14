@@ -24,7 +24,8 @@ def arange_nb(stop, start=0):
 
 @jit(nopython=True)
 def generate_mixup_nb(batch_size, batch_obs, batch_actions, mixup_obs, mixup_actions):
-    lmda = np.random.random(size=(batch_size, 1))
+    #lmda = np.random.random(size=(batch_size, 1))
+    lmda =  np.random.beta(2, 2, size=(batch_size, 1))
     obs = lmda * batch_obs + (1 - lmda) * mixup_obs
     actions = lmda * batch_actions + (1 - lmda) * mixup_actions
     return obs, actions

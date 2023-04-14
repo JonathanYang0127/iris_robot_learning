@@ -187,13 +187,14 @@ class CNN(nn.Module):
             if self.fc_normalization_type == 'layer':
                 fc_norm_layers.append(nn.LayerNorm(hidden_size))
 
+        self.last_fc_input_dim = fc_input_size
         last_fc = nn.Linear(fc_input_size, output_size)
         last_fc.weight.data.uniform_(-init_w, init_w)
         last_fc.bias.data.uniform_(-init_w, init_w)
 
         return fc_layers, fc_norm_layers, last_fc
 
-    def forward(self, input, return_last_activations=False):
+    def forward(self, input, return_last_activations=False, intermediate_output_layer=-1):
         conv_input = input.narrow(start=0,
                                   length=self.conv_input_length,
                                   dim=1).contiguous()
@@ -217,7 +218,7 @@ class CNN(nn.Module):
 
         if self.output_conv_channels:
             return h
-
+        
         # flatten channels for fc layers
         h = h.view(h.size(0), -1)
         if self.added_fc_input_size != 0:
@@ -227,11 +228,18 @@ class CNN(nn.Module):
                 dim=1,
             )
             h = torch.cat((extra_fc_input, h), dim=+1)
-        h = self.apply_forward_fc(h)
+        h = self.apply_forward_fc(h, intermediate_output_layer)
 
+        if intermediate_output_layer != -1:
+            h, intermediate_output = h
+
+        if intermediate_output_layer == -1:
+            if return_last_activations:
+                return h
+            return self.output_activation(self.last_fc(h))
         if return_last_activations:
-            return h
-        return self.output_activation(self.last_fc(h))
+            return h, intermediate_output
+        return self.output_activation(self.last_fc(h)), intermediate_output
 
     def apply_forward_conv(self, h):
         for i, layer in enumerate(self.conv_layers):
@@ -243,7 +251,7 @@ class CNN(nn.Module):
             h = self.hidden_activation(h)
         return h
 
-    def apply_forward_fc(self, h):
+    def apply_forward_fc(self, h, intermediate_output_layer=-1):
         if self.fc_dropout > 0.0 and self.fc_dropout_length > 0:
             dropout_input = h.narrow(
                 start=0,
@@ -258,12 +266,21 @@ class CNN(nn.Module):
                 dim=1)
             h = torch.cat((dropout_output, remaining_input), dim=1)
 
+        if self.added_fc_input_size != 0 and self.fc_insertion_position == 0:
+            h = torch.cat((extra_fc_input, h), dim=+1)
+
+        intermediate_output = None
         for i, layer in enumerate(self.fc_layers):
+            if i == intermediate_output_layer:
+                intermediate_output = h
             h = layer(h)
             if self.fc_normalization_type != 'none':
                 h = self.fc_norm_layers[i](h)
             h = self.hidden_activation(h)
-        return h
+
+        if intermediate_output is None:
+            return h
+        return h, intermediate_output
 
 
 class ConcatCNN(CNN):

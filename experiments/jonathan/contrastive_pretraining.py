@@ -29,11 +29,8 @@ from rlkit.launchers.config import LOCAL_LOG_DIR
 
 def experiment(variant):
     image_size = variant['image_size']
-    if variant['task_encoder_checkpoint'] == '':
-        task_embedding_dim = len(variant['buffers'])
-    else:
-        task_embedding_dim = variant['task_encoder_latent_dim']
-    num_tasks = len(variant['buffers'])
+    task_embedding_dim = 0
+    num_tasks = 1 #len(variant['buffers'])
     eval_env = DummyEnv(image_size=image_size, task_embedding_dim=task_embedding_dim)
     expl_env = eval_env
     print(eval_env.observation_space.spaces)
@@ -111,47 +108,29 @@ def experiment(variant):
         sparse_rewards=False,
         observation_keys=observation_keys
     )
-    
+    if variant['trainer_kwargs']['mixup']:
+        buffer_kwargs['internal_keys'] = ['mixup_distance']
     replay_buffer = ObsDictMultiTaskReplayBuffer(
         int(1E6),
         expl_env,
-        np.arange(num_tasks),
+        np.arange(1),
         **buffer_kwargs,
     )
-    
-    buffer_params = {task: b for task, b in enumerate(variant['buffers'])}
-    add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
+  
+    for b in variant['buffers']: 
+        buffer_params = {0: b}
+        add_multitask_data_to_multitask_buffer_real_robot(buffer_params, replay_buffer,
             task_encoder=task_encoder, embedding_mode=variant['embedding_mode'],
             encoder_type=variant['task_encoder_type'])
+
+    if variant['trainer_kwargs']['mixup']:
+        #replay_buffer.task_buffers[0].precompute_mixup_probs()
+        replay_buffer.task_buffers[0].precompute_mixup_sample_indices(threshold=0.1)
 
     if variant['use_negative_rewards']:
         if set(np.unique(replay_buffer._rewards)).issubset({0, 1}):
             replay_buffer._rewards = replay_buffer._rewards - 1.0
         assert set(np.unique(replay_buffer._rewards)).issubset({0, -1})
-
-
-    eval_policy = MakeDeterministic(policy)
-    expl_path_collector = ObsDictPathCollector(
-        expl_env,
-        policy,
-        observation_keys=observation_keys,
-    )
-    eval_path_collector = ObsDictPathCollector(
-        eval_env,
-        eval_policy,
-        observation_keys=observation_keys,
-    )
-
-    if args.pretrained_checkpoint != '':
-        with open(args.pretrained_checkpoint, 'rb') as f:
-            params = torch.load(f)
-            pretrained_policy = params['evaluation/policy']    
-        for i in range(len(policy.conv_layers)):
-            policy.conv_layers[i] = pretrained_policy.conv_layers[i]
-            #policy.conv_layers[i].requires_grad = False
-        for i in range(len(pretrained_policy.fc_layers)):
-            print(policy.fc_layers[i].weight.shape, pretrained_policy.fc_layers[i].weight.shape)
-            policy.fc_layers[i] = pretrained_policy.fc_layers[i]
 
     trainer = AWACTrainer(
         env=eval_env,
@@ -162,9 +141,29 @@ def experiment(variant):
         target_qf2=target_qf2,
         buffer_policy=buffer_policy,
         multitask=True,
-        meta_batch_size=variant['meta_batch_size'],
-        train_tasks=np.arange(num_tasks),
+        pretrain_batch_size = variant['batch_size'],
+        meta_batch_size=1,
+        train_tasks=np.arange(1),
         **variant['trainer_kwargs']
+    )
+
+    if args.pretrained_checkpoint != '':
+        with open(args.pretrained_checkpoint, 'rb') as f:
+            params = torch.load(f)
+            pretrained_policy = params['evaluation/policy']
+        for i in range(len(pretrained_policy.conv_layers)):
+            policy.conv_layers[i] = pretrained_policy.conv_layers[i]
+            policy.conv_layers[i].requires_grad = False
+
+    expl_path_collector = ObsDictPathCollector(
+        expl_env,
+        policy,
+        observation_keys=observation_keys,
+    )
+    eval_path_collector = ObsDictPathCollector(
+        eval_env,
+        policy,
+        observation_keys=observation_keys,
     )
 
     algorithm = TorchBatchRLAlgorithm(
@@ -177,8 +176,8 @@ def experiment(variant):
         max_path_length=variant['max_path_length'],
         batch_size=variant['batch_size'],
         multi_task=True,
-        train_tasks=np.arange(num_tasks),
-        eval_tasks=np.arange(num_tasks),
+        train_tasks=np.arange(1),
+        eval_tasks=np.arange(1),
         meta_batch_size=variant['meta_batch_size'],
         num_epochs=variant['num_epochs'],
         num_eval_steps_per_epoch=variant['num_eval_steps_per_epoch'],
@@ -190,10 +189,12 @@ def experiment(variant):
     algorithm.to(ptu.device)
 
     if variant['use_bc']:
-        trainer.pretrain_policy_with_bc(
+        trainer.pretrain_contrastive(
             policy,
             replay_buffer,
             1000 * variant['num_epochs'],
+            mode=variant['contrastive_mode'],
+            intermediate_output_layer=variant['intermediate_output_layer']
         )
     else:
         algorithm.train()
@@ -228,13 +229,15 @@ if __name__ == '__main__':
     parser.add_argument("--align-actions", action="store_true", default=False)
     parser.add_argument("--feature-norm", action="store_true", default=False)
     parser.add_argument("--color-jitter", action="store_true", default=False)
-    parser.add_argument("--continuous-to-blocking", action="store_true", default=False)
+    parser.add_argument("--conv-norm", type=str, default='none')
     parser.add_argument("--pretrained-checkpoint", type=str, default='')
+    parser.add_argument("--contrastive-mode", type=str, choices=('metric', 'triplet', 'bc'), default='metric')
+    parser.add_argument("--intermediate-output-layer", type=int, default=1)
     args = parser.parse_args()
 
-    assert (args.embedding_mode == 'one-hot' or args.embedding_mode == 'None') ^ (args.task_encoder != "")
+    assert args.embedding_mode == 'None'
 
-    alg = 'BC' if args.use_bc else 'AWAC-Pixel'
+    alg = 'Pretrain-Contrastive'
     print(args.buffers)
     buffers = set()
     for buffer_path in args.buffers:
@@ -250,7 +253,7 @@ if __name__ == '__main__':
         algorithm=alg,
 
         num_epochs=3000,
-        batch_size=64,
+        batch_size=256,
         meta_batch_size=4,
         max_path_length=25,
         num_trains_per_train_loop=1000,
@@ -299,7 +302,7 @@ if __name__ == '__main__':
             awr_use_mle_for_vf=True,
             clip_score=args.clip_score,
 
-            mixup=False,
+            mixup=True,
         ),
 
         dataloader_params=dict(
@@ -307,8 +310,7 @@ if __name__ == '__main__':
             action_relabelling=args.action_relabelling,
             downsample_image=args.downsample_image,
             align_actions=args.align_actions,
-            mixup=False,
-            continuous_to_blocking=args.continuous_to_blocking
+            mixup=True
         ),
 
         task_encoder_checkpoint=args.task_encoder,
@@ -319,7 +321,10 @@ if __name__ == '__main__':
         use_next_obs_in_context=False,
         transformer_encoder_keys=['observations'],
 
-        pretrained_checkpoint = args.pretrained_checkpoint
+        pretrained_checkpoint=args.pretrained_checkpoint,
+        contrastive_mode = args.contrastive_mode,
+        intermediate_output_layer = \
+            args.intermediate_output_layer
     )
 
     variant['cnn'] = args.cnn
@@ -352,7 +357,7 @@ if __name__ == '__main__':
             kernel_sizes=[3, 3, 3],
             n_channels=[16, 16, 16],
             strides=[1, 1, 1],
-            hidden_sizes=[256, 256, 256, 256],
+            hidden_sizes=[256, 256, 256],
             paddings=[1, 1, 1],
             pool_type='max2d',
             pool_sizes=[2, 2, 1],  # the one at the end means no pool
@@ -384,6 +389,7 @@ if __name__ == '__main__':
     variant['cnn_params']['augmentation_type'] = 'random_crop'#'warp_perspective'
     variant['cnn_params']['feature_norm'] = args.feature_norm
     variant['cnn_params']['color_jitter'] = args.color_jitter
+    variant['cnn_params']['conv_normalization_type'] = args.conv_norm
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:

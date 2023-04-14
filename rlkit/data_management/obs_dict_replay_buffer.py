@@ -2,6 +2,7 @@ import logging
 import numpy as np
 from numba import jit
 from gym.spaces import Dict, Discrete
+from joblib import Parallel, delayed
 
 from rlkit.data_management.replay_buffer import ReplayBuffer
 import rlkit.data_management.images as image_np
@@ -94,8 +95,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
             arr_initializer = module.ones if preallocate_arrays else module.zeros
             self._obs[key] = arr_initializer(
                 (max_size, *self.ob_spaces[key].shape),
-                dtype=self.ob_spaces[key].dtype,
-            )
+                dtype=self.ob_spaces[key].dtype,)
             self._next_obs[key] = arr_initializer(
                 (max_size, *self.ob_spaces[key].shape),
                 dtype=self.ob_spaces[key].dtype,
@@ -104,9 +104,13 @@ class ObsDictReplayBuffer(ReplayBuffer):
         self.ob_keys_to_save = ob_keys_to_save
         self._top = 0
         self._size = 0
+        self._path_starts = []
+        self._path_ends = []
+        self.max_path_length = 0
 
         self._idx_to_future_obs_idx = np.ones((max_size, 2), dtype=np.int)
         self._mixup_probs = None
+        self._mixup_sample_indices = None
         self.mixup_mode = 'uniform'
 
         if isinstance(self.env.action_space, Discrete):
@@ -139,6 +143,7 @@ class ObsDictReplayBuffer(ReplayBuffer):
         next_obs = path["next_observations"]
         terminals = path["terminals"]
         path_len = len(rewards)
+        self._path_starts.append(self._top)
 
         if not ob_dicts_already_combined:
             obs = combine_dicts(obs, self.ob_keys_to_save + self.internal_keys)
@@ -185,6 +190,9 @@ class ObsDictReplayBuffer(ReplayBuffer):
                 self._idx_to_future_obs_idx[i] = [i, self._top + path_len]
         self._top = (self._top + path_len) % self.max_size
         self._size = min(self._size + path_len, self.max_size)
+
+        self._path_ends.append(self._top)
+        self.max_path_length = max(self.max_path_length, self._path_ends[-1] - self._path_starts[-1])
 
     def _sample_indices(self, batch_size, biased_sampling):
         if biased_sampling:
@@ -248,8 +256,34 @@ class ObsDictReplayBuffer(ReplayBuffer):
         self._mixup_probs = scipy.spatial.distance_matrix(md, md)
         self._mixup_probs /= np.sum(self._mixup_probs, axis=1, keepdims=True)
 
+
+    def compute_closest_indices(self, md, i, threshold=0.1):
+        indices = []
+        distance = md[i]
+        distances = np.linalg.norm(md - distance, axis=-1)
+
+        for j in range(len(distances)):
+            if distances[j] <= threshold: 
+                indices.append(j)
+        return indices
+
+    def precompute_mixup_sample_indices(self, threshold=0.1):
+        self._mixup_sample_indices = [0] * self._size
+        md = self._obs['mixup_distance'][:self._size]
+        self._mixup_sample_indices = Parallel(n_jobs=10)(delayed(self.compute_closest_indices)(md,
+            i, threshold=threshold) for i in range(self._size))
+        '''
+        for i, distance in enumerate(md):
+            distances = np.linalg.norm(md - distance, axis=-1)
+
+            indices = []
+            for j in range(len(distances)):
+                if distances[j] <= threshold: indices.append(j)
+            self._mixup_sample_indices.append(indices)
+        ''' 
+
     def get_mixup_transition(self, distance, index):
-        if self._mixup_probs is None:
+        if self._mixup_probs is None and self._mixup_sample_indices is None:
             if self.mixup_mode != 'uniform':
                 sample_weight = np.zeros(self._size)
                 for j in range(self._size):
@@ -259,8 +293,10 @@ class ObsDictReplayBuffer(ReplayBuffer):
                 mixup_idx = np.random.choice(np.arange(self._size), p=sample_weight)
             else:
                 mixup_idx = np.random.choice(np.arange(self._size))
-        else:
+        elif self._mixup_probs is not None:
             mixup_idx = rand_choice_prob_nb(np.arange(self._size), self._mixup_probs[index][0])
+        elif self._mixup_sample_indices is not None:
+            mixup_idx = np.random.choice(self._mixup_sample_indices[index])
         transition = {
             'observations':concatenate_nb(tuple(self._obs[k][mixup_idx] for k
                 in self.observation_keys)),
@@ -270,50 +306,93 @@ class ObsDictReplayBuffer(ReplayBuffer):
         
     def get_mixup_batch(self, batch):
         obs = np.empty(batch['observations'].shape)
+        indices = np.empty((batch['observations'].shape[0], 1), dtype=int)
         actions = np.empty(batch['actions'].shape)
-
+        
         for i, index in enumerate(batch['indices']):
-            mixup_idx = rand_choice_prob_nb(np.arange(self._size), self._mixup_probs[index][0])
-            obs[i] = concatenate_nb(tuple(self._obs[k][mixup_idx] for k 
-                in self.observation_keys))
+            if self._mixup_probs is not None:
+                mixup_idx = rand_choice_prob_nb(np.arange(self._size), self._mixup_probs[index][0])
+            elif self._mixup_sample_indices is not None:
+                mixup_idx = np.random.choice(self._mixup_sample_indices[index[0]])
+            obs[i] = concatenate_nb(tuple(self._obs[k][mixup_idx] for k in self.observation_keys))
             actions[i] = self._actions[mixup_idx]
+            indices[i] = int(mixup_idx)
 
         return {
             'observations': obs,
             'actions': actions,
+            'indices': indices
         }
+
+    def get_negative_batch(self, batch):
+        obs = np.empty(batch['observations'].shape)
+        indices = np.empty((batch['observations'].shape[0], 1), dtype=int)
+        actions = np.empty(batch['actions'].shape)
+
+        for i, index in enumerate(batch['indices']):
+            negative_index = np.random.randint(self._size) 
+            while np.linalg.norm(self._obs['mixup_distance'][index[0]] - self._obs['mixup_distance'][negative_index]) < 0.15 \
+                or (self._obs['mixup_distance'][index[0]][-1] >= 2 and self._obs['mixup_distance'][negative_index][-1] >= 2):
+                negative_index = np.random.randint(self._size)
+            obs[i] = concatenate_nb(tuple(self._obs[k][negative_index] for k in self.observation_keys))
+            actions[i] = self._actions[negative_index]
+            indices[i] = int(negative_index)
+
+        return {
+            'observations': obs,
+            'actions': actions,
+            'indices': indices
+        }
+
+    def get_mixup_distance(self, indices):
+        return np.array([self._obs['mixup_distance'][i] for i in indices])
  
     def random_trajectory(self, batch_size):
         """
         Be careful that the buffer hasn't wrapped around before calling this function.
         TODO: check for wrapping around, get trajectory length from somewhere else
         """
-        traj_len = self.path_len
-        assert traj_len is not None and self._size % traj_len == 0
-        num_traj_indices = self._size // traj_len
-        traj_indices = np.random.choice(num_traj_indices, batch_size)
-        indices = np.concatenate([np.arange(traj_len * i, traj_len * (i + 1)) for i in traj_indices])
-        actions = self._actions[indices]
-        rewards = self._rewards[indices]
-        if len(self.observation_keys) == 1:
-            obs = self._obs[self.observation_keys[0]][indices]
-            next_obs = self._next_obs[self.observation_keys[0]][indices]
-        else:
-            obs = np.concatenate([self._obs[k][indices] for k in
-                                  self.observation_keys], axis=1)
-            next_obs = np.concatenate([self._next_obs[k][indices] for k
-                                      in self.observation_keys], axis=1)
-        terminals = self._terminals[indices]
+        traj_locations = np.random.randint(len(self._path_starts), size=(batch_size,))
+        traj_indices = [np.arange(self._path_starts[i], self._path_ends[i]) for i in traj_locations]
+        
+        #Done this way for buffer padding
+        obs_dim = np.sum(self._obs[k].shape[-1] for k in self.observation_keys)
+        action_dim = self._actions.shape[-1]
+        reward_dim = self._rewards.shape[-1]
+
+        assert self.path_len > self.max_path_length #ensure that trajectory query length (for padding) is large enough
+        obs_batch = np.zeros((batch_size, self.path_len, obs_dim))
+        actions_batch = np.zeros((batch_size, self.path_len, action_dim))
+        rewards_batch = np.zeros((batch_size, self.path_len, reward_dim))
+        terminals_batch = np.zeros((batch_size, self.path_len, 1))
+        next_obs_batch = np.zeros((batch_size, self.path_len, obs_dim))
+
+        for batch_idx, indices in enumerate(traj_indices):
+            actions = self._actions[indices]
+            rewards = self._rewards[indices]
+            if len(self.observation_keys) == 1:
+                obs = self._obs[self.observation_keys[0]][indices]
+                next_obs = self._next_obs[self.observation_keys[0]][indices]
+            else:
+                obs = np.concatenate([self._obs[k][indices] for k in
+                                  self.observation_keys], axis=-1)
+                next_obs = np.concatenate([self._next_obs[k][indices] for k
+                                      in self.observation_keys], axis=-1)
+            terminals = self._terminals[indices]
+
+            obs_batch[batch_idx, :len(indices), :] = obs
+            actions_batch[batch_idx, :len(indices), :] = actions
+            rewards_batch[batch_idx, :len(indices), :] = rewards
+            terminals_batch[batch_idx, :len(indices), :] = terminals
+            next_obs_batch[batch_idx, :len(indices), :] = next_obs 
+        
         batch = {
-            'observations': obs,
-            'actions': actions,
-            'rewards': rewards,
-            'terminals': terminals,
-            'next_observations': next_obs,
-            'indices': np.array(indices).reshape(-1, 1),
+            'observations': obs_batch,
+            'actions': actions_batch,
+            'rewards': rewards_batch,
+            'terminals': terminals_batch,
+            'next_observations': next_obs_batch,
         }
-        for key in batch.keys():
-            batch[key] = batch[key].reshape(batch_size, traj_len, -1)
 
         return batch
 

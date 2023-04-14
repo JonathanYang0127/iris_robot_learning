@@ -4,8 +4,8 @@ import torch.nn.functional as F
 
 from rlkit.torch.task_encoders.wide_resnet import Wide_ResNet
 from rlkit.torch.networks.transformer import SmallGPTConfig, GPT
-from rlkit.torch.networks.cnn import RandomCrop
-
+from rlkit.torch.networks.cnn import RandomCrop, CNN, ConcatCNN
+from rlkit.torch.sac.policies import GaussianCNNPolicy
 
 class VanillaEncoderNet(nn.Module):
 
@@ -219,7 +219,7 @@ class TransformerEncoderNet(nn.Module):
 
 class DecoderNet(nn.Module):
     def __init__(self, image_size, latent_dim, image_augmentation=False,
-                 augmentation_padding=4, extra_obs_dim=0):
+                 augmentation_padding=4, extra_obs_dim=0, output_dim=2):
         super().__init__()
         self.image_size = image_size
         self.conv_input_length = 3*self.image_size*self.image_size
@@ -248,7 +248,7 @@ class DecoderNet(nn.Module):
 
         # self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, 2)
+        self.fc3 = nn.Linear(256, output_dim)
 
     def forward(self, task_embedding, decoder_input):
         if len(decoder_input.shape) == 3:
@@ -279,6 +279,43 @@ class DecoderNet(nn.Module):
         return x
 
 
+class CNNDecoderNet(GaussianCNNPolicy):
+    def __init__(self, image_size, latent_dim, image_augmentation=False,
+            augmentation_padding=4, extra_obs_dim=0, output_dim=2):
+        cnn_params = dict(
+            input_width=image_size,
+            input_height=image_size,
+            input_channels=3,
+            kernel_sizes=[3, 3, 3],
+            n_channels=[8, 8, 8],
+            strides=[2, 1, 1],
+            hidden_sizes=[512, 256, 256],
+            paddings=[1, 1, 1],
+            pool_type='max2d',
+            pool_sizes=[2, 2, 1],
+            pool_strides=[2, 2, 1],
+            pool_paddings=[0, 0, 0],
+            image_augmentation=image_augmentation,
+            image_augmentation_padding=augmentation_padding,
+            added_fc_input_size=latent_dim + extra_obs_dim
+        )
+        super().__init__(max_log_std=0,
+                         min_log_std=-6,
+                         obs_dim=None,
+                         action_dim=output_dim,
+                         std_architecture="values",
+                        **cnn_params)
+
+    def forward(self, task_embedding, decoder_input, return_dist=False):
+        print(task_embedding.shape, decoder_input.shape)
+        obs = torch.cat((decoder_input, task_embedding), dim=-1)
+        dist = super().forward(obs)
+        if return_dist:
+            return dist
+        else:
+            return dist.rsample()
+
+
 class EncoderDecoderNet(nn.Module):
     def __init__(self, image_size, latent_dim, image_augmentation=False,
                  encoder_resnet=False):
@@ -304,11 +341,9 @@ class EncoderDecoderNet(nn.Module):
 
 
 class TransformerEncoderDecoderNet(nn.Module):
-    def __init__(self, image_size, latent_dim, num_tasks, path_len, image_augmentation=False,
-        encoder_keys=['observations']):
+    def __init__(self, image_size, latent_dim, path_len, image_augmentation=False,
+        encoder_keys=['observations'], decoder_output_dim=2, decoder_type='small'):
         super().__init__()
-
-        self.num_tasks = num_tasks
         self.latent_dim = latent_dim
         self.image_augmentation = image_augmentation
 
@@ -317,18 +352,22 @@ class TransformerEncoderDecoderNet(nn.Module):
                                       path_len,
                                       image_augmentation=image_augmentation,
                                       encoder_keys=encoder_keys)
-        self.decoder_net = DecoderNet(image_size,
+
+        if decoder_type == 'small':
+            self.decoder_net = DecoderNet(image_size,
                                       latent_dim,
-                                      image_augmentation=image_augmentation)
-        self.fc_task_predictor1 = nn.Linear(latent_dim, 256)
-        self.fc_task_predictor2 = nn.Linear(256, self.num_tasks)
+                                      image_augmentation=image_augmentation,
+                                      output_dim=decoder_output_dim)
+        else:
+            self.decoder_net = CNNDecoderNet(image_size,
+                                      latent_dim,
+                                      image_augmentation=image_augmentation,
+                                      output_dim=decoder_output_dim)
 
     def forward(self, encoder_input, decoder_input):
         if isinstance(encoder_input, torch.Tensor):
             z, mu, log_var = self.encoder_net(encoder_input)
         elif isinstance(encoder_input, (list, tuple)):
             z, mu, log_var = self.encoder_net(*encoder_input)
-        predicted_reward  = self.decoder_net(z, decoder_input)
-        x = self.fc_task_predictor1(z)
-        predicted_task = self.fc_task_predictor2(F.relu(x))
-        return predicted_reward, predicted_task, mu, log_var
+        predicted_output  = self.decoder_net(z, decoder_input)
+        return predicted_output, mu, log_var

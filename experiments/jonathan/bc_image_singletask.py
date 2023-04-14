@@ -159,6 +159,14 @@ def experiment(variant):
         observation_keys=observation_keys,
     )
 
+    if args.pretrained_checkpoint != '':
+        with open(args.pretrained_checkpoint, 'rb') as f:
+            params = torch.load(f)
+            pretrained_policy = params['evaluation/policy']
+        for i in range(len(policy.conv_layers)):
+            policy.conv_layers[i] = pretrained_policy.conv_layers[i]
+            policy.conv_layers[i].requires_grad = False
+
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
@@ -215,13 +223,17 @@ if __name__ == '__main__':
     parser.add_argument("--embedding-mode", type=str, choices=('one-hot', 'single', 'batch', 'None'), required=True)
     parser.add_argument("--stack-frames", action="store_true", default=False)
     parser.add_argument("--downsample-image", action="store_true", default=False)
-    parser.add_argument("--action-relabelling", type=str, choices=('linear', 'achieved'),
+    parser.add_argument("--action-relabelling", type=str, choices=('linear', 'achieved', 'cdp'),
             default=None)
     parser.add_argument("--align-actions", action="store_true", default=False)
     parser.add_argument("--feature-norm", action="store_true", default=False)
     parser.add_argument("--color-jitter", action="store_true", default=False)
     parser.add_argument("--mixup", action="store_true", default=False)
-    args = parser.parse_args()
+    parser.add_argument("--conv-norm", type=str, default='none')
+    parser.add_argument("--pretrained-checkpoint", type=str, default='')
+    parser.add_argument("--continuous-to-blocking", action="store_true", default=False)
+   
+   args = parser.parse_args()
 
     assert args.embedding_mode == 'None'
 
@@ -298,7 +310,8 @@ if __name__ == '__main__':
             action_relabelling=args.action_relabelling,
             downsample_image=args.downsample_image,
             align_actions=args.align_actions,
-            mixup=args.mixup
+            mixup=args.mixup,
+            continuous_to_blocking=args.continuous_to_blocking
         ),
 
         task_encoder_checkpoint=args.task_encoder,
@@ -307,7 +320,9 @@ if __name__ == '__main__':
         use_task_encoder_resnet=False,
         embedding_mode=args.embedding_mode,
         use_next_obs_in_context=False,
-        transformer_encoder_keys=['observations']
+        transformer_encoder_keys=['observations'],
+
+        pretrained_checkpoint=args.pretrained_checkpoint
     )
 
     variant['cnn'] = args.cnn
@@ -372,6 +387,7 @@ if __name__ == '__main__':
     variant['cnn_params']['augmentation_type'] = 'random_crop'#'warp_perspective'
     variant['cnn_params']['feature_norm'] = args.feature_norm
     variant['cnn_params']['color_jitter'] = args.color_jitter
+    variant['cnn_params']['conv_normalization_type'] = args.conv_norm
     variant['seed'] = args.seed
     variant['use_bc'] = args.use_bc
     if args.num_trajs_limit > 0:
